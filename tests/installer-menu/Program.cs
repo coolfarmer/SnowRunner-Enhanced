@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using SnowRunnerEnhanced;
@@ -67,7 +68,7 @@ try
         result = Run([bin, fixture], true, "2\n");
         Check(result.Path == fixture, "Multiple installations must allow an explicit choice.");
     }
-    TerminalUi.Item[] items = [new("Install", false), new("View status"), new("Choose fixes"), new("Exit")];
+    TerminalUi.Item[] items = [new("Install", false), new("View status"), new("Customize enhancements"), new("Exit")];
     Check(TerminalUi.MoveSelection(items, 1, ConsoleKey.UpArrow) == 3, "Up must wrap and skip disabled options.");
     Check(TerminalUi.MoveSelection(items, 3, ConsoleKey.DownArrow) == 1, "Down must wrap and skip disabled options.");
     Check(TerminalUi.MoveSelection(items, 3, ConsoleKey.Home) == 1, "Home must select the first available option.");
@@ -81,18 +82,42 @@ try
             new("", Optional: true), new("SnowRunner Enhanced"),
             new(new string('─', 64)), new("Game folder".PadRight(20) + bin),
             new("", Optional: true), new("MAIN MENU"), new("", Optional: true),
-            new("  Install Enhanced"), new("  View status"), new("› Choose fixes", TerminalUi.Accent),
+            new("  Install Enhanced"), new("  View status"), new("› Customize enhancements", TerminalUi.Accent),
             new("  More options"), new("  Change language"), new(""), new("  Exit")];
         var frame = TerminalUi.RenderFrame(lines, 9, "↑ ↓ Navigate    Enter Select", width, height);
         var rows = Regex.Split(frame.Text, @"\x1b\[\d+;1H").Skip(1)
             .Select(row => Regex.Replace(row, @"\x1b\[[0-9;?]*[A-Za-z]", "")).ToArray();
         Check(rows.Length == height && rows.All(row => row.Length == width), "Every viewport cell must be painted without overflow.");
-        Check(rows.Any(row => row.Contains("› Choose fixes")), "Selected option must remain visible at every tested size.");
+        Check(rows.Any(row => row.Contains("› Customize enhancements")), "Selected option must remain visible at every tested size.");
         Check(string.Concat(rows).Contains("Enter Select"), "Keyboard hint must remain visible at every tested size.");
         Check(frame.Text.Contains(TerminalUi.Background) && frame.Text.Contains(TerminalUi.Accent), "Reference colors must appear in every frame.");
     }
     var sanitized = TerminalUi.RenderFrame([new("Bad path \x1b]0;not-a-title\a")], 0, null, 80, 24);
     Check(!sanitized.Text.Contains("\x1b]"), "User-supplied control characters must not alter the terminal.");
+
+    var frames = new List<string>();
+    var elapsed = Stopwatch.StartNew();
+    int operations = 0;
+    TerminalUi.RunWithSpinner(() => Interlocked.Increment(ref operations), frames.Add);
+    Check(operations == 1, "The spinner must execute installation exactly once.");
+    Check(elapsed.Elapsed >= TimeSpan.FromSeconds(1), "A fast installation must show the spinner for at least one second.");
+    Check(frames.Distinct().Count() > 1, "The spinner must animate during the minimum display time.");
+
+    bool finished = false, animatedAfterMinimum = false;
+    elapsed.Restart();
+    TerminalUi.RunWithSpinner(() => { Thread.Sleep(1300); finished = true; }, _ =>
+    {
+        if (elapsed.Elapsed >= TimeSpan.FromSeconds(1)) animatedAfterMinimum = true;
+    });
+    Check(finished && animatedAfterMinimum, "A longer installation must keep animating until the operation completes.");
+
+    var failure = new IOException("Installation test failure");
+    Exception? caught = null;
+    elapsed.Restart();
+    try { TerminalUi.RunWithSpinner(() => throw failure, _ => { }); }
+    catch (Exception error) { caught = error; }
+    Check(ReferenceEquals(caught, failure), "Installation errors must reach the existing error handler without wrapping.");
+    Check(elapsed.Elapsed >= TimeSpan.FromSeconds(1), "A failed installation must also respect the minimum display time.");
     Console.WriteLine($"Installer menu and rendering: {checks} checks passed.");
 }
 finally { Directory.Delete(fixture, recursive: true); }

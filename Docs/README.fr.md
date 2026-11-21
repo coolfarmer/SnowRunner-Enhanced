@@ -1,4 +1,4 @@
-# SnowRunner Enhanced — 0.1.0-preview.1
+# SnowRunner Enhanced — 0.1.0-preview.2
 
 Préversion Windows x64. Le paquet fonctionne sans installation de Python,
 Frida ou .NET. Les tests automatisés sont effectués dans des programmes de
@@ -10,20 +10,20 @@ test ; cette intégration native reste à valider dans SnowRunner.
 2. Lancez `Install.cmd`, puis choisissez votre langue et le dossier du jeu.
    L’installateur recherche les bibliothèques Steam ; la sélection manuelle
    accepte le dossier du jeu, `Sources/Bin` ou `SnowRunner.exe`.
-3. Dans **Choisir les correctifs**, cochez ceux que vous souhaitez utiliser.
-4. Choisissez **Installer**, vérifiez la destination, puis confirmez.
+3. Tous les correctifs sont activés par défaut. Pour en désactiver, utilisez **Options avancées > Personnaliser les améliorations**.
+4. Choisissez **Installer Enhanced** pour installer immédiatement les correctifs sélectionnés.
 5. Lancez le jeu normalement. Revenez dans **Voir l’état** pour consulter
    l’activation enregistrée lors du dernier lancement.
 
 ## Correctifs
 
-**Cohabitation souris et volant** (`wheel_mouse`) regroupe toute la V18 :
+**Utilisation simultanée de la souris et du volant** (`wheel_mouse`) regroupe toute la V18 :
 carte et treuil, sélection et focus du menu Fonctions, clignotements ciblés
 et filtrage du résidu du volant au repos. Il ne filtre aucune marque ni aucun
 identifiant USB. La validation physique de la V18 concerne un G923 ; les
 autres volants et le nouveau chargement natif restent à tester.
 
-Vous pouvez désactiver ce correctif dans **Choisir les correctifs**, jeu fermé.
+Vous pouvez désactiver ce correctif dans **Personnaliser les améliorations**, jeu fermé.
 Le changement s’applique au prochain lancement. Les futurs correctifs auront
 leurs propres options ; cette préversion ne contient qu’une feature.
 
@@ -53,11 +53,20 @@ une configuration modifiée manuellement et le dernier diagnostic ; leurs noms
 sont affichés. Si une configuration conservée empêche une réinstallation,
 déplacez ce fichier dans un dossier de sauvegarde après l’avoir vérifié.
 
-Enhanced possède son propre `version.dll`, sa DLL, sa configuration et son reçu
-d’installation. Aucun fichier de SnowRunner FFB Fix n’est utilisé ni modifié.
-Un `version.dll` préexistant provoque un refus d’installation : il ne sera pas
-écrasé. Les deux projets peuvent avoir des fichiers distincts dans le dossier du
-jeu, mais leur coexistence en fonctionnement reste à valider en jeu.
+Enhanced s’installe sous le nom `SnowRunnerEnhanced.asi`. Un seul `dinput8.dll`
+(Ultimate ASI Loader) peut charger Enhanced, `SnowRunnerFFBFix.asi` et `SMT.asi`.
+L’installateur réutilise les copies x64 vérifiées 10.0.2 ou 8.5.0 de SMT v1.5,
+ou ajoute la 10.0.2 si aucun chargeur n’existe. Un chargeur inconnu, une configuration
+du chargeur ou un proxy chaîné bloque l’installation pour examen manuel, sans
+écrasement. Les autres mods et leurs réglages sont conservés.
+
+Le chargeur partagé est toujours conservé à la désinstallation d’Enhanced,
+même si Enhanced l’avait installé. Les deux versions sont testées avec des
+programmes synthétiques ; les trois vrais mods ensemble restent à valider en jeu.
+
+Pour remplacer preview.1, désinstallez-la d’abord avec son ancien installateur.
+Celui-ci retire son `version.dll` et `SnowRunnerEnhanced.dll` après vérification
+de leur appartenance. L’installateur ASI ne modifie aucun `version.dll`.
 
 ## Ligne de commande
 

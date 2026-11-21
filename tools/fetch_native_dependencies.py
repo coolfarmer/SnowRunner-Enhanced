@@ -7,6 +7,7 @@ import tarfile
 from urllib.parse import unquote
 from urllib.request import urlopen
 import zipfile
+from asi_loaders import fetch as fetch_asi_loaders
 
 ROOT = Path(__file__).resolve().parents[1]
 MSVC = [
@@ -29,6 +30,7 @@ def download(url, digest, path):
 
 
 def main():
+    fetch_asi_loaders()
     entries = []
     def fetch(row):
         group, digest, name = row

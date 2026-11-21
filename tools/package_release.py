@@ -4,18 +4,20 @@ import json
 from pathlib import Path
 import shutil
 import zipfile
+from asi_loaders import LOADERS, loader_path, verify
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0-preview.1'
+VERSION = '0.1.0-preview.2'
 PACKAGE = ROOT / 'dist' / ('SnowRunnerEnhanced-' + VERSION)
 
 
 def main():
+    verify()
     files = {'Install.cmd': ROOT / 'Install.cmd',
              'Sources/Installer/SnowRunnerEnhanced.Setup.exe': ROOT / 'build/installer/SnowRunnerEnhanced.Setup.exe'}
     payload = {}
-    for name in ('version.dll', 'SnowRunnerEnhanced.dll'):
-        source = ROOT / 'build/native' / name
+    for name in ('dinput8.dll', 'SnowRunnerEnhanced.asi'):
+        source = loader_path(LOADERS[0]) if name == 'dinput8.dll' else ROOT / 'build/native' / name
         files['Sources/Payload/' + name] = source
         payload[name] = hashlib.sha256(source.read_bytes()).hexdigest()
     for name in ('README.en.md', 'README.fr.md'):
@@ -28,7 +30,7 @@ def main():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
     manifest = {'schemaVersion': 1, 'product': 'SnowRunnerEnhanced', 'version': VERSION,
-                'payload': payload, 'features': ['wheel_mouse'],
+                'payload': payload, 'compatibleLoaders': LOADERS, 'features': ['wheel_mouse'],
                 'validation': 'Preview; native synthetic validation only; in-game validation pending'}
     manifest_path = PACKAGE / 'Sources/package.json'
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

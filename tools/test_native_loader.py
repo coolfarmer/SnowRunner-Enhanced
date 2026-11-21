@@ -1,4 +1,4 @@
-"""Test the shipped DLLs via Windows' real VERSION import mechanism."""
+"""Test the shipped DLLs via the real shared ASI loaders."""
 import hashlib
 import json
 from pathlib import Path
@@ -11,19 +11,23 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.1/Sources'
+from asi_loaders import LOADERS, loader_path, verify
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.2/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 
 
-def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False):
+def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None):
     with tempfile.TemporaryDirectory(prefix='loader-', dir=ROOT / 'build/tests') as directory:
         folder = Path(directory)
         exe = folder / ('Other.exe' if wrong_name else 'SnowRunner.exe')
         if synthetic: create_image(ROOT / 'build/native/game-host.exe', exe)
         else: shutil.copyfile(ROOT / 'build/native/game-host.exe', exe)
-        for binary in ('version.dll', 'SnowRunnerEnhanced.dll'):
+        for binary in ('dinput8.dll', 'SnowRunnerEnhanced.asi'):
             shutil.copyfile(PACKAGE / 'Payload' / binary, folder / binary)
+        if loader is not None:
+            shutil.copyfile(loader_path(loader), folder / 'dinput8.dll')
+        shutil.copyfile(ROOT / 'build/native/companion.asi', folder / 'ZZCompanion.asi')
         if config is not None:
             (folder / 'SnowRunnerEnhanced.json').write_text(json.dumps(config), encoding='utf-8')
         original = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.iterdir()}
@@ -49,8 +53,9 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                 assert status['gameSha256'] == original[exe.name]
             stdout, stderr = process.communicate(timeout=delay / 1000 + 10)
             assert process.returncode == 0, (process.returncode, stdout, stderr)
-            assert b'VERSION exports work' in stdout, stdout
-            assert (b'Enhanced loaded: no' if wrong_name else b'Enhanced loaded: yes') in stdout, stdout
+            assert b'DirectInput forwarding works' in stdout, stdout
+            assert b'Enhanced loaded: yes' in stdout, stdout
+            assert (folder / 'companion.started').exists(), 'Shared loader did not initialize companion'
             assert not stderr, stderr
             if wrong_name: assert not (folder / STATUS).exists()
             else:
@@ -77,7 +82,7 @@ def test_running_game_guard():
             result = subprocess.run([SETUP, '--action', 'install', '--game-directory', folder, '--json'],
                                     capture_output=True, timeout=10)
             assert result.returncode == 2 and not json.loads(result.stdout)['ok'], result.stdout
-            assert not (folder / 'version.dll').exists()
+            assert not (folder / 'SnowRunnerEnhanced.asi').exists()
             process.communicate(timeout=10)
             assert process.returncode == 0
         finally:
@@ -87,7 +92,12 @@ def test_running_game_guard():
 
 if __name__ == '__main__':
     (ROOT / 'build/tests').mkdir(exist_ok=True)
+    verify()
     test_running_game_guard()
+    for loader in LOADERS:
+        run_case('shared loader ' + loader['version'],
+                 {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},
+                 'active', delay=6000, synthetic=True, loader=loader)
     for name, config, state in [
         ('disabled', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': False}}}, 'disabled'),
         ('omitted feature', {'schemaVersion': 1, 'features': {}}, 'disabled'),

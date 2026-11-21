@@ -12,7 +12,7 @@ internal static class Program
     static TerminalUi? ui;
     static bool automaticGameDirectory;
     static string T(string fr, string en) => french ? fr : en;
-    static string FeatureName => T("Cohabitation souris et volant", "Mouse and wheel coexistence");
+    static string FeatureName => T("Utilisation simultanée de la souris et du volant", "Simultaneous Mouse & Wheel Input");
     static readonly Color Accent = new(0, 200, 255);
     sealed record Choice(string Id, string Text, bool BreakAfter = false, bool Enabled = true);
 
@@ -252,7 +252,7 @@ internal static class Program
             var enabled = installed ? ReadEnabled(installation) : pending;
             if (notice != null) { Say(notice); notice = null; }
             var action = Choose(T("MENU PRINCIPAL", "MAIN MENU"), [
-                new("install", installed ? T("Enhanced est installé", "Enhanced is installed") : T("Installer Enhanced", "Install Enhanced"), Enabled: !installed),
+                new("install", installed ? T("Enhanced est déjà installé", "Enhanced is already installed") : T("Installer Enhanced", "Install Enhanced"), Enabled: !installed),
                 new("advanced", T("Options avancées", "Advanced Options")),
                 new("more", T("Plus d’options", "More options")),
                 new("help", T("Aide", "Help"), BreakAfter: true),
@@ -278,17 +278,35 @@ internal static class Program
                         if (installed) installation.Configure(selected); else pending = selected;
                         notice = T("Choix enregistré.", "Selection saved."); break;
                     case "install":
-                        Say(T("Destination : ", "Destination: ") + installation.GameDirectory);
-                        FeatureSummary(pending);
-                        if (Confirm(T("Installer Enhanced dans ce dossier ?", "Install Enhanced in this folder?")))
-                        { installation.Install(pending); Say(T("Installation terminée. Lancez le jeu normalement.", "Installed. Start the game normally.")); Pause(); }
+                        if (ui != null)
+                            ui.RunWithSpinner(T("Installation en cours…", "Installing Enhanced…"), () => installation.Install(pending));
+                        else
+                        {
+                            Say(T("Installation en cours…", "Installing Enhanced…"));
+                            installation.Install(pending);
+                        }
+                        Say(T("Installation terminée. Lancez le jeu normalement.", "Installed. Start the game normally."));
+                        Pause();
                         break;
                     case "uninstall":
-                        if (Confirm(T("Retirer Enhanced de ce dossier ?", "Remove Enhanced from this folder?")))
+                        if (Confirm(T("Désinstaller Enhanced de SnowRunner ?", "Uninstall Enhanced from SnowRunner?")))
                         {
-                            var retained = installation.Uninstall();
+                            string[] retained = [];
+                            if (ui != null)
+                                ui.RunWithSpinner(T("Désinstallation en cours…", "Uninstalling Enhanced…"), () => retained = installation.Uninstall());
+                            else
+                            {
+                                Say(T("Désinstallation en cours…", "Uninstalling Enhanced…"));
+                                retained = installation.Uninstall();
+                            }
                             Say(T("Enhanced a été désinstallé.", "Enhanced has been uninstalled."));
                             if (retained.Length != 0) Say(T("Fichiers conservés : ", "Files retained: ") + string.Join(", ", retained));
+                            if (retained.Contains(Installation.LoaderName))
+                            {
+                                Blank();
+                                Say(T("dinput8.dll est conservé : ce chargeur peut servir à d’autres mods.",
+                                      "dinput8.dll is kept because this loader may be used by other mods."));
+                            }
                             Pause();
                         }
                         break;
@@ -306,11 +324,11 @@ internal static class Program
         while (true)
         {
             Screen();
-            Say(T("Carte, treuil, sélection et clignotements du menu, résidu du volant au repos.",
-                  "Map, winch, menu selection and flickering, wheel residue at rest."));
+            Say(T("Sélectionnez les correctifs et les améliorations que vous souhaitez utiliser. Chaque amélioration peut être activée ou désactivée indépendamment.",
+                  "Select the fixes and improvements you want to use. Each enhancement can be enabled or disabled independently."));
             Blank();
-            int choice = ui.Choose(T("CHOISIR LES CORRECTIFS", "CHOOSE FIXES"), [
-                new($"[{(selected ? "x" : " ")}] {FeatureName}"),
+            int choice = ui.Choose(T("PERSONNALISER LES AMÉLIORATIONS", "CUSTOMIZE ENHANCEMENTS"), [
+                new($"[{(selected ? "x" : " ")}] {FeatureName}", BreakAfter: true),
                 new(T("Enregistrer", "Save")), new(T("Annuler", "Cancel"))],
                 T("↑ ↓ Naviguer    Espace Basculer    Entrée Sélectionner", "↑ ↓ Navigate    Space Toggle    Enter Select"), separator: true, spaceSelects: true);
             if (choice is -1 or 2) return current;
@@ -324,7 +342,7 @@ internal static class Program
         Screen();
         return Choose(T("OPTIONS AVANCÉES", "ADVANCED OPTIONS"), [
             new("status", T("Voir l’état", "View status")),
-            new("features", T("Choisir les correctifs", "Choose fixes")),
+            new("features", T("Personnaliser les améliorations", "Customize enhancements")),
             new("uninstall", T("Désinstaller Enhanced", "Uninstall Enhanced"), BreakAfter: true, Enabled: installed),
             new("back", T("Retour", "Back"))], separator: true);
     }
@@ -341,14 +359,14 @@ internal static class Program
     static void InteractiveHelp()
     {
         Say(T("AIDE", "HELP")); Blank();
-        Say(T("Dans Options avancées, choisissez les correctifs, puis installez Enhanced. Vous pouvez modifier votre sélection plus tard.",
-              "Choose your fixes in Advanced Options, then install Enhanced. You can change your selection later."));
+        Say(T("Tous les correctifs sont activés par défaut. Choisissez Installer Enhanced pour les installer immédiatement. Pour en désactiver, utilisez Options avancées > Personnaliser les améliorations avant ou après l’installation.",
+              "All fixes are enabled by default. Choose Install Enhanced to install immediately. To disable fixes, use Advanced Options > Customize enhancements before or after installation."));
         Blank();
         Say(T("Fermez le jeu avant de modifier l’installation. Les changements s’appliquent au prochain lancement.",
               "Close the game before making changes. Your settings apply on the next launch."));
         Blank();
-        Say(T("Options avancées permet de vérifier l’état, de choisir les correctifs et de désinstaller Enhanced. Plus d’options permet de changer de dossier ou de langue, ou d’exporter un diagnostic.",
-              "Advanced Options lets you view status, choose fixes, and uninstall Enhanced. More options lets you change the folder or language, or export a diagnostic."));
+        Say(T("Options avancées permet de vérifier l’état, de personnaliser les améliorations et de désinstaller Enhanced. Plus d’options permet de changer de dossier ou de langue, ou d’exporter un diagnostic.",
+              "Advanced Options lets you view status, customize enhancements, and uninstall Enhanced. More options lets you change the folder or language, or export a diagnostic."));
         Blank();
         Say(T("Préversion : la validation en jeu reste à terminer.", "Preview: in-game validation is still pending."));
         Blank();
@@ -366,6 +384,7 @@ internal static class Program
     static void Pause()
     {
         if (ui != null) { ui.Wait(T("Entrée pour continuer…", "Press Enter to continue…")); return; }
+        Blank();
         Say(T("Entrée pour continuer…", "Press Enter to continue…"));
         if (Console.ReadLine() == null) throw new OperationCanceledException();
     }
@@ -427,7 +446,7 @@ internal static class Program
         Header();
         Say(T("Aperçu de l’interface — aucun fichier du jeu n’est modifié.", "Interface preview — no game files are changed."));
         FeatureSummary(true);
-        Say(T("Installer · Choisir les correctifs · Diagnostic · Désinstaller", "Install · Choose fixes · Diagnostic · Uninstall"));
+        Say(T("Installer · Personnaliser les améliorations · Diagnostic · Désinstaller", "Install · Customize enhancements · Diagnostic · Uninstall"));
         if (ui != null) Pause();
     }
     static void Help() => Console.WriteLine("SnowRunner Enhanced " + Installation.Version + "\n" +

@@ -12,6 +12,7 @@ __pycache__/
 **/obj/
 /vendor/downloads/
 /vendor/frida-gumjs/
+/vendor/asi-loader/
 
 # Investigation belongs in the parent workspace, never this repository.
 /captures/

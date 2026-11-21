@@ -8,7 +8,8 @@ Palette: background `#262626`, text `#e6e6e6`, cyan `#00d7ff`, secondary text
 `#a0a0a0`, borders `#696969`, warnings `#f5c364`. All tokens live in
 `src/installer/TerminalUi.cs`.
 
-The content is 64 columns wide with a three-column left margin. The rounded
+The content is up to 74 columns wide with a three-column left margin, shrinking
+to fit narrower terminals. The rounded
 header contains `S N O W R U N N E R` and `SnowRunner Enhanced`. A cyan `›`
 marks the selected action. Disabled actions are grey and skipped by navigation.
 Arrow keys wrap; Home/End select the first/last available action; Escape returns
@@ -19,8 +20,16 @@ The main menu contains installation, advanced options, more options, help, and
 exit. Advanced Options contains status, feature selection, and uninstallation.
 More options contains folder selection, diagnostic export, and language selection.
 Automatically detected Steam installations still skip
-the folder question. Feature changes retain the existing confirmation and
-installation behavior.
+the folder question. All fixes are enabled by default; players can disable them
+in Advanced Options > Customize enhancements. Install Enhanced immediately installs the
+current selection without a destination or fixes confirmation. A cyan dotted
+spinner and localized installation message appear while it runs, for at least
+one second even when installation finishes sooner. Longer installations keep
+animating until the operation finishes. The spinner is cleared before displaying
+the completion or error message. Uninstallation uses the same spinner and
+one-second minimum after confirmation. When dinput8.dll is retained, a short
+localized message explains that other mods may use this loader. Plain mode
+uses static installation and uninstallation messages.
 
 Rendering uses a session-scoped alternate terminal screen with explicit RGB
 background painting. Returning to a menu replaces the previous frame. Window
@@ -38,5 +47,6 @@ dotnet run --project tests/installer-menu/InstallerMenuTests.csproj -c Release
 
 The renderer checks cover 32/64/80/120 columns and 10/24/32 rows, disabled-action
 navigation, full background coverage, visible selection/hints, and control
-character filtering. Release tests exercise bilingual navigation and preserve
+character filtering. Spinner checks cover the one-second minimum, animation
+during longer operations, and propagation of installation errors. Release tests exercise bilingual navigation and preserve
 the existing install/configure/uninstall safety checks against temporary fixtures.

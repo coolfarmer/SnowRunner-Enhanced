@@ -133,6 +133,16 @@
       "name": "Spectre.Console-LICENSE.txt",
       "sha256": "3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91",
       "url": "https://raw.githubusercontent.com/spectreconsole/spectre.console/0.57.2/LICENSE.md"
+    },
+    {
+      "name": "Ultimate-ASI-Loader-LICENSE.txt",
+      "sha256": "ceca73c504e39084b0b80d2a437aea9988313d1915418d3c629c3e4a8313f5a1",
+      "url": "https://raw.githubusercontent.com/ThirteenAG/Ultimate-ASI-Loader/v10.0.2/license"
     }
-  ]
+  ],
+  "asiLoader": {
+    "version": "10.0.2",
+    "url": "https://github.com/ThirteenAG/Ultimate-ASI-Loader/tree/v10.0.2",
+    "license": "MIT"
+  }
 }

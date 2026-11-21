@@ -23,7 +23,7 @@ static void WriteReport(const char *text) {
 static void SimpleStatus(const char *status, const char *reason) {
     char out[1024];
     SYSTEMTIME now; GetSystemTime(&now);
-    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.1\","
+    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.2\","
         "\"processId\":%lu,\"timeUtc\":\"%04u-%02u-%02uT%02u:%02u:%02uZ\","
         "\"features\":{\"wheel_mouse\":{\"status\":\"%s\",\"reason\":\"%s\"}}}",
         (unsigned long)GetCurrentProcessId(), now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, status, reason);
@@ -108,8 +108,7 @@ static void OnMessage(const gchar *message, GBytes *data, gpointer context) {
     g_object_unref(parser);
 }
 
-__declspec(dllexport) void EnhancedStart(void) {
-    if (InterlockedCompareExchange(&started, 1, 0)) return;
+static void EnhancedStart(void) {
     wchar_t folder[32768], game[32768];
     DWORD n = GetModuleFileNameW(self, folder, 32768);
     if (!n || n >= 32000 || !GetModuleFileNameW(NULL, game, 32768)) return;
@@ -137,10 +136,32 @@ __declspec(dllexport) void EnhancedStart(void) {
     if (!script) { SimpleStatus("error", "Embedded runtime initialization failed"); if (error) g_error_free(error); return; }
     gum_script_set_message_handler(script, OnMessage, NULL, NULL);
     gum_script_load_sync(script, NULL);
-    // This is the loader's dedicated worker. The game thread never waits here.
+    // This is Enhanced's dedicated worker. The ASI loader never waits here.
     // Keep the context and script alive; uninstall only with the game closed.
     GMainLoop *loop = g_main_loop_new(context, FALSE);
     g_main_loop_run(loop);
+}
+
+static DWORD WINAPI EnhancedWorker(void *unused) {
+    (void)unused;
+    EnhancedStart();
+    return 0;
+}
+
+__declspec(dllexport) void InitializeASI(void) {
+    DWORD error = GetLastError();
+    if (InterlockedCompareExchange(&started, 1, 0) == 0) {
+        // Return promptly so the shared loader can initialize the other mods.
+        // Pin before starting the worker, including disabled/error paths.
+        HMODULE pinned;
+        if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+                              (LPCWSTR)(uintptr_t)&InitializeASI, &pinned)) {
+            HANDLE thread = CreateThread(NULL, 0, EnhancedWorker, NULL, 0, NULL);
+            if (thread) CloseHandle(thread);
+            else InterlockedExchange(&started, 0);
+        } else InterlockedExchange(&started, 0);
+    }
+    SetLastError(error);
 }
 
 BOOL WINAPI DllMain(HINSTANCE module, DWORD why, LPVOID reserved) {

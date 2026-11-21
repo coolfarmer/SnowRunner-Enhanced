@@ -9,19 +9,22 @@ using Microsoft.Win32;
 
 namespace SnowRunnerEnhanced;
 
-// Enhanced owns exactly these files. No ASI inventory, shared loader, or calls
-// to another mod's tools are involved in any installation operation.
+// Enhanced owns its plugin/configuration only. A shared ASI loader is reused
+// or installed once, and always preserved on uninstall for other mods.
 internal sealed class Installation
 {
-    internal const string Version = "0.1.0-preview.1";
+    internal const string Version = "0.1.0-preview.2";
     internal const string ConfigName = "SnowRunnerEnhanced.json";
     internal const string ReceiptName = "SnowRunnerEnhanced.install.json";
     internal const string StatusName = "SnowRunnerEnhanced.status.json";
-    internal static readonly string[] Binaries = ["version.dll", "SnowRunnerEnhanced.dll"];
+    internal const string LoaderName = "dinput8.dll";
+    internal static readonly string[] Binaries = ["SnowRunnerEnhanced.asi"];
+    static readonly string[] PayloadNames = [LoaderName, .. Binaries];
     internal static readonly JsonSerializerOptions Pretty = new() { WriteIndented = true };
     internal string GameDirectory { get; }
     readonly string sources;
     readonly Dictionary<string, string> payload;
+    readonly HashSet<string> compatibleLoaders = new(StringComparer.Ordinal);
     string At(string name) => Path.Combine(GameDirectory, name);
 
     internal Installation(string directory, string sources)
@@ -34,8 +37,18 @@ internal sealed class Installation
             manifest["schemaVersion"]?.GetValue<int>() != 1 ||
             manifest["version"]?.GetValue<string>() != Version)
             throw new InvalidDataException("Package manifest is invalid.");
-        payload = ReadHashes(manifest["payload"]);
-        foreach (var name in Binaries)
+        payload = ReadHashes(manifest["payload"], PayloadNames);
+        if (manifest["compatibleLoaders"] is not JsonArray loaders || loaders.Count == 0)
+            throw new InvalidDataException("Missing compatible ASI loader inventory.");
+        foreach (var entry in loaders)
+        {
+            var hash = entry?["sha256"]?.GetValue<string>() ?? "";
+            if (entry?["architecture"]?.GetValue<string>() != "x64" || !Regex.IsMatch(hash, "^[a-f0-9]{64}$"))
+                throw new InvalidDataException("Invalid ASI loader inventory.");
+            compatibleLoaders.Add(hash);
+        }
+        if (!compatibleLoaders.Contains(payload[LoaderName])) throw new InvalidDataException("Unrecognized bundled loader.");
+        foreach (var name in PayloadNames)
         {
             var path = Path.Combine(this.sources, "Payload", name);
             CheckPath(path);
@@ -88,9 +101,9 @@ internal sealed class Installation
             int rva = BitConverter.ToInt32(data, offset + 12);
             if (rva == 0) break;
             var name = pe.GetSectionData(rva).GetContent().Take(256).TakeWhile(b => b != 0).ToArray();
-            if (Encoding.ASCII.GetString(name).Equals("version.dll", StringComparison.OrdinalIgnoreCase)) return;
+            if (Encoding.ASCII.GetString(name).Equals(LoaderName, StringComparison.OrdinalIgnoreCase)) return;
         }
-        throw new InvalidDataException("This executable does not import VERSION.dll; Enhanced cannot load through this package.");
+        throw new InvalidDataException("This executable does not import DINPUT8.dll; this ASI package requires that entry point.");
     }
 
     internal static JsonObject ReadJson(string path)
@@ -101,11 +114,12 @@ internal sealed class Installation
             new JsonDocumentOptions { MaxDepth = 24 }) as JsonObject ?? throw new InvalidDataException("Invalid JSON object.");
     }
 
-    static Dictionary<string, string> ReadHashes(JsonNode? node)
+    static Dictionary<string, string> ReadHashes(JsonNode? node, string[]? names = null)
     {
-        if (node is not JsonObject obj || obj.Count != Binaries.Length || Binaries.Any(n => !obj.ContainsKey(n)))
+        names ??= Binaries;
+        if (node is not JsonObject obj || obj.Count != names.Length || names.Any(n => !obj.ContainsKey(n)))
             throw new InvalidDataException("Invalid file inventory.");
-        return Binaries.ToDictionary(n => n, n =>
+        return names.ToDictionary(n => n, n =>
         {
             var hash = obj[n]?.GetValue<string>() ?? "";
             if (!Regex.IsMatch(hash, "^[a-f0-9]{64}$")) throw new InvalidDataException("Invalid file hash.");
@@ -142,20 +156,56 @@ internal sealed class Installation
         var receipt = ReadJson(At(ReceiptName));
         if (receipt["product"]?.GetValue<string>() != "SnowRunnerEnhanced" || receipt["schemaVersion"]?.GetValue<int>() != 1)
             throw new InvalidDataException("Unrecognized installation receipt.");
+        if (receipt["files"] is JsonObject files && files.ContainsKey("version.dll"))
+            throw new InvalidDataException("Legacy Enhanced installation: uninstall it with the preview.1 installer before installing the ASI package.");
         ReadHashes(receipt["files"]);
         return receipt;
+    }
+
+    void CheckLoaderConfiguration()
+    {
+        foreach (var directory in new[] { "", "scripts", "plugins", "update" })
+            foreach (var name in new[] { "global.ini", "dinput8.ini" })
+            {
+                var path = At(Path.Combine(directory, name));
+                CheckPath(path);
+                if (File.Exists(path) || Directory.Exists(path))
+                    throw new IOException("Existing ASI loader configuration requires manual review: " + Path.Combine(directory, name));
+            }
+        CheckPath(At("dinput8Hooked.dll"));
+        if (File.Exists(At("dinput8Hooked.dll")) || Directory.Exists(At("dinput8Hooked.dll")))
+            throw new IOException("A chained DirectInput proxy requires manual review; existing files were preserved.");
+    }
+
+    string? CheckLoader()
+    {
+        CheckLoaderConfiguration();
+        CheckPath(At(LoaderName));
+        if (Directory.Exists(At(LoaderName))) throw new IOException("A directory occupies dinput8.dll.");
+        if (!File.Exists(At(LoaderName))) return null;
+        var hash = Hash(At(LoaderName));
+        if (!compatibleLoaders.Contains(hash))
+            throw new IOException("Unrecognized dinput8.dll preserved. This package supports the verified x64 Ultimate ASI Loaders 10.0.2 and 8.5.0 from SMT v1.5.");
+        return hash;
     }
 
     internal JsonObject Inspect()
     {
         var report = new JsonObject { ["product"] = "SnowRunnerEnhanced", ["packageVersion"] = Version,
             ["installed"] = HasReceipt, ["activation"] = "Validated in memory on the next game launch" };
-        try { CheckExecutable(); report["loaderSupported"] = true; }
+        try
+        {
+            CheckExecutable();
+            var hash = CheckLoader();
+            report["loaderSha256"] = hash;
+            if (HasReceipt && hash == null) throw new IOException("The shared dinput8.dll loader is missing; Enhanced cannot start.");
+            report["loaderSupported"] = true;
+        }
         catch (Exception error) when (error is IOException or InvalidDataException or BadImageFormatException)
-        { report["loaderSupported"] = false; report["loaderReason"] = "Unreadable or unsupported Windows x64 executable / VERSION import table."; }
+        { report["loaderSupported"] = false; report["loaderReason"] = error.Message; }
         if (!HasReceipt)
         {
-            report["conflicts"] = new JsonArray(Binaries.Append(ConfigName).Where(n => File.Exists(At(n)) || Directory.Exists(At(n)))
+            report["conflicts"] = new JsonArray(Binaries.Concat([ConfigName, "SnowRunnerEnhanced.dll"]).Where(n => File.Exists(At(n)) || Directory.Exists(At(n)))
                 .Select(n => (JsonNode?)JsonValue.Create(n)).ToArray());
             return report;
         }
@@ -225,13 +275,21 @@ internal sealed class Installation
     {
         using var held = LockForChange();
         CheckExecutable();
-        if (HasReceipt) throw new IOException("Enhanced is already installed. Use Features or uninstall before replacing the package.");
-        foreach (var name in Binaries.Concat([ConfigName, ReceiptName]))
+        if (HasReceipt) { Receipt(); throw new IOException("Enhanced is already installed. Use Features or uninstall before replacing the package."); }
+        var loaderHash = CheckLoader();
+        // Hold a reused loader against replacement until installation completes.
+        using var loaderLock = loaderHash == null ? null : new FileStream(At(LoaderName), FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (loaderLock != null && Convert.ToHexStringLower(SHA256.HashData(loaderLock)) != loaderHash)
+            throw new IOException("ASI loader changed during installation.");
+        foreach (var name in Binaries.Concat([ConfigName, ReceiptName, "SnowRunnerEnhanced.dll"]))
             if (File.Exists(At(name)) || Directory.Exists(At(name)))
                 throw new IOException("Existing file preserved: " + name + ". Resolve this conflict before installing Enhanced.");
         var config = Configuration(enabled);
         var receipt = new JsonObject { ["product"] = "SnowRunnerEnhanced", ["schemaVersion"] = 1, ["version"] = Version,
-            ["files"] = JsonSerializer.SerializeToNode(payload), ["configurationSha256"] = Convert.ToHexStringLower(SHA256.HashData(config)),
+            ["files"] = JsonSerializer.SerializeToNode(Binaries.ToDictionary(n => n, n => payload[n])),
+            ["loader"] = new JsonObject { ["name"] = LoaderName, ["sha256"] = loaderHash ?? payload[LoaderName],
+                ["reused"] = loaderHash != null, ["preserveOnUninstall"] = true },
+            ["configurationSha256"] = Convert.ToHexStringLower(SHA256.HashData(config)),
             ["complete"] = false };
         var created = new List<string>();
         try
@@ -239,7 +297,7 @@ internal sealed class Installation
             // A receipt written first makes an interrupted install recoverable
             // using uninstall, while ownership checks preserve changed files.
             AtomicWrite(At(ReceiptName), JsonBytes(receipt), false); created.Add(ReceiptName);
-            foreach (var name in Binaries)
+            foreach (var name in loaderHash == null ? PayloadNames : Binaries)
             {
                 var data = File.ReadAllBytes(Path.Combine(sources, "Payload", name));
                 if (Convert.ToHexStringLower(SHA256.HashData(data)) != payload[name]) throw new IOException("Payload changed during installation.");
@@ -261,7 +319,7 @@ internal sealed class Installation
                 }
                 catch (IOException) { }
             // Keep the recovery receipt if any owned payload remains.
-            if (created.Contains(ReceiptName) && !Binaries.Append(ConfigName).Any(n => File.Exists(At(n)))) File.Delete(At(ReceiptName));
+            if (created.Contains(ReceiptName) && !created.Where(n => n != ReceiptName).Any(n => File.Exists(At(n)))) File.Delete(At(ReceiptName));
             throw;
         }
     }
@@ -310,6 +368,7 @@ internal sealed class Installation
         }
         finally { foreach (var handle in handles) handle.Dispose(); }
         var preserved = new List<string>();
+        if (File.Exists(At(LoaderName)) || Directory.Exists(At(LoaderName))) preserved.Add(LoaderName);
         if (File.Exists(At(ConfigName)))
         {
             if (Hash(At(ConfigName)) == receipt["configurationSha256"]?.GetValue<string>()) File.Delete(At(ConfigName));

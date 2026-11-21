@@ -1,21 +1,27 @@
-/* Test application only. Its VERSION import exercises Windows DLL loading. */
+/* Disposable host: real ASI loading without opening input devices. */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <unknwn.h>
 #include <stdio.h>
 #include <stdlib.h>
-#pragma comment(lib, "version.lib")
+#pragma comment(lib, "dinput8.lib")
+__declspec(dllimport) HRESULT WINAPI DirectInput8Create(HINSTANCE, DWORD, REFIID, LPVOID *, LPUNKNOWN);
 
 int main(int argc, char **argv) {
-    wchar_t system[MAX_PATH]; GetSystemDirectoryW(system, MAX_PATH);
-    wcscat_s(system, MAX_PATH, L"\\kernel32.dll");
-    DWORD handle = 0;
-    DWORD size = GetFileVersionInfoSizeW(system, &handle);
-    if (!size) return 2;
-    void *data = malloc(size), *fixed = NULL; UINT length = 0;
-    if (!GetFileVersionInfoW(system, 0, size, data) || !VerQueryValueW(data, L"\\", &fixed, &length) || !fixed) return 3;
-    printf("VERSION exports work: %lu bytes\n", (unsigned long)length); fflush(stdout);
+    FILETIME now; GetSystemTimeAsFileTime(&now);
+    /* Invalid output deliberately prevents creating an input interface. */
+    GUID iid = {0};
+    HRESULT result = DirectInput8Create(GetModuleHandleW(NULL), 0x800, &iid, NULL, NULL);
+    if (SUCCEEDED(result)) return 2;
+    printf("DirectInput forwarding works\n"); fflush(stdout);
     Sleep(argc > 1 ? (DWORD)atoi(argv[1]) : 5000);
-    printf("Enhanced loaded: %s\n", GetModuleHandleW(L"SnowRunnerEnhanced.dll") ? "yes" : "no");
-    free(data);
+    HMODULE plugin = GetModuleHandleW(L"SnowRunnerEnhanced.asi");
+    printf("Enhanced loaded: %s\n", plugin ? "yes" : "no");
+    if (plugin) {
+        void (*initialize)(void) = (void (*)(void))GetProcAddress(plugin, "InitializeASI");
+        if (!initialize) return 3;
+        SetLastError(1234); initialize(); initialize();
+        if (GetLastError() != 1234) return 4;
+    }
     return 0;
 }

@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.1`. Cette intégration reprend la logique V18 intacte
+Version : `0.1.0-preview.2`. Cette intégration reprend la logique V18 intacte
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
 injecteur et n’installe ni Frida, ni Python, ni .NET.
@@ -10,17 +10,19 @@ injecteur et n’installe ni Frida, ni Python, ni .NET.
 ```text
 Install.cmd → SnowRunnerEnhanced.Setup.exe (Spectre.Console)
                          ↓ copie contrôlée dans Sources/Bin
-SnowRunner.exe → version.dll → DLL VERSION du système (fonctions transmises)
-                      └→ thread privé → SnowRunnerEnhanced.dll
-                                             └→ config → signatures → agent V18
+SnowRunner.exe → dinput8.dll (Ultimate ASI Loader) → DirectInput système
+                      ├→ SnowRunnerEnhanced.asi → InitializeASI → thread privé
+                      │                            └→ config → signatures → V18
+                      ├→ SnowRunnerFFBFix.asi (installé séparément)
+                      └→ SMT.asi (installé séparément)
 ```
 
-Le proxy se charge via l’import VERSION du jeu, transmet ses 17 exports à la
-DLL du répertoire système et démarre un thread lors du premier appel d’un export.
-Son `DllMain` ne crée pas de thread et n’attend rien. Le thread charge uniquement
-la DLL Enhanced à côté du proxy, uniquement dans `SnowRunner.exe`. Il ne parcourt
-aucun dossier de plugins. Le moteur et les DLL restent chargés jusqu’à la fin
-du processus ; les changements et la désinstallation demandent de fermer le jeu.
+Le chargeur appelle `InitializeASI` après le chargement de l’ASI. Cette fonction
+épingle le module et démarre une seule fois son propre thread, puis rend la main
+immédiatement pour permettre le chargement des autres plugins. `DllMain` ne
+crée aucun thread et n’attend rien. Enhanced s’active uniquement dans
+`SnowRunner.exe`. Son runtime reste chargé jusqu’à la fin du processus ; fermer
+le jeu avant toute modification ou désinstallation.
 
 La configuration est lue avant de créer le script du correctif. L’initialisation
 de base de Gum/GLib est nécessaire pour lire le JSON ; une feature désactivée
@@ -36,9 +38,18 @@ repasse en observation dans la V18 et déclenche ensuite le retrait de ses hooks
 
 ## Indépendance
 
-Tous les fichiers, sources, outils, dépendances, caches et paquets sont propres
-à Enhanced. L’installateur ne lit ni ne modifie les fichiers FFB Fix. Il refuse
-un `version.dll` déjà présent. Il ne fait aucun chaînage avec `dinput8.dll`.
+Les sources, dépendances de construction, caches, configurations et paquets
+restent propres à Enhanced. Le seul composant partagé dans le dossier du jeu
+est Ultimate ASI Loader (`dinput8.dll`). L’installateur réutilise les copies x64
+vérifiées 10.0.2 et 8.5.0 de SMT v1.5, ou installe sa propre copie téléchargée
+chez l’éditeur. Les empreintes et URL sont dans `tools/asi_loaders.py`.
+Il ne modifie ni les plugins ni les réglages de FFB Fix ou SMT.
+
+Un chargeur inconnu, ses fichiers de configuration ou un proxy chaîné provoquent
+un refus sans écrasement. Le chargeur reste toujours à la désinstallation, car
+d’autres mods peuvent en dépendre. Enhanced possède uniquement son ASI, sa
+configuration et son reçu. Une installation preview.1 doit être retirée avec
+son ancien installateur ; aucun `version.dll` n’est supprimé par le nouvel outil.
 
 Le paquet natif contient une seule feature. Ajouter une feature native
 nécessitera d’ajouter son implémentation, son entrée de configuration et son option
@@ -81,10 +92,13 @@ final fonctionne hors ligne. Les versions NuGet sont verrouillées dans
 `src/installer/packages.lock.json`, le runtime .NET embarqué est `10.0.12`.
 `WINDOWS_SDK_ROOT` permet de changer le répertoire racine du SDK Windows.
 
+`tools/asi_loaders.py` télécharge indépendamment les deux chargeurs de test
+et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
+
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.1.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.1/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.2.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.2/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
@@ -99,15 +113,17 @@ Les rapports créés après extraction ne sont pas repris dans une reconstructio
 Les tests couvrent les 402 assertions V18 dans le vrai moteur embarqué, le
 scanner natif sur mémoire synthétique, les signatures déplacées et incohérentes,
 le cycle de démarrage, les changements de configuration, l’appartenance des DLL,
-les conflits et verrous Windows et le chargement par import VERSION. Une image
+les conflits et verrous Windows et le chargement ASI par import DINPUT8. Une image
 PE de test contient les 28 blocs déplacés et atteint l’état actif sans aucune
 injection externe. Une autre image non reconnue reste inactive.
 
 Ces tests utilisent des programmes jetables construits ici, jamais le jeu.
 Restent à valider dans SnowRunner : le moment de l’appel VERSION, le démarrage
 et la fermeture, les scénarios V18, une session prolongée et la coexistence réelle
-avec d’autres mods. Le choix du proxy repose sur l’import VERSION observé dans
-le binaire Steam de référence ; cela ne certifie pas toutes les boutiques.
+avec FFB Fix et SMT. Les tests chargent Enhanced et un second ASI synthétique
+avec les véritables chargeurs 10.0.2 et 8.5.0 ; ils ne valident pas les hooks des
+trois vrais mods ensemble. L’import DINPUT8 est vérifié avant installation ;
+cela ne certifie pas toutes les boutiques.
 Les signatures rendent les déplacements compatibles, sans garantie contre
 une refonte des instructions, de la VM ou des scripts du jeu.
 

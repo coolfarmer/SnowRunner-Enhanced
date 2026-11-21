@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using Spectre.Console;
 
 namespace SnowRunnerEnhanced;
 
@@ -12,7 +14,7 @@ internal sealed class TerminalUi : IDisposable
     internal const string Muted = "\x1b[38;2;160;160;160m";
     internal const string Border = "\x1b[38;2;105;105;105m";
     internal const string Warning = "\x1b[38;2;245;195;100m";
-    const int ContentWidth = 64;
+    const int ContentWidth = 74;
     readonly List<Line> content = [];
     readonly nint output;
     readonly uint originalMode;
@@ -114,6 +116,7 @@ internal sealed class TerminalUi : IDisposable
         for (int start = 0; start < lines.Count; start += pageHeight)
         {
             var page = lines.Skip(start).Take(pageHeight).ToList();
+            if (page.Count > 0 && !string.IsNullOrWhiteSpace(page[^1].Text)) page.Add(new(""));
             Draw(page, page.Count - 1, prompt);
             ConsoleKey key;
             do { key = Console.ReadKey(intercept: true).Key; }
@@ -123,6 +126,46 @@ internal sealed class TerminalUi : IDisposable
     }
 
     internal void Show() => Draw(content, content.Count - 1);
+
+    internal void RunWithSpinner(string message, Action operation)
+    {
+        var lines = new List<Line>(content) { new("", Accent) };
+        try
+        {
+            RunWithSpinner(operation, frame =>
+            {
+                lines[^1] = new(frame + " " + message, Accent);
+                Draw(lines, lines.Count - 1);
+            });
+        }
+        finally { Show(); }
+    }
+
+    internal static void RunWithSpinner(Action operation, Action<string> drawFrame)
+    {
+        var spinner = Spinner.Known.Dots;
+        int frame = 0;
+        drawFrame(spinner.Frames[frame]);
+        var visible = Stopwatch.StartNew();
+        // The entire synchronous transaction stays on one worker thread, including
+        // acquiring and releasing its mutex. Only this thread renders the terminal.
+        var work = Task.Run(operation);
+        try
+        {
+            while (!work.IsCompleted || visible.Elapsed < TimeSpan.FromSeconds(1))
+            {
+                Thread.Sleep(spinner.Interval);
+                if (!work.IsCompleted || visible.Elapsed < TimeSpan.FromSeconds(1))
+                    drawFrame(spinner.Frames[++frame % spinner.Frames.Count]);
+            }
+        }
+        finally
+        {
+            // Finish the transaction even if rendering fails, and preserve the
+            // original installation exception for the existing error screen.
+            work.GetAwaiter().GetResult();
+        }
+    }
 
     (int Row, int Margin) Draw(List<Line> lines, int focus, string? footer = null)
     {

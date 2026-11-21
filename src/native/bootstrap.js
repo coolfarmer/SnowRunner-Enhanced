@@ -5,7 +5,7 @@
 let attempts = 0, lastFailure = null, timer = null, featureState = 'waiting';
 function reportNative(state, extra = {}) {
     featureState = state;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.1',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.2',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(),
         processId: Process.id,
         features: {wheel_mouse: {enabled: true, status: state, ...extra}},
