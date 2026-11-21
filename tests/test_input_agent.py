@@ -260,6 +260,43 @@ def main():
         assert f.menu_navigation({})['restores']==0
         checks += 1
         a.mode('ui-mouse-priority')
+        print('Checking cursor release only on Functions opening', flush=True)
+        for category in (11,22,33,44,55):
+            result=f.menu_cursor({'category':category})
+            expected=int(category!=55)
+            assert result=={'dragging':1-expected,'releases':expected,'category':category,
+                            'error':0x1234,'entryError':0x1234},result
+            # A subsequent camera click must remain captured even with the menu open.
+            result=f.cursor_tick()
+            assert result=={'dragging':1,'releases':expected,'error':0x1234,'entryError':0x1234},result
+            checks += 2
+        for options in ({'opening':False},{'view':'OtherPanel'},{'method':'Other'},
+                        {'invalid':True},{'dragging':0},{'enabled':0}):
+            a.mode('ui-mouse-priority')
+            result=f.menu_cursor(options)
+            assert result['releases']==0 and result['dragging']==options.get('dragging',1),result
+            checks += 1
+        # Consume an already-visible cursor too: a later click is independent.
+        f.menu_cursor({'dragging':0})
+        assert f.cursor_tick()['releases']==0
+        checks += 1
+        f.menu_cursor({'enabled':0})
+        assert f.cursor_tick()['releases']==1
+        checks += 1
+        f.menu_cursor({'tick':False})
+        import time
+        time.sleep(0.55)
+        assert f.cursor_tick()['releases']==0
+        checks += 1
+        f.menu_cursor({'tick':False})
+        a.mode('observe')
+        a.mode('ui-mouse-priority')
+        assert f.cursor_tick()['releases']==0
+        checks += 1
+        a.mode('observe')
+        assert f.menu_cursor({})['releases']==0
+        checks += 1
+        a.mode('ui-mouse-priority')
         for category in (11,22,33,44,55):
             for key in (37,38,39,40):
                 a.fixture_preference(22)
@@ -376,6 +413,8 @@ def main():
         assert not a.status()['faults'] and not errors, (a.status(), errors)
         a.stop()
         assert not a.status()['active']
+        assert f.menu_cursor({})['releases']==0
+        checks += 1
         assert f.wheel_neutral({})['result'] == abs(residue)
         checks += 1
         assert f.menu_refresh({})['focus']==0

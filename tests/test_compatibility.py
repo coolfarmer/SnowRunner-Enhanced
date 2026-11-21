@@ -60,7 +60,7 @@ class CompatibilityTests(unittest.TestCase):
             for key in path:
                 value = value[key]
             self.assertEqual(value, move(old), path)
-        self.assertEqual(details['relocatedGuards'], 28)
+        self.assertEqual(details['relocatedGuards'], 30)
 
     def test_changed_opcode_refused(self):
         matches, sections, *_ = synthetic_image()

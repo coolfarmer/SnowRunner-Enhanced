@@ -6,6 +6,7 @@ const neutralTelemetry=Memory.alloc(8);
 const navigationHold=[];
 // Keep synthetic UI identities distinct for the entire test session.
 const uiHold=[];
+let cursorCamera=null;
 const engineSlot=Memory.alloc(8); engineSlot.writePointer(engineCategory);
 const target = new CModule(`
 typedef unsigned int u32;
@@ -30,6 +31,10 @@ void select_type(u32 *state, const u32 *type) {
 void notify_ui(u32 *ui, const u32 *type) { ui[8] = *type; if (ui[6]) ui[9]++; }
 void menu_select(u32 *ui, int index) { ui[116] = index; ui[117]++; ui[118] = index >= 0; }
 void menu_data(u32 *ui, u32 generation) { ui[119] = generation; }
+void camera_update(unsigned char *camera) { ((u32 *)camera)[8]++; ((u32 *)camera)[9]=GetLastError(); }
+void camera_dragging(unsigned char *camera, unsigned char value) {
+    camera[0x15]=value; ((u32 *)camera)[10]++; SetLastError(0xbeef);
+}
 void menu_focus(unsigned char *ui, unsigned char value) {
     ui[0x103]=value;
     if(ui[0x70]<2)return;
@@ -53,6 +58,7 @@ extern void notify_ui(u32 *, const u32 *);
 extern void menu_keys(void *, void *, u32, void *);
 extern void menu_focus(void *, unsigned char);
 extern void wheel_abs(void *, void *, u32, void *, void *);
+extern void camera_update(unsigned char *);
 extern void SetLastError(u32);
 extern u32 GetLastError(void);
 u32 choose(u32 *state, u32 *device, u32 *ui) {
@@ -72,14 +78,19 @@ u32 set_focus(void *ui, unsigned char value) {
 u32 neutral_compare(void *vm, void *values, u32 count, void *out) {
     SetLastError(0x1234);wheel_abs(vm,0,count,values,out);return GetLastError();
 }
+u32 tick_camera(unsigned char *camera) {
+    SetLastError(0x1234);camera_update(camera);return GetLastError();
+}
 `, {select_type: target.select_type, notify_ui: target.notify_ui,
     menu_keys:target.menu_keys, menu_focus:target.menu_focus,wheel_abs:target.wheel_abs,
+    camera_update:target.camera_update,
     SetLastError: Process.getModuleByName('kernel32.dll').getExportByName('SetLastError'),
     GetLastError: Process.getModuleByName('kernel32.dll').getExportByName('GetLastError')});
 const choose = new NativeFunction(caller.choose, 'uint32', ['pointer', 'pointer', 'pointer']);
 const pressMenu=new NativeFunction(caller.press_menu,'uint32',['pointer','pointer','uint32']);
 const setFocus=new NativeFunction(caller.set_focus,'uint32',['pointer','uint8']);
 const neutralCompare=new NativeFunction(caller.neutral_compare,'uint32',['pointer','pointer','uint32','pointer']);
+const tickCamera=new NativeFunction(caller.tick_camera,'uint32',['pointer']);
 // Controlled x64 instruction fixture: R10=engine, R11=UI; read through R10.
 const getterCode = Memory.alloc(Process.pageSize);
 getterCode.writeByteArray([0x56,0x49,0x8b,0xf0,0x4c,0x8b,0xd2,0x4c,0x8b,0xd9,
@@ -150,9 +161,32 @@ rpc.exports = {
             wheelNeutral:String(target.wheel_abs),
             menuData:String(target.menu_data),menuSelect:String(target.menu_select),
             menuKeys:String(target.menu_keys),menuFocus:String(target.menu_focus),
+            cameraUpdate:String(target.camera_update),cameraDragging:String(target.camera_dragging),
             hoverSite:String(hoverCode.add(7)),hoverResume:String(hoverCode.add(29)),
             callers:[String(modeCaller.add(16))]},
         ids: {keyboard: 11, mouse: 22, wheel: 33, supplemental: 44}}; },
+    menuCursor(options) {
+        const o={category:33,opening:true,view:'HudInteractionPanelUiView',method:'SetData',
+            enabled:1,dragging:1,tick:true,invalid:false,...options};
+        const object=Memory.alloc(512);object.writeByteArray(new Uint8Array(512));
+        object.add(0x1d0).writeS32(-1);
+        const vm=vmStack('','','',[
+            ['TruckInputController',o.opening?'TurnOnFunctions':'TurnOffFunctions'],[o.view,o.method]]);
+        engineCategory.writeU32(o.category);
+        cursorCamera=Memory.alloc(64);cursorCamera.writeByteArray(new Uint8Array(64));
+        cursorCamera.add(0x14).writeU8(o.enabled);cursorCamera.add(0x15).writeU8(o.dragging);
+        rebuildMenu(object,42,o.invalid?ptr(0):vm.context);
+        uiHold.push({object,vm,camera:cursorCamera});
+        const error=o.tick?tickCamera(cursorCamera):0;
+        return {dragging:cursorCamera.add(0x15).readU8(),releases:cursorCamera.add(40).readU32(),
+            error,entryError:cursorCamera.add(36).readU32(),category:engineCategory.readU32()};
+    },
+    cursorTick(enabled=1,dragging=1) {
+        cursorCamera.add(0x14).writeU8(enabled ?? 1);cursorCamera.add(0x15).writeU8(dragging ?? 1);
+        const error=tickCamera(cursorCamera);
+        return {dragging:cursorCamera.add(0x15).readU8(),releases:cursorCamera.add(40).readU32(),
+            error,entryError:cursorCamera.add(36).readU32()};
+    },
     wheelNeutral(options) {
         const o={category:33,value:-1/65536,count:1,zero:0,tolerance:1e-6,
             callerClass:'TruckInputController',callerMethod:'UpdateSteeringWheelInputs',

@@ -1,8 +1,10 @@
 # SnowRunner Enhanced
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.3** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.4** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
+Opening Functions with the keyboard or wheel now releases mouse camera capture
+and restores the cursor automatically. A new click can still control the camera.
 
 The standalone package includes a bilingual installer. Players do not need to
 install Python, Frida, or .NET. Extract the complete release ZIP and run
@@ -20,6 +22,9 @@ be built before it can be installed.
 This native integration is a preview. In-game testing on November 21, 2026
 confirmed restored Function menu and winch-point hover after wheel input with
 preview.3. Automated tests also cover the hooks, installer and ASI loading.
+The preview.4 cursor change was confirmed with both keyboard and wheel after
+uninstalling, reinstalling the package and restarting the game. The earlier
+temporary test also confirmed clicking to resume camera control.
 The earlier V18 prototype was tested with a Logitech G923. Other wheels, a full
 V18 regression pass, extended sessions and coexistence with all supported mods
 remain to be validated.

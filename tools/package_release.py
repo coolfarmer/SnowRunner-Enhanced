@@ -7,7 +7,7 @@ import zipfile
 from asi_loaders import LOADERS, loader_path, verify
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0-preview.3'
+VERSION = '0.1.0-preview.4'
 PACKAGE = ROOT / 'dist' / ('SnowRunnerEnhanced-' + VERSION)
 
 

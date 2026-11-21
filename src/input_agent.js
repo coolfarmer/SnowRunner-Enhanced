@@ -10,6 +10,8 @@ let uiNotificationsSuppressed = 0;
 let menuSelectionResets = 0;
 let menuFocusRestores = 0;
 let menuRefreshFocusKeeps = 0;
+let menuCursorReleases = 0;
+let pendingMenuCursor = null;
 let wheelNeutralFiltered = 0;
 let lastWheelNeutralValue = null;
 let faults = 0;
@@ -49,6 +51,7 @@ function setMode(next) {
     if (next !== 'observe' && next !== 'ui-mouse-priority') throw new Error('Invalid mode');
     if (next === 'ui-mouse-priority' && faults) throw new Error('Fault latched; restart capture');
     mode = next;
+    pendingMenuCursor = null;
     lastWheelNeutralValue = null;
     emit({kind: 'mode', mode});
     return status();
@@ -56,13 +59,14 @@ function setMode(next) {
 
 function status() {
     return {active, mode, calls, redirected, uiNotificationsSuppressed, menuSelectionResets, menuFocusRestores, menuRefreshFocusKeeps, getterCalls, getterRedirected,
-        wheelNeutralFiltered, faults, dropped, queued: events.length, preferredCategory: label(preferredCategory),
+        menuCursorReleases, wheelNeutralFiltered, faults, dropped, queued: events.length, preferredCategory: label(preferredCategory),
         winchModeCalls, winchModeRedirected, winchHoverCalls, winchHoverRedirected,
         counts, getterCallers};
 }
 
 function stop() {
     mode = 'observe';
+    pendingMenuCursor = null;
     for (const listener of listeners) listener.detach();
     listeners = [];
     Interceptor.flush();
@@ -102,6 +106,35 @@ function install(b) {
             object.add(0x38).readU32()].join(':');
     }
     try {
+        if (b.menuCursor) {
+            const setDragging = new NativeFunction(b.menuCursor.setDragging, 'void', ['pointer', 'uint8']);
+            listeners.push(Interceptor.attach(b.menuCursor.update, {
+                onEnter(args) {
+                    const pending = pendingMenuCursor;
+                    if (!pending) return;
+                    const savedError = this.lastError;
+                    try {
+                        if (mode !== 'ui-mouse-priority' || Date.now() - pending.time > 500) {
+                            pendingMenuCursor = null;
+                            return;
+                        }
+                        // Consume on the active camera's next update, on the
+                        // opening thread. Never retain a camera object between
+                        // frames or force the cursor throughout the open menu.
+                        const camera = args[0];
+                        if (pending.thread !== this.threadId || camera.add(0x14).readU8() !== 1) return;
+                        pendingMenuCursor = null;
+                        if (camera.add(0x15).readU8() !== 1) return;
+                        // The native setter restores the saved mouse position
+                        // and clears dragging; the next click can capture again.
+                        setDragging(camera, 0);
+                        menuCursorReleases++;
+                        emit({kind: 'menu-cursor-release'});
+                    } catch (e) { pendingMenuCursor = null; fail(e); }
+                    finally { this.lastError = savedError; }
+                }
+            }));
+        }
         if (b.wheelNeutral) {
             const zero = Memory.alloc(8);
             zero.writeU64(uint64('0x3000000000000')); // immutable float variant: 0
@@ -295,6 +328,10 @@ function install(b) {
                         if (mode !== 'ui-mouse-priority') return;
                         const engine = b.engineStateSlot.readPointer();
                         const requested = engine.readU32();
+                        if (b.menuCursor && Object.values(b.ids).includes(requested) &&
+                                uiScope.hasCaller(this.context, 'TruckInputController.TurnOnFunctions')) {
+                            pendingMenuCursor = {thread: this.threadId, time: Date.now()};
+                        }
                         const wheel = requested === b.ids.wheel || requested === b.ids.supplemental ||
                             (requested === b.ids.mouse &&
                              [b.ids.wheel, b.ids.supplemental].includes(preferredCategory));
@@ -531,6 +568,8 @@ function startGame() {
             selectIndex: game.base.add(CONFIG.profile.menuListSelectIndexRva)},
         menuKeys: {dispatch: game.base.add(CONFIG.profile.menuKeyDispatchRva),
             focus: game.base.add(CONFIG.profile.menuFocusSetterRva)},
+        menuCursor: {update: game.base.add(CONFIG.profile.menuCursorCameraUpdateRva),
+            setDragging: game.base.add(CONFIG.profile.menuCursorSetDraggingRva)},
         wheelNeutral: game.base.add(CONFIG.profile.wheelNeutralAbsFloatRva),
         cursor: Process.getModuleByName('user32.dll').getExportByName('SetCursorPos'),
         base: game.base, size: game.size});
@@ -555,6 +594,7 @@ rpc.exports = {
             winchCallers: winch.callers.map(p=>ptr(p)),
             menuList: {setData: ptr(winch.menuData), selectIndex: ptr(winch.menuSelect)},
             menuKeys: winch.menuKeys ? {dispatch: ptr(winch.menuKeys), focus: ptr(winch.menuFocus)} : null,
+            menuCursor: winch.cameraUpdate ? {update: ptr(winch.cameraUpdate), setDragging: ptr(winch.cameraDragging)} : null,
             wheelNeutral: winch.wheelNeutral ? ptr(winch.wheelNeutral) : null,
             winchHover: {before: ptr(winch.hoverSite), after: ptr(winch.hoverResume)}});
     }

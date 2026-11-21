@@ -37,7 +37,7 @@ class RealScannerTests(unittest.TestCase):
             resolved, details = resolve_profile(PROFILE, signatures, scanned, sections)
             expected, _ = resolve_profile(PROFILE, signatures, matches, sections)
             self.assertEqual(resolved, expected)
-            self.assertEqual(details['relocatedGuards'], 28)
+            self.assertEqual(details['relocatedGuards'], 30)
             script.unload()
         finally:
             if session:

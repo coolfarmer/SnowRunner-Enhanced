@@ -1,13 +1,16 @@
-# SnowRunner Enhanced — 0.1.0-preview.3
+# SnowRunner Enhanced — 0.1.0-preview.4
 
-Cette préversion corrige la perte de survol après une entrée du volant :
-le gestionnaire de souris en jeu conserve le comportement souris pendant les
-transitions, sans changer le périphérique utilisé pour la conduite.
+Cette préversion fait réapparaître automatiquement le curseur à l’ouverture
+de Fonctions, au clavier comme au volant, après avoir utilisé la souris pour
+la caméra. Un nouveau clic permet toujours de reprendre la caméra.
+Elle conserve aussi le correctif de survol après une entrée du volant.
 
 Préversion Windows x64. Le paquet fonctionne sans installation de Python,
 Frida ou .NET. Le rétablissement du survol de Fonctions et des points de treuil
 après une entrée volant a été confirmé en jeu le 21 novembre 2026. Les tests
 automatisés complètent cet essai ciblé ; la validation complète reste à faire.
+Le retour automatique du curseur de preview.4 a également été confirmé au
+clavier et au volant après désinstallation, réinstallation et relancement du jeu.
 
 ## Installer
 
@@ -34,7 +37,7 @@ leurs propres options ; cette préversion ne contient qu’une feature.
 
 ## Mises à jour du jeu
 
-Le correctif recherche 28 signatures et contrôle leurs références au lancement.
+Le correctif recherche 30 signatures et contrôle leurs références au lancement.
 Il accepte les déplacements de code et de données compatibles sans exiger une
 empreinte exacte du jeu. Si les signatures sont absentes, ambiguës ou incohérentes,
 il reste inactif. La recherche peut prendre environ une minute au démarrage.

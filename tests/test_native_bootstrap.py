@@ -18,7 +18,7 @@ const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12}}};
 const NATIVE_SIGNATURES=[],ENHANCED_HOST={gameSha256:'test'};
 let queued=[],interval=null,states=[],starts=0,stops=0,scanError=false,startError=false,faults=0,active=false;
 const nativeProbe={describe:()=>({name:'SnowRunner.exe',sections:[]}),scan:()=>{if(scanError)throw Error('scan');return {};}};
-const resolveNativeProfile=()=>({profile:CONFIG.profile,details:{relocatedGuards:28}});
+const resolveNativeProfile=()=>({profile:CONFIG.profile,details:{relocatedGuards:30}});
 const nativeAgent={start:()=>{starts++;if(startError)throw Error('install');active=true;},
 mode:()=>{},status:()=>({active,faults}),drain:()=>{},stop:()=>{stops++;active=false;}};
 (function(Process,setTimeout,setInterval,clearInterval,send){

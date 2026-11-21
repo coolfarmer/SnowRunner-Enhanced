@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.3`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.4`. Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -31,7 +31,7 @@ ne crée ni script ni interceptions V18. Une configuration inconnue ou invalide
 laisse le correctif inactif.
 
 Les signatures sont compilées au build depuis le profil V18. À l’exécution,
-le résolveur JS recoupe les 28 blocs et leurs références, attend l’initialisation
+le résolveur JS recoupe les 30 blocs et leurs références, attend l’initialisation
 des catégories d’entrée puis donne les octets trouvés au contrôle exact de la
 V18. La découverte seule réessaie jusqu’à 30 fois (environ une minute). Un échec
 d’installation des hooks ne réessaie pas. Une faute pendant le fonctionnement
@@ -98,8 +98,8 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.3.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.3/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.4.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.4/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
@@ -115,12 +115,28 @@ Les rapports créés après extraction ne sont pas repris dans une reconstructio
 
 ## Vérification et limites
 
-Les tests couvrent les 424 assertions dans le vrai moteur embarqué, dont les
+Preview.4 ajoute deux signatures : la mise à jour de la caméra native et son
+setter de capture souris. Une reconstruction de Fonctions dans la pile de
+`TruckInputController.TurnOnFunctions` programme une seule libération. À la
+prochaine mise à jour de la caméra active sur le même thread (500 ms maximum),
+le setter natif rétablit la position du pointeur et désactive la capture.
+Les actualisations du menu et les clics caméra suivants restent libres.
+Le mode observation et l'arrêt annulent la demande en attente.
+
+Le 21 novembre 2026, l'utilisateur a confirmé le retour automatique du curseur
+à l'ouverture au volant et au clavier, ainsi que la reprise caméra par clic,
+avec l'essai temporaire. La trace montre trois libérations, aucune erreur,
+et aucune libération supplémentaire lors des actualisations du menu.
+L'utilisateur a ensuite désinstallé puis réinstallé preview.4 et relancé le jeu :
+le retour automatique du curseur au clavier et au volant est confirmé avec le
+paquet natif installé, le même jour.
+
+Les tests couvrent les 446 assertions dans le vrai moteur embarqué, dont les
 transitions clavier/souris/volant et l'isolation du lecteur corrigé, le
 scanner natif sur mémoire synthétique, les signatures déplacées et incohérentes,
 le cycle de démarrage, les changements de configuration, l’appartenance des DLL,
 les conflits et verrous Windows et le chargement ASI par import DINPUT8. Une image
-PE de test contient les 28 blocs déplacés et atteint l’état actif sans aucune
+PE de test contient les 30 blocs déplacés et atteint l’état actif sans aucune
 injection externe. Une autre image non reconnue reste inactive.
 
 Les tests automatisés utilisent des programmes jetables construits ici.

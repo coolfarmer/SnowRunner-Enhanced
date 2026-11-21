@@ -1,13 +1,15 @@
-# SnowRunner Enhanced — 0.1.0-preview.3
+# SnowRunner Enhanced — 0.1.0-preview.4
 
-This preview fixes mouse hover being lost after wheel input. The in-game mouse
-owner keeps mouse interaction during device transitions without changing the
-device used for driving.
+This preview automatically restores the cursor when opening Functions with
+the keyboard or wheel after using the mouse camera. Clicking again still
+allows camera control. It also retains the fix for hover lost after wheel input.
 
 Windows x64 preview. No Python, Frida or .NET installation is required.
 In-game testing on November 21, 2026 confirmed restored Function menu and
 winch-point hover after wheel input. Automated tests complement this targeted
 check; full validation remains pending.
+The preview.4 cursor fix was also confirmed with keyboard and wheel after
+uninstalling, reinstalling and restarting the game.
 
 ## Install
 
@@ -34,7 +36,7 @@ preview contains one feature.
 
 ## Game updates
 
-The fix searches for 28 signatures and checks their references at startup.
+The fix searches for 30 signatures and checks their references at startup.
 Compatible code/data relocation is accepted without requiring an exact game
 hash. Missing, ambiguous or inconsistent signatures leave the fix inactive.
 Startup discovery may take about a minute. Changes to instructions, data
