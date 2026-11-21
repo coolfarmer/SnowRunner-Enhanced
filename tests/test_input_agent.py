@@ -85,6 +85,26 @@ def main():
         result = run(22, 33, 786, 'MinimapCameraController', 'UpdateCameraSteeringWheelInputs')
         assert result['readBack'] == 22 and result['state'][0] == 33, result
         checks += 1
+        # Live transition trace: GameStateIngame re-reads the device rather
+        # than trusting the mouse-valued notification. Seeing wheel makes it
+        # call CancelShowMouse; the subsequent mouse notification is suppressed.
+        # Its IsKeyboardOrMouse decision must therefore use pointer semantics.
+        print('Checking in-game mouse ownership across wheel transitions', flush=True)
+        for test_mode in ('observe', 'ui-mouse-priority'):
+            a.mode(test_mode)
+            a.fixture_preference(22)
+            for requested in (11, 22, 33, 22, 33, 44, 22, 55, 11, 22):
+                result = f.run(22, requested, 765, 'GameStateIngame',
+                               'HandleOnDeviceChanged', 'IsKeyboardOrMouse')
+                expected = 22 if test_mode == 'ui-mouse-priority' and requested in (33, 44) else requested
+                assert result['readBack'] == expected, (test_mode, requested, result)
+                assert result['state'][0] == requested and result['device'] == [requested, 765], result
+                assert result['lastError'] == 0x1234, result
+                checks += 1
+        for cls, method in [('GameStateIngame', 'Subscribe'), ('OtherGameState', 'HandleOnDeviceChanged')]:
+            result = run(22, 33, 765, cls, method, 'IsKeyboardOrMouse')
+            assert result['readBack'] == 33, result
+            checks += 1
         for cls, method in [('HudInteractionPanelUiView', 'SetData')]:
             result = run(22, 33, 123, cls, method)
             assert result['readBack'] == 33 and result['state'][0] == 33, result

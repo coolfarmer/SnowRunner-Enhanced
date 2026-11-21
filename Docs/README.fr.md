@@ -1,8 +1,13 @@
-# SnowRunner Enhanced — 0.1.0-preview.2
+# SnowRunner Enhanced — 0.1.0-preview.3
+
+Cette préversion corrige la perte de survol après une entrée du volant :
+le gestionnaire de souris en jeu conserve le comportement souris pendant les
+transitions, sans changer le périphérique utilisé pour la conduite.
 
 Préversion Windows x64. Le paquet fonctionne sans installation de Python,
-Frida ou .NET. Les tests automatisés sont effectués dans des programmes de
-test ; cette intégration native reste à valider dans SnowRunner.
+Frida ou .NET. Le rétablissement du survol de Fonctions et des points de treuil
+après une entrée volant a été confirmé en jeu le 21 novembre 2026. Les tests
+automatisés complètent cet essai ciblé ; la validation complète reste à faire.
 
 ## Installer
 
@@ -21,7 +26,7 @@ test ; cette intégration native reste à valider dans SnowRunner.
 carte et treuil, sélection et focus du menu Fonctions, clignotements ciblés
 et filtrage du résidu du volant au repos. Il ne filtre aucune marque ni aucun
 identifiant USB. La validation physique de la V18 concerne un G923 ; les
-autres volants et le nouveau chargement natif restent à tester.
+autres volants et une session prolongée restent à tester.
 
 Vous pouvez désactiver ce correctif dans **Personnaliser les améliorations**, jeu fermé.
 Le changement s’applique au prochain lancement. Les futurs correctifs auront

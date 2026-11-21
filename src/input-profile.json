@@ -156,6 +156,7 @@
   "uiGetterSiteRva": 19949588,
   "stringPoolSlotRva": 45321816,
   "callerRoles": {
+    "GameStateIngame.HandleOnDeviceChanged": "pointer",
     "MinimapCameraController.UpdateCameraSteeringWheelInputs": "pointer",
     "MinimapCameraController.UpdateSensitivity": "pointer",
     "MouseController.CanShowMouseCursor": "pointer",

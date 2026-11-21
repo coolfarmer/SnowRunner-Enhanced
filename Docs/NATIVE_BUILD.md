@@ -1,6 +1,7 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.2`. Cette intégration reprend la logique V18 intacte
+Version : `0.1.0-preview.3`. Cette intégration reprend la logique V18 avec une
+correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
 injecteur et n’installe ni Frida, ni Python, ni .NET.
@@ -97,29 +98,43 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.2.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.2/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.3.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.3/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
 
-Les agents V18 embarqués sont conservés sans modification de comportement. Le ZIP est assemblé
+Les agents V18 embarqués sont conservés ; le profil classe désormais
+`GameStateIngame.HandleOnDeviceChanged` parmi les lecteurs de pointeur. Le jeu
+ne doit pas annuler sa demande de souris lors d'une notification volant déjà
+convertie en comportement souris. Les lecteurs de conduite restent inchangés.
+Le ZIP est assemblé
 par une liste explicite ; les fixtures, journaux, téléchargements, outils de
 compilation et dossiers d’autres projets ne peuvent pas y entrer par récursion.
 Les rapports créés après extraction ne sont pas repris dans une reconstruction.
 
 ## Vérification et limites
 
-Les tests couvrent les 402 assertions V18 dans le vrai moteur embarqué, le
+Les tests couvrent les 424 assertions dans le vrai moteur embarqué, dont les
+transitions clavier/souris/volant et l'isolation du lecteur corrigé, le
 scanner natif sur mémoire synthétique, les signatures déplacées et incohérentes,
 le cycle de démarrage, les changements de configuration, l’appartenance des DLL,
 les conflits et verrous Windows et le chargement ASI par import DINPUT8. Une image
 PE de test contient les 28 blocs déplacés et atteint l’état actif sans aucune
 injection externe. Une autre image non reconnue reste inactive.
 
-Ces tests utilisent des programmes jetables construits ici, jamais le jeu.
-Restent à valider dans SnowRunner : le moment de l’appel VERSION, le démarrage
-et la fermeture, les scénarios V18, une session prolongée et la coexistence réelle
+Les tests automatisés utilisent des programmes jetables construits ici.
+Le 21 novembre 2026, un essai réel après installation et lancement de preview.3
+a confirmé le rétablissement du survol de Fonctions et des points de treuil
+après une entrée volant. Une capture passive avant correction a identifié
+`GameStateIngame.HandleOnDeviceChanged` appelant `CancelShowMouse` en contexte
+volant. Le nouveau test reproduit la lecture fautive avec l'ancien profil ;
+les 424 assertions passent avec la correction. Le build complet passe aussi
+40 tests de compatibilité et d'installation, 82 contrôles d'interface et les
+scénarios des chargeurs ASI.
+
+Restent à valider : tous les scénarios V18 avec le paquet natif, les différents
+cycles de démarrage/fermeture, une session prolongée et la coexistence complète
 avec FFB Fix et SMT. Les tests chargent Enhanced et un second ASI synthétique
 avec les véritables chargeurs 10.0.2 et 8.5.0 ; ils ne valident pas les hooks des
 trois vrais mods ensemble. L’import DINPUT8 est vérifié avant installation ;

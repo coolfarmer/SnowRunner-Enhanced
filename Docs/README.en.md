@@ -1,8 +1,13 @@
-# SnowRunner Enhanced — 0.1.0-preview.2
+# SnowRunner Enhanced — 0.1.0-preview.3
+
+This preview fixes mouse hover being lost after wheel input. The in-game mouse
+owner keeps mouse interaction during device transitions without changing the
+device used for driving.
 
 Windows x64 preview. No Python, Frida or .NET installation is required.
-Automated validation uses disposable test programs. This native integration
-still needs validation in SnowRunner.
+In-game testing on November 21, 2026 confirmed restored Function menu and
+winch-point hover after wheel input. Automated tests complement this targeted
+check; full validation remains pending.
 
 ## Install
 
@@ -20,8 +25,8 @@ still needs validation in SnowRunner.
 **Simultaneous Mouse & Wheel Input** (`wheel_mouse`) contains all V18 corrections:
 map and winch input, Function menu selection and focus, targeted flickering,
 and wheel residue at rest. It does not filter by wheel brand or USB identity.
-The V18 physical validation used a G923. Other wheels and this native loading
-method still need physical testing.
+The V18 physical validation used a G923. Other wheels and extended sessions
+still need physical testing.
 
 Disable this fix through **Customize enhancements** with the game closed. Changes take
 effect on the next launch. Future fixes will have independent options; this
