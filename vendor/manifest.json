@@ -1,0 +1,42 @@
+{
+  "downloads": [
+    {
+      "name": "Microsoft.VC.14.52.CRT.x64.Store.base.vsix",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/aad09a18-fd5d-45d3-91e5-9fc87e932d9f/b42af543b1261f0fce5b88fb9fe876c1e3d7579cf768f37cbd676aa571942a07/Microsoft.VC.14.52.CRT.x64.Store.base.vsix",
+      "sha256": "b42af543b1261f0fce5b88fb9fe876c1e3d7579cf768f37cbd676aa571942a07"
+    },
+    {
+      "name": "Microsoft.VC.14.52.CRT.Headers.base.vsix",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/aad09a18-fd5d-45d3-91e5-9fc87e932d9f/97fac068e1b7d84d2596394523ffd13f4d93878f7313361d39bbf7579a803fe4/Microsoft.VC.14.52.CRT.Headers.base.vsix",
+      "sha256": "97fac068e1b7d84d2596394523ffd13f4d93878f7313361d39bbf7579a803fe4"
+    },
+    {
+      "name": "Microsoft.VC.14.52.CRT.x64.Desktop.base.vsix",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/aad09a18-fd5d-45d3-91e5-9fc87e932d9f/6e94791c63d5bd58f1495e2e0ab6c37756f1b06fc9400ef72c729ea0661413d3/Microsoft.VC.14.52.CRT.x64.Desktop.base.vsix",
+      "sha256": "6e94791c63d5bd58f1495e2e0ab6c37756f1b06fc9400ef72c729ea0661413d3"
+    },
+    {
+      "name": "Microsoft.VC.14.52.Tools.HostX64.TargetX64.base.vsix",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/aad09a18-fd5d-45d3-91e5-9fc87e932d9f/e8805f002246115e6c5a8444ba87a9f30e86c35943129f798f6deb99825685f8/Microsoft.VC.14.52.Tools.HostX64.TargetX64.base.vsix",
+      "sha256": "e8805f002246115e6c5a8444ba87a9f30e86c35943129f798f6deb99825685f8"
+    },
+    {
+      "name": "Microsoft.VC.14.52.Tools.HostX64.TargetX64.Res.base.enu.vsix",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/aad09a18-fd5d-45d3-91e5-9fc87e932d9f/fbeb2488e009141ff915ad300569305efb24a79b7258cdfc50d73c05dc9a934e/Microsoft.VC.14.52.Tools.HostX64.TargetX64.Res.base.enu.vsix",
+      "sha256": "fbeb2488e009141ff915ad300569305efb24a79b7258cdfc50d73c05dc9a934e"
+    },
+    {
+      "name": "frida-gumjs-17.26.3.tar.xz",
+      "url": "https://github.com/frida/frida/releases/download/17.26.3/frida-gumjs-devkit-17.26.3-windows-x86_64.tar.xz",
+      "sha256": "71cc9091e2b786493bcc1915f81c3ca14091e6acdfccd1324898bdf40b7ab15d"
+    }
+  ],
+  "files": {
+    "frida-gumjs\\frida-gumjs-example.c": "e5ac493dd680ab9caa599ad2310117157ff76dec70f14faac1811f730daabdb4",
+    "frida-gumjs\\frida-gumjs-example.sln": "b02a26d1e9334a6927dc9d54c9b2c7ef0d0612e6bfae31f066d09f84075fef8c",
+    "frida-gumjs\\frida-gumjs-example.vcxproj": "0a9dd4621f6010f3e9b829f350c01ce7c17fb97c5fa36cbea59a3fe433e34c50",
+    "frida-gumjs\\frida-gumjs-example.vcxproj.filters": "ad3a98a813d5328498cedb64a65d6319c453f8bfcf568ca4cbd6bb3d88dd7b11",
+    "frida-gumjs\\frida-gumjs.h": "641f981633113695851ccbb2bd28ebda51ef14b12fb372fadc884d9d6c02b475",
+    "frida-gumjs\\frida-gumjs.lib": "642a6d5afe21f35d4c04b23c0b54e1662dae2350624d9893952391926314774b"
+  }
+}

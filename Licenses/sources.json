@@ -1,0 +1,138 @@
+{
+  "fridaVersion": "17.26.3",
+  "relengRevision": "fe7d31dfbcfe34701851411773cf82c0359b44bd",
+  "dependencies": {
+    "glib": {
+      "version": "c6df0665dab0f971f66c5c46055b7d0b6085d1b1",
+      "url": "https://github.com/frida-forks/glib.git"
+    },
+    "json-glib": {
+      "version": "0242c39f1f60f844c9df41e83434251b06609e82",
+      "url": "https://github.com/frida-forks/json-glib.git"
+    },
+    "libffi": {
+      "version": "5cca756802a5d27988e7f9973e1299f684cfeff7",
+      "url": "https://github.com/frida-forks/libffi.git"
+    },
+    "pcre2": {
+      "version": "683059230e4894342bb19f2776f0e50c757fde17",
+      "url": "https://github.com/frida-forks/pcre2.git"
+    },
+    "capstone": {
+      "version": "f919a03a5417e1c7ea3af7035225073437030ef2",
+      "url": "https://github.com/frida-forks/capstone.git"
+    },
+    "quickjs": {
+      "version": "6f3b5b4827d4c81af85627d66fce2ec3c8ab70d0",
+      "url": "https://github.com/frida-forks/quickjs.git"
+    },
+    "tinycc": {
+      "version": "c0b84021e3e5c8359a469b1af2bf4abd83a7a26a",
+      "url": "https://github.com/frida-forks/tinycc.git"
+    },
+    "zlib": {
+      "version": "b910f805561e24a7a25521de438c82942cd7885b",
+      "url": "https://github.com/frida-forks/zlib.git"
+    },
+    "v8": {
+      "version": "f6d7f6610f2f21e2817ed180b72ea750a3f63ce8",
+      "url": "https://github.com/frida-forks/v8.git"
+    },
+    "sqlite": {
+      "version": "2cfd2ffbef3fc25a11542f876a0ff8ecb2d50914",
+      "url": "https://github.com/frida-forks/sqlite.git"
+    }
+  },
+  "notices": [
+    {
+      "name": "glib-COPYING.txt",
+      "sha256": "65986a89240f59896ce42a3779bbe5ed486a0bca7df636a8eef030fd2e1a0984",
+      "url": "https://raw.githubusercontent.com/frida-forks/glib/c6df0665dab0f971f66c5c46055b7d0b6085d1b1/COPYING"
+    },
+    {
+      "name": "glib-LICENSES-LGPL-2.1-or-later.txt.txt",
+      "sha256": "fa6f36630bb1e0c571d34b2bbdf188d08495c9dbf58f28cac112f303fc1f58fb",
+      "url": "https://raw.githubusercontent.com/frida-forks/glib/c6df0665dab0f971f66c5c46055b7d0b6085d1b1/LICENSES/LGPL-2.1-or-later.txt"
+    },
+    {
+      "name": "json-glib-COPYING.txt",
+      "sha256": "65986a89240f59896ce42a3779bbe5ed486a0bca7df636a8eef030fd2e1a0984",
+      "url": "https://raw.githubusercontent.com/frida-forks/json-glib/0242c39f1f60f844c9df41e83434251b06609e82/COPYING"
+    },
+    {
+      "name": "json-glib-LICENSES-LGPL-2.1-or-later.txt.txt",
+      "sha256": "fa6f36630bb1e0c571d34b2bbdf188d08495c9dbf58f28cac112f303fc1f58fb",
+      "url": "https://raw.githubusercontent.com/frida-forks/json-glib/0242c39f1f60f844c9df41e83434251b06609e82/LICENSES/LGPL-2.1-or-later.txt"
+    },
+    {
+      "name": "libffi-LICENSE.txt",
+      "sha256": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c",
+      "url": "https://raw.githubusercontent.com/frida-forks/libffi/5cca756802a5d27988e7f9973e1299f684cfeff7/LICENSE"
+    },
+    {
+      "name": "pcre2-COPYING.txt",
+      "sha256": "99272c55f3dcfa07a8a7e15a5c1a33096e4727de74241d65fa049fccfdd59507",
+      "url": "https://raw.githubusercontent.com/frida-forks/pcre2/683059230e4894342bb19f2776f0e50c757fde17/COPYING"
+    },
+    {
+      "name": "capstone-LICENSE.TXT.txt",
+      "sha256": "65e9ed46a59976eda8f5bd1ea79a680dea38dd299c760bc9a8d87a764ef5029b",
+      "url": "https://raw.githubusercontent.com/frida-forks/capstone/f919a03a5417e1c7ea3af7035225073437030ef2/LICENSE.TXT"
+    },
+    {
+      "name": "capstone-LICENSE_LLVM.TXT.txt",
+      "sha256": "dfdca2d7fdbabfd937f9dc41b7f61647b0e6cb1f9ee767ecb4520f979ebe91da",
+      "url": "https://raw.githubusercontent.com/frida-forks/capstone/f919a03a5417e1c7ea3af7035225073437030ef2/LICENSE_LLVM.TXT"
+    },
+    {
+      "name": "quickjs-LICENSE.txt",
+      "sha256": "598fd7fc928e4350abce36e337ba5a1346923c5c692f5be92c3d8e29ddd7c18d",
+      "url": "https://raw.githubusercontent.com/frida-forks/quickjs/6f3b5b4827d4c81af85627d66fce2ec3c8ab70d0/LICENSE"
+    },
+    {
+      "name": "tinycc-COPYING.txt",
+      "sha256": "512d2d21b6b3384ba64781abb0208a1b87740bc31e2df48e2b206ddb7e4d5779",
+      "url": "https://raw.githubusercontent.com/frida-forks/tinycc/c0b84021e3e5c8359a469b1af2bf4abd83a7a26a/COPYING"
+    },
+    {
+      "name": "zlib-LICENSE.txt",
+      "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+      "url": "https://raw.githubusercontent.com/frida-forks/zlib/b910f805561e24a7a25521de438c82942cd7885b/LICENSE"
+    },
+    {
+      "name": "v8-LICENSE.txt",
+      "sha256": "6ab33af8774a0f396ee3aeeb761e3229057682d6f9fa7f572e390c2cb3a6e509",
+      "url": "https://raw.githubusercontent.com/frida-forks/v8/f6d7f6610f2f21e2817ed180b72ea750a3f63ce8/LICENSE"
+    },
+    {
+      "name": "v8-LICENSE.fdlibm.txt",
+      "sha256": "e7115e18444dae09d17f361ddc365fb1d342640fe500796209c63f7c80dfae10",
+      "url": "https://raw.githubusercontent.com/frida-forks/v8/f6d7f6610f2f21e2817ed180b72ea750a3f63ce8/LICENSE.fdlibm"
+    },
+    {
+      "name": "v8-LICENSE.strongtalk.txt",
+      "sha256": "6a585a9f466654abc8fc0829d56b1bc987e3a073d31faa03bba37d33640a23cd",
+      "url": "https://raw.githubusercontent.com/frida-forks/v8/f6d7f6610f2f21e2817ed180b72ea750a3f63ce8/LICENSE.strongtalk"
+    },
+    {
+      "name": "v8-LICENSE.v8.txt",
+      "sha256": "4af93c12062c58058378de2397dc1c92bbff9ddfb1d583a01c84127557ce97ca",
+      "url": "https://raw.githubusercontent.com/frida-forks/v8/f6d7f6610f2f21e2817ed180b72ea750a3f63ce8/LICENSE.v8"
+    },
+    {
+      "name": "Frida-Gum-COPYING.txt",
+      "sha256": "00764fcc23f0f2ac6d2619a1f9192e55176ecaaa525e76a47aaabc5d87fb087f",
+      "url": "https://raw.githubusercontent.com/frida/frida-gum/17.26.3/COPYING"
+    },
+    {
+      "name": "Frida-Gum-COPYING.LIB.txt",
+      "url": "https://www.gnu.org/licenses/old-licenses/lgpl-2.0.txt",
+      "sha256": "cc535c21133c895b56b374c8a1dc1eb948d99003ed2b47372069456b62f42b24"
+    },
+    {
+      "name": "Spectre.Console-LICENSE.txt",
+      "sha256": "3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91",
+      "url": "https://raw.githubusercontent.com/spectreconsole/spectre.console/0.57.2/LICENSE.md"
+    }
+  ]
+}

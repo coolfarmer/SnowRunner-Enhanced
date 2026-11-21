@@ -1,0 +1,23 @@
+# Local tools, dependencies, build products and diagnostics
+.venv/
+.toolchain/
+build/
+dist/
+logs/
+Reports/
+__pycache__/
+*.pyc
+*.log
+**/bin/
+**/obj/
+/vendor/downloads/
+/vendor/frida-gumjs/
+
+# Investigation belongs in the parent workspace, never this repository.
+/captures/
+/analysis/
+/investigation/
+/prototypes/
+/graphify-out/
+.env
+.env.*

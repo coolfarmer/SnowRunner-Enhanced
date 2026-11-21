@@ -1,0 +1,72 @@
+"""Native startup state transitions with a deterministic timer and agent seam."""
+from pathlib import Path
+import unittest
+from native_host import NativeDevice
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@unittest.skipUnless((ROOT / 'build/native/native-harness.exe').exists(), 'Build native host first')
+class BootstrapTests(unittest.TestCase):
+    def setUp(self):
+        self.device = NativeDevice()
+        self.pid = self.device.spawn(None)
+        source = '''
+const data=Memory.alloc(16);
+for(let i=0;i<4;i++) data.add(4*i).writeU32(11*(i+1));
+const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12}}};
+const NATIVE_SIGNATURES=[],ENHANCED_HOST={gameSha256:'test'};
+let queued=[],interval=null,states=[],starts=0,stops=0,scanError=false,startError=false,faults=0,active=false;
+const nativeProbe={describe:()=>({name:'SnowRunner.exe',sections:[]}),scan:()=>{if(scanError)throw Error('scan');return {};}};
+const resolveNativeProfile=()=>({profile:CONFIG.profile,details:{relocatedGuards:28}});
+const nativeAgent={start:()=>{starts++;if(startError)throw Error('install');active=true;},
+mode:()=>{},status:()=>({active,faults}),drain:()=>{},stop:()=>{stops++;active=false;}};
+(function(Process,setTimeout,setInterval,clearInterval,send){
+''' + (ROOT / 'src/native/bootstrap.js').read_text() + '''
+})({mainModule:{base:data},id:123},fn=>queued.push(fn),fn=>{interval=fn;return 1;},()=>{interval=null;},m=>states.push(m.enhancedStatus.features.wheel_mouse.status));
+rpc.exports={
+ set:(key,value)=>{if(key==='scan')scanError=value;if(key==='start')startError=value;if(key==='faults')faults=value;if(key==='ids')data.writeU32(value);},
+ tick:()=>{if(queued.length)queued.shift()();},
+ monitor:()=>{if(interval)interval();},
+ state:()=>({states,starts,stops,active,pending:queued.length,interval:interval!==null})};
+'''
+        self.script = self.device.create_script(source)
+        self.script.load()
+        self.api = self.script.exports_sync
+
+    def tearDown(self):
+        self.script.unload()
+        self.device.kill(self.pid)
+
+    def test_discovery_retries_without_hooks_and_stops(self):
+        self.api.set('scan', True)
+        for _ in range(30): self.api.tick()
+        state = self.api.state()
+        self.assertEqual(state['states'][-1], 'incompatible')
+        self.assertEqual(state['starts'], 0)
+        self.assertEqual(state['pending'], 0)
+
+    def test_initializing_categories_wait_without_installing(self):
+        self.api.set('ids', 0); self.api.tick()
+        self.assertEqual(self.api.state()['starts'], 0)
+        self.api.set('ids', 11); self.api.tick()
+        self.assertTrue(self.api.state()['active'])
+        self.assertEqual(self.api.state()['starts'], 1)
+
+    def test_installation_failure_does_not_retry(self):
+        self.api.set('start', True); self.api.tick()
+        state = self.api.state()
+        self.assertEqual(state['states'][-1], 'error')
+        self.assertEqual(state['starts'], 1)
+        self.assertEqual(state['pending'], 0)
+
+    def test_runtime_fault_stops_correction(self):
+        self.api.tick(); self.api.set('faults', 1); self.api.monitor()
+        state = self.api.state()
+        self.assertEqual(state['states'][-1], 'faulted')
+        self.assertFalse(state['active'])
+        self.assertFalse(state['interval'])
+        self.assertEqual(state['stops'], 1)
+
+
+if __name__ == '__main__': unittest.main(verbosity=2)
