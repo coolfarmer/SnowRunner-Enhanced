@@ -1,6 +1,12 @@
 # SnowRunner Enhanced
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.10** includes mouse and
+Preview.11 keeps the main-menu cursor available after wheel input. The change
+is limited to the main menu's device-change handler in enhancement #1; existing
+in-game input behavior is preserved. Automated regression tests pass, and the
+user confirmed the main-menu cursor fix on November 22, 2026. Individual
+in-game regression scenarios were not separately reconfirmed for this preview.
+
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.11** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
 Opening Functions with the keyboard or wheel now releases mouse camera capture

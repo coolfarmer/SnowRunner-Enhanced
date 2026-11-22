@@ -414,18 +414,30 @@ rpc.exports = {
             selection:object.add(0x1d0).readS32(),generation:object.add(0x1dc).readU32(),
             error,entryError:object.add(504).readU32(),category:engineCategory.readU32()};
     },
-    notificationSequence(sequence, axis) {
+    notificationSequence(sequence, axis, cursorOwner = null) {
         const state=Memory.alloc(20),device=Memory.alloc(8),ui=Memory.alloc(64);
         uiHold.push(ui);
         state.writeByteArray(new Uint8Array(20));state.writeU32(22);
         ui.writeByteArray(new Uint8Array(64));ui.add(24).writePointer(ptr(1));ui.add(32).writeU32(22);
         const result=[];
+        // Model the visibility request owned by HandleOnDeviceChanged: only
+        // delivered notifications run the handler, which re-reads the device.
+        const vm=cursorOwner ? vmStack(cursorOwner,'HandleOnDeviceChanged','IsKeyboardOrMouse') : null;
+        let signals=0, visible=true;
         for(const requested of sequence) {
             device.writeU32(requested);device.add(4).writeU32(axis);
             const error=choose(state,device,ui);
+            const currentSignals=ui.add(36).readU32();
+            if(vm && currentSignals!==signals) {
+                const device=getter(ui,state,vm.context);
+                visible=device===11 || device===22;
+            }
+            signals=currentSignals;
             result.push({requested,category:state.readU32(),axis:state.add(16).readU32(),
-                delivered:ui.add(32).readU32(),signals:ui.add(36).readU32(),lastError:error});
+                delivered:ui.add(32).readU32(),signals,lastError:error,
+                ...(vm ? {cursorVisible:visible} : {})});
         }
+        if(vm)uiHold.push(vm);
         return result;
     },
     run(before, requested, axis, className = 'MouseController', method = 'CanShowMouseCursor', query = '') {

@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.10`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.11`. Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -98,8 +98,8 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.10.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.10/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.11.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.11/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
@@ -114,6 +114,21 @@ compilation et dossiers d’autres projets ne peuvent pas y entrer par récursio
 Les rapports créés après extraction ne sont pas repris dans une reconstruction.
 
 ## Vérification et limites
+
+Preview.11 ajoute seulement `MainMenu.HandleOnDeviceChanged` au rôle `pointer`
+du profil de l’enhancement 1. Comme le gestionnaire en jeu déjà corrigé, celui
+du menu principal relit `IsKeyboardOrMouse` avant de demander ou d’annuler
+l’affichage de la souris. Il doit conserver cette demande lors d’une entrée
+volant, car le filtrage existant supprime ensuite les notifications souris
+redondantes. Les agents de conduite, caméra, Fonctions et treuil sont inchangés.
+Le test ciblé échoue avec l’ancien profil puis passe avec cette seule entrée.
+Il couvre la lecture du périphérique, les notifications filtrées, le mode
+observation et l’isolation des autres méthodes. Le 22 novembre 2026,
+l’utilisateur confirme le correctif du menu principal : « Ça fonctionne très
+bien. » Les scénarios en jeu ne sont pas reconfirmés individuellement pour
+preview.11. Les 556 vérifications passent dans Frida et le moteur embarqué,
+ainsi que les 43 tests de production, 82 contrôles d’interface, 13 tests natifs
+de compatibilité et les scénarios de chargement ASI.
 
 Preview.9 étend la reconstruction au contrôleur de navigation partagé. La
 restriction à l’appelant `HudNavigationPanelHolder.UpdateState` est supprimée ;
@@ -201,7 +216,7 @@ L'utilisateur a ensuite désinstallé puis réinstallé preview.4 et relancé le
 le retour automatique du curseur au clavier et au volant est confirmé avec le
 paquet natif installé, le même jour.
 
-Les tests couvrent les 541 assertions dans le vrai moteur embarqué, dont les
+Les tests couvrent les 556 assertions dans le vrai moteur embarqué, dont les
 transitions clavier/souris/volant et l'isolation du lecteur corrigé, le
 scanner natif sur mémoire synthétique, les signatures déplacées et incohérentes,
 le cycle de démarrage, les changements de configuration, l’appartenance des DLL,

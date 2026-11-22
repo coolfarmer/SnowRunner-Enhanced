@@ -1,4 +1,11 @@
-# SnowRunner Enhanced — 0.1.0-preview.10
+# SnowRunner Enhanced — 0.1.0-preview.11
+
+Preview.11 keeps the cursor usable in the main menu after wheel input. This
+enhancement #1 correction targets only the main menu's device-change handler.
+Existing in-game fixes are preserved. Automated tests pass, and the user
+confirmed the main-menu fix on November 22, 2026. The cursor can remain visible
+while using the wheel. Individual in-game regression scenarios were not
+separately reconfirmed for this preview.
 
 Hints in open panels now follow keyboard-to-wheel switching and back, including
 Close, without having to reopen the panel. The shared icon service and navigation

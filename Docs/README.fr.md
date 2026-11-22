@@ -1,4 +1,12 @@
-# SnowRunner Enhanced — 0.1.0-preview.10
+# SnowRunner Enhanced — 0.1.0-preview.11
+
+Preview.11 conserve le curseur utilisable dans le menu principal après une
+entrée du volant. Cette correction de l’enhancement 1 cible uniquement le
+gestionnaire de changement de périphérique du menu principal. Les correctifs
+en jeu sont conservés. Les tests automatisés passent ; l’utilisateur a confirmé
+le correctif du menu principal le 22 novembre 2026. Le curseur peut rester
+visible pendant l’usage du volant. Les scénarios en jeu ne sont pas reconfirmés
+individuellement pour cette préversion.
 
 Les touches affichées dans les panneaux ouverts suivent maintenant le passage
 du clavier au volant et inversement, y compris le bouton Fermer, sans devoir

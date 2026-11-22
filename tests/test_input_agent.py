@@ -107,6 +107,33 @@ def main():
             result = run(22, 33, 765, cls, method, 'IsKeyboardOrMouse')
             assert result['readBack'] == 33, result
             checks += 1
+        # MainMenu has the same visibility decision as GameStateIngame, but
+        # a separate owner. Redundant mouse notifications must not strand its
+        # visibility request after the wheel-valued getter cancels it.
+        print('Checking main-menu cursor across wheel transitions', flush=True)
+        for test_mode in ('observe', 'ui-mouse-priority'):
+            a.mode(test_mode)
+            for requested in (11, 22, 33, 44, 55):
+                result = run(22, requested, 765, 'MainMenu',
+                             'HandleOnDeviceChanged', 'IsKeyboardOrMouse')
+                expected = 22 if test_mode == 'ui-mouse-priority' and requested in (33, 44) else requested
+                assert result['readBack'] == expected, (test_mode, requested, result)
+                assert result['state'][0] == requested and result['device'] == [requested, 765], result
+                assert result['lastError'] == 0x1234, result
+                checks += 1
+            a.fixture_preference(22)
+            sequence = f.notification_sequence([33, 22, 33, 22], 765, 'MainMenu')
+            expected_visibility = [True] * 4 if test_mode == 'ui-mouse-priority' else [False, True, False, True]
+            assert [v['cursorVisible'] for v in sequence] == expected_visibility, sequence
+            assert [v['signals'] for v in sequence] == ([1] * 4 if test_mode == 'ui-mouse-priority' else [1, 2, 3, 4]), sequence
+            assert [v['category'] for v in sequence] == [33, 22, 33, 22], sequence
+            assert all(v['axis'] == 765 and v['lastError'] == 0x1234 for v in sequence), sequence
+            checks += 1
+        for cls, method in [('MainMenu', 'Subscribe'), ('MainMenu', 'Unsubscribe'),
+                            ('OtherMenu', 'HandleOnDeviceChanged')]:
+            result = run(22, 33, 765, cls, method, 'IsKeyboardOrMouse')
+            assert result['readBack'] == 33 and result['state'][0] == 33, result
+            checks += 1
         for cls, method in [('HudInteractionPanelUiView', 'SetData')]:
             result = run(22, 33, 123, cls, method)
             assert result['readBack'] == 33 and result['state'][0] == 33, result
