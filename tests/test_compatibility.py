@@ -60,7 +60,14 @@ class CompatibilityTests(unittest.TestCase):
             for key in path:
                 value = value[key]
             self.assertEqual(value, move(old), path)
-        self.assertEqual(details['relocatedGuards'], 30)
+        self.assertEqual(details['relocatedGuards'], len(SIGNATURES))
+
+    def test_changed_wheel_value_layout_refused(self):
+        matches, sections, *_ = synthetic_image()
+        item = matches['wheel_state_values'][0]
+        item['hex'] = item['hex'].replace('28020000', '2c020000', 1)
+        with self.assertRaises(IncompatibleError):
+            resolve_profile(PROFILE, SIGNATURES, matches, sections)
 
     def test_changed_opcode_refused(self):
         matches, sections, *_ = synthetic_image()

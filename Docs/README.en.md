@@ -1,4 +1,21 @@
-# SnowRunner Enhanced — 0.1.0-preview.4
+# SnowRunner Enhanced — 0.1.0-preview.9
+
+Hints in open panels now follow keyboard-to-wheel switching and back, including
+Close, without having to reopen the panel. The shared icon service and navigation
+use the same device preference. Confirmed on November 22, 2026 after installing
+preview.9 and restarting the game, in refuelling and cargo management, with
+hints remaining stable at idle.
+
+Small idle axis variations no longer take hint ownership away from the keyboard.
+Cumulative movement of 0.1% of an axis range, or a button change, restores wheel
+hints. This threshold affects presentation only; driving values remain intact.
+Confirmed on November 22, 2026 with the installed preview.7: keyboard hints
+stayed visible for 15 seconds at idle with the engine running, then deliberate
+wheel movement restored the wheel hint.
+
+This preview refreshes HUD zone prompts when switching between keyboard and
+wheel, without having to leave and refocus the game. The gas-station test passed
+after installation and restart; other zones remain to be tested.
 
 This preview automatically restores the cursor when opening Functions with
 the keyboard or wheel after using the mouse camera. Clicking again still
@@ -36,7 +53,7 @@ preview contains one feature.
 
 ## Game updates
 
-The fix searches for 30 signatures and checks their references at startup.
+The fix searches for 31 signatures and checks their references at startup.
 Compatible code/data relocation is accepted without requiring an exact game
 hash. Missing, ambiguous or inconsistent signatures leave the fix inactive.
 Startup discovery may take about a minute. Changes to instructions, data

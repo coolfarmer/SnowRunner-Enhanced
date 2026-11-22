@@ -6,8 +6,15 @@ const neutralTelemetry=Memory.alloc(8);
 const navigationHold=[];
 // Keep synthetic UI identities distinct for the entire test session.
 const uiHold=[];
+const panelUis=[Memory.alloc(64),Memory.alloc(64)];
+for(const ui of panelUis){ui.writeByteArray(new Uint8Array(64));ui.add(24).writePointer(ptr(1));}
 let cursorCamera=null;
 const engineSlot=Memory.alloc(8); engineSlot.writePointer(engineCategory);
+const wheelHardware=Memory.alloc(0x1570),wheelManager=Memory.alloc(0x80),wheelDevices=Memory.alloc(8);
+wheelHardware.writeByteArray(new Uint8Array(0x1570));
+wheelManager.writeByteArray(new Uint8Array(0x80));
+wheelHardware.add(0x156c).writeU32(33);wheelDevices.writePointer(wheelHardware);
+wheelManager.add(0x70).writePointer(wheelDevices);wheelManager.add(0x78).writeS32(1);
 const target = new CModule(`
 typedef unsigned int u32;
 typedef unsigned long long u64;
@@ -18,6 +25,7 @@ extern u32 engine_data[];
 extern void SetLastError(u32);
 extern u32 GetLastError(void);
 u32 gamepad_mode(void) { return gamepad_value; }
+void vm_push(void *vm, void *fn) {}
 void wheel_abs(void *vm, void *unused, u32 count, u64 *values, u64 *out) {
     neutral_telemetry[0]++;neutral_telemetry[1]=GetLastError();
     *out=values[0] & ~(u64)0x80000000;
@@ -59,6 +67,7 @@ extern void menu_keys(void *, void *, u32, void *);
 extern void menu_focus(void *, unsigned char);
 extern void wheel_abs(void *, void *, u32, void *, void *);
 extern void camera_update(unsigned char *);
+extern void vm_push(void *, void *);
 extern void SetLastError(u32);
 extern u32 GetLastError(void);
 u32 choose(u32 *state, u32 *device, u32 *ui) {
@@ -67,6 +76,14 @@ u32 choose(u32 *state, u32 *device, u32 *ui) {
     notify_ui(ui, state);
     state[3] = device[0];
     state[4] = device[1];
+    return GetLastError();
+}
+u32 dispatch_panels(u32 *state, u32 *first, u32 *second) {
+    SetLastError(0x1234);
+    if(((unsigned char *)state)[4]) {
+        notify_ui(first,state); notify_ui(second,state);
+        ((unsigned char *)state)[4]=0;
+    }
     return GetLastError();
 }
 u32 press_menu(void *vm, void *values, u32 count) {
@@ -81,16 +98,21 @@ u32 neutral_compare(void *vm, void *values, u32 count, void *out) {
 u32 tick_camera(unsigned char *camera) {
     SetLastError(0x1234);camera_update(camera);return GetLastError();
 }
+u32 push_frame(void *vm, void *fn) {
+    SetLastError(0x1234); vm_push(vm,fn); return GetLastError();
+}
 `, {select_type: target.select_type, notify_ui: target.notify_ui,
     menu_keys:target.menu_keys, menu_focus:target.menu_focus,wheel_abs:target.wheel_abs,
-    camera_update:target.camera_update,
+    camera_update:target.camera_update, vm_push:target.vm_push,
     SetLastError: Process.getModuleByName('kernel32.dll').getExportByName('SetLastError'),
     GetLastError: Process.getModuleByName('kernel32.dll').getExportByName('GetLastError')});
 const choose = new NativeFunction(caller.choose, 'uint32', ['pointer', 'pointer', 'pointer']);
+const dispatchPanels=new NativeFunction(caller.dispatch_panels,'uint32',['pointer','pointer','pointer']);
 const pressMenu=new NativeFunction(caller.press_menu,'uint32',['pointer','pointer','uint32']);
 const setFocus=new NativeFunction(caller.set_focus,'uint32',['pointer','uint8']);
 const neutralCompare=new NativeFunction(caller.neutral_compare,'uint32',['pointer','pointer','uint32','pointer']);
 const tickCamera=new NativeFunction(caller.tick_camera,'uint32',['pointer']);
+const pushFrame=new NativeFunction(caller.push_frame,'uint32',['pointer','pointer']);
 // Controlled x64 instruction fixture: R10=engine, R11=UI; read through R10.
 const getterCode = Memory.alloc(Process.pageSize);
 getterCode.writeByteArray([0x56,0x49,0x8b,0xf0,0x4c,0x8b,0xd2,0x4c,0x8b,0xd9,
@@ -153,18 +175,85 @@ function vmStack(className, method, query, customFrames) {
     const context = alloc(64); context.add(0x30).writePointer(previous);
     return {context, objects};
 }
+const hudVm=vmStack('','','', [['HudNavigationPanelHolder','UpdateState'],['ScreenControllerBase','UpdateState']]);
+const hudHolder=hudVm.context.add(0x30).readPointer().add(0x18).readPointer();
+const hudHolderFn=hudHolder.add(8).readPointer();
+const hudMethod=vmStack('NavigationPanelController','Update','', [['NavigationPanelController','Update']]);
+const hudFn=hudMethod.context.add(0x30).readPointer().add(8).readPointer();
+const hudCode=Memory.alloc(117*4),hudHolderCode=Memory.alloc(754*4),hudArgs=Memory.alloc(24);
+const hudPrefix=[0x80000301,0x80000207,0x8000001b,0x80001118,0x80000002,
+    0x80000007,0x8000350a,0x80000003,0x80000830,0x80001118,0x80000002,
+    0x80000101,0x80000107,0x80000007,0x8000350a,0x80000104,0x8000080d,
+    0x80001316,0x80000313,0x80000101,0x80000107,0x80000004,0x8000090d,
+    0x80000007,0x8000353c,0x80000002,0x80000107,0x8000040a,0x80000007,
+    0x8000073c,0x80000002];
+const hudTail=[0x80000101,0x80000007,0x80000004,0x80001006,0x8000310e,0x80000002,0x80000113];
+hudVm.context.add(0x18).writePointer(hudArgs);
+hudFn.add(0x60).writePointer(hudCode);hudHolderFn.add(0x60).writePointer(hudHolderCode);
 rpc.exports = {
     info() { return {selector: String(target.select_type), uiCallback: String(target.notify_ui),
         uiGetter: String(getterCode.add(10)), stringPoolSlot: String(poolSlot),
         roles: TEST_ROLES,
         winch: {predicate:String(target.gamepad_mode),engineSlot:String(engineSlot),
-            wheelNeutral:String(target.wheel_abs),
+            wheelNeutral:String(target.wheel_abs),framePush:String(target.vm_push),wheelHintActivity:true,
             menuData:String(target.menu_data),menuSelect:String(target.menu_select),
             menuKeys:String(target.menu_keys),menuFocus:String(target.menu_focus),
             cameraUpdate:String(target.camera_update),cameraDragging:String(target.camera_dragging),
             hoverSite:String(hoverCode.add(7)),hoverResume:String(hoverCode.add(29)),
             callers:[String(modeCaller.add(16))]},
         ids: {keyboard: 11, mouse: 22, wheel: 33, supplemental: 44}}; },
+    wheelHardware(options) {
+        if (options.reset) wheelHardware.add(0x28).writeByteArray(new Uint8Array(140*4));
+        if (options.clearRefresh) engineCategory.add(4).writeU32(0xabcdef00);
+        for (const [index, value] of Object.entries(options.values || {}))
+            wheelHardware.add(0x28 + Number(index)*4).writeFloat(value);
+        engineCategory.add(0x20).writePointer(options.enabled === false ? ptr(0) : wheelManager);
+        return Array.from(new Float32Array(wheelHardware.add(0x28).readByteArray(140*4)));
+    },
+    wheelHintRead(category, role='presentation') {
+        role=role || 'presentation';
+        engineCategory.writeU32(category);
+        const ui=Memory.alloc(64);ui.writeByteArray(new Uint8Array(64));uiHold.push(ui);
+        const vm=role==='presentation' ? vmStack('HintIconsPool','GetCurrentDeviceNames','') :
+            role==='pointer' ? vmStack('MouseController','CanShowMouseCursor','') :
+            vmStack('TruckInputController','Update','');
+        navigationHold.push(vm);
+        return {result:getter(ui,engineCategory,vm.context),category:engineCategory.readU32(),
+            notificationWord:engineCategory.add(4).readU32(),
+            values:Array.from(new Float32Array(wheelHardware.add(0x28).readByteArray(140*4)))};
+    },
+    panelNotifications(category, force) {
+        engineCategory.writeU32(category);
+        if(force)engineCategory.add(4).writeU8(1);
+        const error=dispatchPanels(engineCategory,panelUis[0],panelUis[1]);
+        return {signals:panelUis.map(p=>p.add(36).readU32()),
+            delivered:panelUis.map(p=>p.add(32).readU32()),category:engineCategory.readU32(),
+            dirty:engineCategory.add(4).readU8(),error};
+    },
+    hudHintUpdate(options) {
+        const o={receiver:1,category:33,targetClass:'NavigationPanelController',targetMethod:'Update',
+            holderClass:'HudNavigationPanelHolder',holderMethod:'UpdateState',holderPc:TEST_HUD_CONTEXT.holderPc,
+            targetLength:117,holderLength:754,receiverTag:0x20,stateTag:0x20,boolTag:2,forced:0,...options};
+        hudFn.add(0x48).readPointer().add(0x18).writeU32(intern(o.targetClass));
+        hudFn.add(0x40).readPointer().writeU32(intern(o.targetMethod));
+        hudHolderFn.add(0x48).readPointer().add(0x18).writeU32(intern(o.holderClass));
+        hudHolderFn.add(0x40).readPointer().writeU32(intern(o.holderMethod));
+        hudHolder.add(0x10).writeU32(o.holderPc);
+        hudFn.add(0x68).writeU32(o.targetLength);hudHolderFn.add(0x68).writeU32(o.holderLength);
+        TEST_HUD_CONTEXT.navigationCode.forEach((w,i)=>hudCode.add(4*i).writeU32(w));
+        hudTail.forEach((w,i)=>hudHolderCode.add(4*(747+i)).writeU32(w));
+        if(o.badCode)hudCode.add(4*16).writeU32(0);
+        if(o.badTail)hudCode.add(4*81).writeU32(0);
+        if(o.badHolderCode)hudHolderCode.add(4*751).writeU32(0);
+        hudArgs.writeU64(uint64(o.receiverTag).shl(48).or(o.receiver));
+        hudArgs.add(8).writeU64(uint64(o.stateTag).shl(48).or(o.nullState?0:1234));
+        hudArgs.add(16).writeU64(uint64(o.boolTag).shl(48).or(0xc3f9c900).or(o.forced));
+        const before=[0,8,16].map(n=>hudArgs.add(n).readU64().toString(16));
+        engineCategory.writeU32(o.category);
+        const error=pushFrame(o.invalidVm?ptr(0):hudVm.context,hudFn);
+        return {before,after:[0,8,16].map(n=>hudArgs.add(n).readU64().toString(16)),
+            forced:hudArgs.add(16).readU8(),error,category:engineCategory.readU32()};
+    },
     menuCursor(options) {
         const o={category:33,opening:true,view:'HudInteractionPanelUiView',method:'SetData',
             enabled:1,dragging:1,tick:true,invalid:false,...options};

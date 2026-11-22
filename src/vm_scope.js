@@ -31,7 +31,8 @@ function makeUiScope(stringPoolSlot, callerRoles) {
                 if (className !== 'InputFocusDeviceListener' && className !== 'delegate') {
                     const caller = className + '.' + method;
                     const qualified = caller + (query ? '/' + query : '');
-                    return {caller: qualified, role: callerRoles[qualified] || callerRoles[caller] || 'original'};
+                    return {caller: qualified, role: callerRoles[qualified] || callerRoles[caller] ||
+                        callerRoles[className + '.*'] || 'original'};
                 }
                 frame = frame.add(0x18).readPointer();
             }
@@ -72,6 +73,50 @@ function makeUiScope(stringPoolSlot, callerRoles) {
         } catch (_) { /* No receiver inferred from an unreadable frame. */ }
         return null;
     };
+    scope.hudHintUpdate = (vm, fn) => {
+        try {
+            const cls = fn.add(0x48).readPointer();
+            if (cls.isNull() || name(cls.add(0x18).readU32()) !== 'NavigationPanelController' ||
+                    name(fn.add(0x40).readPointer().readU32()) !== 'Update' ||
+                    fn.add(0x68).readU32() !== 117) return null;
+            // This exact prologue tests isForced before comparing oldState.
+            // The existing forced-update path rebuilds the navigation buttons.
+            const words = [0x80000301,0x80000207,0x8000001b,0x80001118,0x80000002,0x80000007,
+                0x8000350a,0x80000003,0x80000830,0x80001118,0x80000002,0x80000101,
+                0x80000107,0x80000007,0x8000350a,0x80000104,0x8000080d,0x80001316,
+                0x80000313,0x80000101,0x80000107,0x80000004,0x8000090d,0x80000007,
+                0x8000353c,0x80000002,0x80000107,0x8000040a,0x80000007,0x8000073c,
+                0x80000002,0x80000038,0x7fffff3b,0x80000002,0x80000007,0x8000310a,
+                0x80000048,0x80000104,0x80000730,0x80002e16,0x80000004,0x80000007,
+                0x8000320a,0x8000003f,0x7fffff3b,0x80000002,0x80000101,0x80000007,
+                0x80000004,0x80003d0d,0x80000002,0x80000101,0x80000107,0x80000007,
+                0x80000104,0x8000400d,0x80000002,0x80000101,0x80000007,0x8000310a,
+                0x80000004,0x80000f0d,0x7ffffe3b,0x80000002,0x80000101,0x7ffffe07,
+                0x80000004,0x8000060d,0x8000001b,0x80005916,0x80000101,0x7ffffe07,
+                0x80000004,0x8000040d,0x7ffffd3b,0x80000002,0x80000101,0x80000007,
+                0x8000070a,0x7ffffd07,0x80000104,0x80000f0d,0x80000002,0x80000101,
+                0x7ffffe07,0x80000004,0x8000070d,0x80000002,0x8000401a,0x80000003,
+                0x7ffffe3b,0x80000002,0x80000007,0x8000310a,0x80000048,0x80000104,
+                0x80000730,0x80006918,0x80000002,0x7fffff07,0x80000004,0x80000007,
+                0x8000320a,0x8000003f,0x80000830,0x80006f16,0x80000101,0x80000007,
+                0x80000004,0x8000010f,0x80000002,0x80000101,0x80000007,0x80000004,
+                0x8000410d,0x80000002,0x80000313];
+            const code = fn.add(0x60).readPointer();
+            if (!words.every((w, i) => code.add(i * 4).readU32() === w)) return null;
+            // The same controller updates HUD, popup and menu navigation.
+            // Validate its entire method and typed arguments, independently
+            // of the owning screen; every instance has its own refresh epoch.
+            const argv = vm.add(0x18).readPointer();
+            const receiver = argv.readU64(), state = argv.add(8).readU64();
+            const forced = argv.add(16);
+            if (receiver.shr(48).toNumber() !== 0x20 || receiver.and('0xffffffffffff').toNumber() === 0 ||
+                    state.shr(48).toNumber() !== 0x20 || state.and('0xffffffffffff').toNumber() === 0 ||
+                    forced.readU64().shr(48).toNumber() !== 2 || forced.readU8() > 1) return null;
+            // Only the low byte is meaningful for a VM boolean. Its remaining
+            // payload bytes may contain old stack data and must be preserved.
+            return {key:receiver.toString(16), forced};
+        } catch (_) { return null; }
+    };
     scope.isWheelNeutralComparison = (vm, operand) => {
         try {
             // Exact live stack observed in this build. Never search past an
@@ -108,4 +153,45 @@ function makeUiScope(stringPoolSlot, callerRoles) {
         } catch (_) { return false; }
     };
     return scope;
+}
+
+function hookHudHintUpdates(framePush, stringPoolSlot, update) {
+    // VM calls are frequent. Discover the exact method in native code, then
+    // filter by its descriptor address; only that method enters JavaScript.
+    const state = Memory.alloc(16);
+    state.writePointer(stringPoolSlot);
+    state.add(8).writePointer(ptr(0));
+    const callback = new NativeCallback(update, 'void', ['pointer', 'pointer']);
+    const module = new CModule(`
+#include <gum/guminterceptor.h>
+typedef struct { guint64 pool_slot, target; } State;
+extern State state;
+extern void update(void *vm, void *fn);
+static guint64 word(guint64 p) { return *(guint64 *)(guintptr)p; }
+static int named(guint32 id, const char *expected) {
+    const unsigned char *p;
+    if (id > 0x10000000) return 0;
+    p=(const unsigned char *)(guintptr)(word(state.pool_slot)+id);
+    while (*expected) if (*p++ != (unsigned char)*expected++) return 0;
+    return *p==0 || *p==255;
+}
+void on_enter(GumInvocationContext *ic) {
+    guint64 fn=(guint64)gum_invocation_context_get_nth_argument(ic,1),cls,signature;
+    int error;
+    if (state.target) { if (fn != state.target) return; }
+    else {
+        cls=word(fn+0x48); if (!cls) return;
+        if (!named(*(guint32 *)(guintptr)(cls+0x18),"NavigationPanelController")) return;
+        signature=word(fn+0x40); if (!signature) return;
+        if (!named(*(guint32 *)(guintptr)signature,"Update")) return;
+        state.target=fn;
+    }
+    error=ic->system_error;
+    update(gum_invocation_context_get_nth_argument(ic,0),(void *)(guintptr)fn);
+    ic->system_error=error;
+}
+`, {state, update:callback});
+    const hook = Interceptor.attach(framePush, {onEnter:module.on_enter});
+    // Retain compiled code and the callback until after detach + flush.
+    return {detach:() => hook.detach(), keepAlive:[state, callback, module]};
 }

@@ -14,7 +14,7 @@ def source(config):
 
 
 def main():
-    faulthandler.dump_traceback_later(25)
+    faulthandler.dump_traceback_later(60)
     device = frida.get_local_device()
     pid = device.spawn([sys.executable, '-c', 'import time; time.sleep(120)'])
     errors = []
@@ -24,7 +24,9 @@ def main():
         session = device.attach(pid)
         device.resume(pid)
         roles = json.loads((ROOT / 'src/input-profile.json').read_text())['callerRoles']
+        hud_context = json.loads((ROOT / 'tests/fixtures/hud_hint_context.json').read_text())
         fixture = session.create_script('const TEST_ROLES=' + json.dumps(roles) + ';\n' +
+                                        'const TEST_HUD_CONTEXT=' + json.dumps(hud_context) + ';\n' +
                                         (ROOT / 'tests/input_fixture.js').read_text())
         fixture.load()
         f = fixture.exports_sync
@@ -401,7 +403,152 @@ def main():
             assert result['resultBits'] & 0x7f800000 == 0x7f800000, result
             assert result['after'] == result['original'], result
             checks += 1
+        print('Checking HUD hint refresh and cache isolation', flush=True)
+        a.mode('observe')
+        a.fixture_preference(33)
+        assert f.hud_hint_update({})['forced'] == 0
+        checks += 1
+        a.mode('ui-mouse-priority')
+        for requested, expected in [(33,1),(22,0),(33,0),(11,1),(22,0),(33,1),(44,1),(22,0),(55,1)]:
+            f.run(22, requested, 789)
+            result = f.hud_hint_update({'category':requested})
+            assert result['forced'] == expected and result['error'] == 0x1234, result
+            assert result['category'] == requested and result['before'][:2] == result['after'][:2], result
+            assert result['after'][2] == ('20000c3f9c901' if expected else '20000c3f9c900'), result
+            checks += 1
+        # Shared navigation controller: each open owner refreshes independently
+        # on preference changes, including cached states whose device is mouse.
+        for receiver,owner in [(10,'PopupCargoUiController'),(11,'PopupRefuelStationBaseController'),
+                               (12,'AnotherNavigationOwner')]:
+            a.fixture_preference(11)
+            options={'receiver':receiver,'holderClass':owner,'holderPc':0,'holderLength':1}
+            assert f.hud_hint_update(options)['forced']==1
+            assert f.hud_hint_update(options)['forced']==0
+            a.fixture_preference(33)
+            assert f.hud_hint_update(options)['forced']==1
+            assert f.hud_hint_update(options)['forced']==0
+            a.fixture_preference(11)
+            assert f.hud_hint_update(options)['forced']==1
+            checks+=5
+        # Unknown target methods/layouts and malformed args remain untouched.
+        for invalid in ({'targetClass':'Other'}, {'targetMethod':'Other'},
+                        {'targetLength':118}, {'badCode':True}, {'badTail':True},
+                        {'receiverTag':1}, {'stateTag':1},
+                        {'boolTag':3}, {'forced':2}, {'receiver':0}, {'nullState':True}, {'invalidVm':True}):
+            a.fixture_preference(33)
+            before = a.status()['hudHintRefreshes']
+            result = f.hud_hint_update({'receiver':2, **invalid})
+            assert result['before'] == result['after'] and result['error'] == 0x1234, (invalid,result)
+            assert a.status()['hudHintRefreshes'] == before
+            checks += 1
+        assert f.hud_hint_update({'receiver':2})['forced'] == 1
+        assert f.hud_hint_update({'receiver':2})['forced'] == 0
+        assert f.hud_hint_update({'receiver':2,'forced':1})['forced'] == 1
+        checks += 3
+        a.mode('observe')
+        assert f.hud_hint_update({'receiver':3})['forced'] == 0
+        a.mode('ui-mouse-priority')
+        assert f.hud_hint_update({'receiver':2})['forced'] == 1
+        checks += 2
         assert a.status()['wheelNeutralFiltered'] > 0
+        print('Checking idle wheel noise and intentional hint ownership', flush=True)
+        f.wheel_hardware({'reset':True,'clearRefresh':True,'values':{'128':0.5,'129':1}})
+        f.run(33,11,123)
+        assert a.status()['preferredCategory']=='keyboard'
+        # Recorded one/two-count steering chatter must not undo keyboard input.
+        for value in (0.5+1/65536,0.5-2/65536,0.5+3/65536,0.5):
+            before=f.wheel_hardware({'values':{'128':value}})
+            result=f.run(11,33,123,'HintIconsPool','GetCurrentDeviceNames')
+            assert result['readBack']==11 and result['state'][0]==33, result
+            assert result['device']==[33,123] and result['lastError']==0x1234
+            assert a.status()['preferredCategory']=='keyboard'
+            assert f.wheel_hint_read(33)['values']==before
+            assert f.wheel_hint_read(33)['notificationWord']==0xabcdef00
+            checks+=1
+        assert f.wheel_hint_read(33,'pointer')['result']==22
+        assert f.wheel_hint_read(33,'driving')['result']==33
+        read=f.wheel_hint_read(22)
+        assert read['result']==11, (read['result'],a.status(),a.drain()[-5:])
+        assert f.hud_hint_update({'receiver':5})['forced']==1
+        assert f.hud_hint_update({'receiver':5})['forced']==0
+        checks+=5
+        # No new category notification: deliberate motion must still promote
+        # wheel hints and force exactly one subsequent navigation refresh.
+        for value in (0.5002,0.5004,0.5006,0.5008):
+            f.wheel_hardware({'values':{'128':value}})
+            assert f.wheel_hint_read(33)['result']==11
+            checks+=1
+        f.wheel_hardware({'values':{'128':0.5011}})
+        promoted=f.wheel_hint_read(33)
+        assert promoted['result']==33
+        assert promoted['notificationWord']==0xabcdef01
+        assert a.status()['hintNotificationRequests']>0
+        # Model native dispatcher consumption: no repeated notification while
+        # the wheel remains preferred, even when getters continue every frame.
+        f.wheel_hardware({'clearRefresh':True})
+        assert f.wheel_hint_read(33)['notificationWord']==0xabcdef00
+        checks+=3
+        assert a.status()['preferredCategory']=='wheel'
+        assert f.hud_hint_update({'receiver':5})['forced']==1
+        assert f.hud_hint_update({'receiver':5})['forced']==0
+        assert f.wheel_hint_read(22)['result']==33
+        checks+=5
+        # Each axis, button and directional control can legitimately activate.
+        for index in (0,127,128,129,130,131,132,133,134,135,136,137,138,139):
+            f.wheel_hardware({'reset':True})
+            f.run(33,11,123)
+            before=f.wheel_hardware({'values':{str(index):0.01 if 128<=index<136 else 1}})
+            assert f.wheel_hint_read(33)['result']==33, index
+            assert f.wheel_hint_read(33)['values']==before
+            checks+=1
+        # HUD check can observe movement before any getter or notification.
+        f.wheel_hardware({'reset':True})
+        f.run(33,11,123)
+        f.hud_hint_update({'receiver':6})
+        f.wheel_hardware({'values':{'128':0.01}})
+        assert f.hud_hint_update({'receiver':6})['forced']==1
+        assert a.status()['preferredCategory']=='wheel'
+        checks+=2
+        # Supplemental/gamepad keep their existing policy; observation and
+        # unavailable devices fall back to native behavior, not sticky keyboard.
+        for category in (44,55):
+            f.run(33,11,123)
+            assert f.run(11,category,123,'HintIconsPool','GetCurrentDeviceNames')['readBack']==category
+            checks+=1
+        # The icon service is presentation-only across its methods; device
+        # resets on existing navigation buttons use the same preferred device.
+        for cls,method in [('HintIconsPool','TakeIconFlashInstanceNameForActions'),
+                           ('HintIconsPool','TakeIconFlashInstanceName'),
+                           ('HintIconsPool','GetDevicePrefix'),
+                           ('NavButtonController','ReSetForDevice')]:
+            a.fixture_preference(33)
+            result=f.run(22,22,123,cls,method)
+            assert result['readBack']==33 and result['state'][0]==22, result
+            assert result['lastError']==0x1234
+            checks+=1
+        # Two open subscribers must receive one preference notification even
+        # though the native category never changes after the initial chatter.
+        f.wheel_hardware({'reset':True,'clearRefresh':True})
+        first=f.panel_notifications(11,True)
+        noise=f.panel_notifications(33,True)
+        assert a.status()['preferredCategory']=='keyboard'
+        f.wheel_hardware({'values':{'128':0.01}})
+        assert f.wheel_hint_read(33)['notificationWord']==0xabcdef01
+        refreshed=f.panel_notifications(33,False)
+        assert refreshed['signals']==[x+1 for x in noise['signals']], (noise,refreshed)
+        assert refreshed['delivered']==[22,22] and refreshed['category']==33
+        assert refreshed['dirty']==0 and refreshed['error']==0x1234
+        assert f.panel_notifications(33,False)['signals']==refreshed['signals']
+        checks+=6
+        f.run(33,11,123)
+        a.mode('observe')
+        assert f.wheel_hint_read(33)['result']==33
+        a.mode('ui-mouse-priority')
+        f.run(33,11,123)
+        f.wheel_hardware({'enabled':False})
+        assert f.wheel_hint_read(33)['result']==33
+        assert a.status()['wheelHintNoiseIgnored']>=4 and a.status()['wheelHintActivations']>0
+        checks+=3
         captured_events = a.drain()
         assert any(e['kind'] == 'wheel-neutral-filter' for e in captured_events)
         assert any(e['kind'] == 'ui-selection' and e['redirected'] for e in captured_events)
@@ -413,6 +560,8 @@ def main():
         assert not a.status()['faults'] and not errors, (a.status(), errors)
         a.stop()
         assert not a.status()['active']
+        assert f.hud_hint_update({'receiver':4})['forced'] == 0
+        checks += 1
         assert f.menu_cursor({})['releases']==0
         checks += 1
         assert f.wheel_neutral({})['result'] == abs(residue)

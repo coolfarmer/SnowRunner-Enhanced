@@ -1,10 +1,20 @@
 # SnowRunner Enhanced
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.4** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.9** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
 Opening Functions with the keyboard or wheel now releases mouse camera capture
 and restores the cursor automatically. A new click can still control the camera.
+HUD zone prompts now refresh when switching between keyboard and wheel.
+Open interaction panels also refresh their action hints, including Close,
+without having to close and reopen the panel. The installed preview.9 passed
+the keyboard/wheel switching test on November 22, 2026 after restarting the game.
+Idle wheel axis chatter no longer immediately restores wheel hints after a
+keyboard action. Presentation uses a 0.1% cumulative movement threshold from
+the last keyboard action; buttons remain immediate and driving input is unchanged.
+The installed preview.7 passed the gas-station test on November 22, 2026:
+keyboard hints stayed visible for 15 seconds at idle with the engine running,
+then wheel movement restored the wheel hint.
 
 The standalone package includes a bilingual installer. Players do not need to
 install Python, Frida, or .NET. Extract the complete release ZIP and run
@@ -25,6 +35,10 @@ preview.3. Automated tests also cover the hooks, installer and ASI loading.
 The preview.4 cursor change was confirmed with both keyboard and wheel after
 uninstalling, reinstalling the package and restarting the game. The earlier
 temporary test also confirmed clicking to resume camera control.
+The gas-station prompt fix is confirmed after installing preview.7 and restarting
+the game; other interaction zones remain to be tested.
+The preview.9 panel test covered refuelling and cargo management, including
+switching back to the keyboard and keeping hints stable at idle.
 The earlier V18 prototype was tested with a Logitech G923. Other wheels, a full
 V18 regression pass, extended sessions and coexistence with all supported mods
 remain to be validated.

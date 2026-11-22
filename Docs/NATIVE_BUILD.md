@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.4`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.9`. Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -98,8 +98,8 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.4.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.4/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.9.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.9/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
@@ -114,6 +114,76 @@ compilation et dossiers d’autres projets ne peuvent pas y entrer par récursio
 Les rapports créés après extraction ne sont pas repris dans une reconstruction.
 
 ## Vérification et limites
+
+Preview.9 étend la reconstruction au contrôleur de navigation partagé. La
+restriction à l’appelant `HudNavigationPanelHolder.UpdateState` est supprimée ;
+les 117 instructions de `NavigationPanelController.Update` et ses trois arguments
+typés sont vérifiés. Chaque instance se rafraîchit une fois par changement de
+préférence, quel que soit le panneau qui la possède. Les données partagées et
+les méthodes d’icônes forcées restent inchangées. En preview.8, l’utilisateur
+a confirmé l’actualisation de l’autre action, mais Fermer restait sur Esc lors
+de clavier vers volant, panneau ouvert. Le 22 novembre 2026, après installation
+de preview.9 et relancement, l’utilisateur a confirmé le scénario demandé dans
+le ravitaillement et la gestion de cargaison : Fermer et les autres touches
+suivent les transitions dans les deux sens, avec stabilité au repos. Le statut
+du correctif est actif, sans erreur signalée. Les autres panneaux ne sont pas
+validés individuellement.
+
+Preview.8 corrige la notification manquante lorsque la catégorie native est
+déjà volant après une microvariation, mais que la préférence d’icônes reste
+clavier. Le mouvement volontaire programme une fois le drapeau de notification
+existant (`engine+4`), seulement si le moteur a déjà la catégorie demandée et
+que le drapeau est libre. Le dispatcher natif vérifié conserve la gestion des
+abonnements et remet le drapeau à zéro. La catégorie et les valeurs de conduite
+ne changent pas. Aucun pointeur d’interface conservé n’est rappelé directement.
+Tous les lecteurs de `HintIconsPool` relèvent désormais de la présentation,
+ainsi que `NavButtonController.ReSetForDevice`. Les autres classes conservent
+leur classification existante. La capture passive contient les panneaux de
+ravitaillement et de cargaison ; leur essai avec preview.8 a confirmé les autres
+actions, mais a révélé le cas Fermer corrigé dans preview.9 ci-dessus.
+
+Preview.7 sépare l’activité native de la préférence des icônes : une capture
+du 22 novembre montre des reprises de priorité 226 et 312 ms après le clavier,
+avec des écarts de direction de seulement un ou deux crans. L’utilisateur
+signale que le problème disparaît moteur éteint ; la capture ne mesure pas
+directement l’état moteur et ne prouve donc pas l’origine vibratoire.
+Après une action clavier, un instantané des valeurs du volant sert d’ancrage.
+Un déplacement cumulé de 0,001 sur un axe normalisé, ou un changement de bouton
+ou de direction du pavé, rétablit la préférence volant. L’ancrage reste fixe
+afin de reconnaître un mouvement volontaire lent. Le sélecteur, les lecteurs
+d’icônes et la mise à jour HUD détectent aussi ce mouvement sans nouvelle
+notification de catégorie. Aucune valeur d’axe, aucun horodatage natif ni
+aucune catégorie moteur n’est réécrit. Une signature supplémentaire contrôle
+la disposition du tableau des commandes. Le 22 novembre, l’utilisateur a confirmé
+le test après installation de preview.7 et relancement : C reste affiché
+15 secondes au repos moteur allumé, puis un mouvement volontaire rétablit X.
+Les compteurs montrent un événement ignoré, une activation volontaire et trois
+rafraîchissements HUD, sans erreur. Les autres zones restent à tester.
+
+Preview.6 corrige le contrôle de pile ajouté dans preview.5 : le frame VM
+du détenteur HUD conserve l’index de l’instruction d’appel (751), et non celui
+de l’instruction suivante (752). Preview.5 pouvait être active avec zéro
+rafraîchissement. Une capture passive réelle alimente désormais le contexte
+de régression. Le code corrigé accepte ce contexte dans le jeu ; la validation
+après relancement est désormais confirmée avec preview.7 ci-dessus.
+
+Preview.5 rafraîchit les invites du panneau de navigation HUD une fois par
+changement de préférence de périphérique. Le cache du jeu assimile clavier et
+souris ; les notifications volant converties en souris pouvaient donc laisser
+l’ancienne icône de station-service. Un filtre natif reconnaît exactement
+`NavigationPanelController.Update`, puis contrôle les arguments, le bytecode
+et l’appelant `HudNavigationPanelHolder.UpdateState`. Il active le booléen
+`isForced` de cette seule invocation. Le jeu reconstruit lui-même les boutons.
+Les états partagés, les notifications de pointeur et les commandes restent
+inchangés. Les mouvements souris conservent la préférence volant et ne
+redéclenchent pas la reconstruction. Le filtre réutilise la signature existante
+de l’entrée VM ; aucune adresse de descripteur de la capture n’est embarquée.
+
+Le 21 novembre 2026, l’utilisateur a confirmé l’essai temporaire dans une
+station-service : plusieurs transitions clavier/volant sans retour Windows,
+puis mouvements souris, avec icône correcte et stable. La validation du paquet
+preview.5 installé a échoué à cause du contrôle de pile décrit ci-dessus ;
+les autres zones restent à tester.
 
 Preview.4 ajoute deux signatures : la mise à jour de la caméra native et son
 setter de capture souris. Une reconstruction de Fonctions dans la pile de
@@ -131,7 +201,7 @@ L'utilisateur a ensuite désinstallé puis réinstallé preview.4 et relancé le
 le retour automatique du curseur au clavier et au volant est confirmé avec le
 paquet natif installé, le même jour.
 
-Les tests couvrent les 446 assertions dans le vrai moteur embarqué, dont les
+Les tests couvrent les 541 assertions dans le vrai moteur embarqué, dont les
 transitions clavier/souris/volant et l'isolation du lecteur corrigé, le
 scanner natif sur mémoire synthétique, les signatures déplacées et incohérentes,
 le cycle de démarrage, les changements de configuration, l’appartenance des DLL,

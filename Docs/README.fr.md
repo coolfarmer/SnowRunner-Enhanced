@@ -1,4 +1,23 @@
-# SnowRunner Enhanced — 0.1.0-preview.4
+# SnowRunner Enhanced — 0.1.0-preview.9
+
+Les touches affichées dans les panneaux ouverts suivent maintenant le passage
+du clavier au volant et inversement, y compris le bouton Fermer, sans devoir
+refermer le panneau. Le service commun des icônes et la navigation utilisent
+la même préférence de périphérique. Essai confirmé le 22 novembre 2026 après
+installation de preview.9 et relancement, dans le ravitaillement et la gestion
+de cargaison, avec maintien de la stabilité des icônes au repos.
+
+Les petites variations d’axe au repos ne reprennent plus la priorité sur les
+icônes du clavier. Un mouvement cumulé de 0,1 % de la plage d’un axe, ou un
+changement de bouton, rétablit les icônes du volant. Ce seuil concerne seulement
+l’affichage : les valeurs de conduite restent intactes. Essai confirmé le
+22 novembre 2026 avec preview.7 installée : icône clavier stable pendant
+15 secondes au repos moteur allumé, puis retour de l’icône volant au mouvement.
+
+Les touches des invites de zone s’actualisent maintenant quand on passe du
+clavier au volant, sans devoir quitter puis refocaliser le jeu. Le correctif
+a été confirmé dans une station-service après installation et relancement ;
+les autres zones restent à tester.
 
 Cette préversion fait réapparaître automatiquement le curseur à l’ouverture
 de Fonctions, au clavier comme au volant, après avoir utilisé la souris pour
@@ -37,7 +56,7 @@ leurs propres options ; cette préversion ne contient qu’une feature.
 
 ## Mises à jour du jeu
 
-Le correctif recherche 30 signatures et contrôle leurs références au lancement.
+Le correctif recherche 31 signatures et contrôle leurs références au lancement.
 Il accepte les déplacements de code et de données compatibles sans exiger une
 empreinte exacte du jeu. Si les signatures sont absentes, ambiguës ou incohérentes,
 il reste inactif. La recherche peut prendre environ une minute au démarrage.

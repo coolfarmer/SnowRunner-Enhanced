@@ -12,9 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.4/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.9/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
+GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
 
 
 def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None):
@@ -49,7 +50,7 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                     except (FileNotFoundError, json.JSONDecodeError, PermissionError): pass
                     time.sleep(0.2)
                 assert previous == expected, previous
-                assert len(status['features']['wheel_mouse']['compatibility']['candidateCounts']) == 30
+                assert len(status['features']['wheel_mouse']['compatibility']['candidateCounts']) == GUARD_COUNT
                 assert status['gameSha256'] == original[exe.name]
             stdout, stderr = process.communicate(timeout=delay / 1000 + 10)
             assert process.returncode == 0, (process.returncode, stdout, stderr)
@@ -63,7 +64,7 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                 assert status['features']['wheel_mouse']['status'] == expected, status
                 assert status['processId'] == process.pid
                 if synthetic:
-                    assert status['features']['wheel_mouse']['compatibility']['relocatedGuards'] == 30
+                    assert status['features']['wheel_mouse']['compatibility']['relocatedGuards'] == GUARD_COUNT
                     assert status['features']['wheel_mouse']['counters']['active']
                     assert status['features']['wheel_mouse']['counters']['faults'] == 0
             for file, digest in original.items():

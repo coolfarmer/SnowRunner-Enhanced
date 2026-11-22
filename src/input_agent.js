@@ -12,6 +12,10 @@ let menuFocusRestores = 0;
 let menuRefreshFocusKeeps = 0;
 let menuCursorReleases = 0;
 let pendingMenuCursor = null;
+let hudHintHook = null;
+let hudHintRefreshes = 0;
+let hudHintChecks = 0;
+const hudHintPreferences = new Map();
 let wheelNeutralFiltered = 0;
 let lastWheelNeutralValue = null;
 let faults = 0;
@@ -30,6 +34,10 @@ let lastUiSelection = '';
 let lastUiRead = '';
 let bindings = null;
 let preferredCategory = 0;
+let wheelHintBaseline = null;
+let wheelHintNoiseIgnored = 0;
+let wheelHintActivations = 0;
+let hintNotificationRequests = 0;
 const counts = {};
 const getterCallers = {};
 const cursorSamples = new Map();
@@ -53,13 +61,15 @@ function setMode(next) {
     mode = next;
     pendingMenuCursor = null;
     lastWheelNeutralValue = null;
+    hudHintPreferences.clear();
+    wheelHintBaseline = null;
     emit({kind: 'mode', mode});
     return status();
 }
 
 function status() {
     return {active, mode, calls, redirected, uiNotificationsSuppressed, menuSelectionResets, menuFocusRestores, menuRefreshFocusKeeps, getterCalls, getterRedirected,
-        menuCursorReleases, wheelNeutralFiltered, faults, dropped, queued: events.length, preferredCategory: label(preferredCategory),
+        menuCursorReleases, hudHintRefreshes, hudHintChecks, wheelHintNoiseIgnored, wheelHintActivations, hintNotificationRequests, wheelNeutralFiltered, faults, dropped, queued: events.length, preferredCategory: label(preferredCategory),
         winchModeCalls, winchModeRedirected, winchHoverCalls, winchHoverRedirected,
         counts, getterCallers};
 }
@@ -70,6 +80,9 @@ function stop() {
     for (const listener of listeners) listener.detach();
     listeners = [];
     Interceptor.flush();
+    hudHintHook = null;
+    hudHintPreferences.clear();
+    wheelHintBaseline = null;
     active = false;
     return status();
 }
@@ -105,7 +118,91 @@ function install(b) {
         return [object.add(0x18).readPointer(), object.add(0x30).readPointer(),
             object.add(0x38).readU32()].join(':');
     }
+    // Presentation ownership only. The native activity timestamp accepts even
+    // a one-count steering change (observed at idle); never rewrite that stamp,
+    // the device samples, or the engine category used by driving readers.
+    function wheelHintSamples() {
+        if (!b.wheelHintActivity) return null;
+        const manager = b.engineStateSlot.readPointer().add(0x20).readPointer();
+        if (manager.isNull()) return null;
+        const count = manager.add(0x78).readS32();
+        if (count < 0 || count > 128) throw new Error('Invalid input device count');
+        const devices = manager.add(0x70).readPointer(), samples = new Map();
+        for (let i = 0; i < count; i++) {
+            const device = devices.add(i * 8).readPointer();
+            if (device.isNull() || device.add(0x156c).readU32() !== b.ids.wheel) continue;
+            // Guarded wheel update: buttons 0..127, axes 128..135,
+            // and directional controls 136..139 in the common value array.
+            const data = device.add(0x28).readByteArray(140 * 4);
+            const values = new Float32Array(data);
+            if (!Array.from(values).every(Number.isFinite)) return null;
+            samples.set(device.toString(), values);
+        }
+        return samples.size ? samples : null;
+    }
+    function retainKeyboardHints() {
+        if (mode !== 'ui-mouse-priority' || preferredCategory !== b.ids.keyboard || !wheelHintBaseline)
+            return false;
+        const samples = wheelHintSamples();
+        if (!samples) { wheelHintBaseline = null; return false; }
+        for (const [key, values] of samples) {
+            const baseline = wheelHintBaseline.get(key);
+            if (!baseline) return false; // newly connected wheel
+            for (let i = 0; i < values.length; i++) {
+                // Anchor to the last keyboard action, not the previous frame:
+                // slow intentional movement must accumulate and take ownership.
+                const changed = i >= 128 && i < 136 ?
+                    Math.abs(values[i] - baseline[i]) >= 0.001 : values[i] !== baseline[i];
+                if (changed) return false;
+            }
+        }
+        return true;
+    }
+    function noticeWheelActivity(requested) {
+        if (requested !== b.ids.wheel || !wheelHintBaseline ||
+                preferredCategory !== b.ids.keyboard || mode !== 'ui-mouse-priority') return;
+        if (!retainKeyboardHints()) {
+            preferredCategory = requested;
+            wheelHintBaseline = null;
+            wheelHintActivations++;
+            // The native category may already be wheel because of rejected
+            // idle chatter. Queue its existing notification dispatcher once
+            // so open panels receive the new presentation preference too.
+            // The guarded activity_dispatch owns the subscriber lifetimes and
+            // clears this byte after delivery; never call cached UI pointers.
+            const engine = b.engineStateSlot.readPointer();
+            if (engine.readU32() === requested && engine.add(4).readU8() === 0) {
+                engine.add(4).writeU8(1);
+                hintNotificationRequests++;
+            }
+            emit({kind:'wheel-hint-activity'});
+        }
+    }
     try {
+        if (b.hudHintFramePush) {
+            hudHintHook = hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (vm, fn) => {
+                try {
+                    if (mode !== 'ui-mouse-priority') return;
+                    hudHintChecks++;
+                    const update = uiScope.hudHintUpdate(vm, fn);
+                    if (!update) return;
+                    const current = b.engineStateSlot.readPointer().readU32();
+                    noticeWheelActivity(current);
+                    const preference = preferredCategory || current;
+                    if (!preference || hudHintPreferences.get(update.key) === preference) return;
+                    // The game's own cache treats keyboard and mouse as equal.
+                    // Wheel input is delivered as mouse for interaction, so it
+                    // needs one presentation refresh when preference changes.
+                    update.forced.writeU8(1);
+                    if (!hudHintPreferences.has(update.key) && hudHintPreferences.size >= 256)
+                        hudHintPreferences.delete(hudHintPreferences.keys().next().value);
+                    hudHintPreferences.set(update.key, preference);
+                    hudHintRefreshes++;
+                    emit({kind:'hud-hint-refresh', preference:label(preference)});
+                } catch (e) { fail(e); }
+            });
+            listeners.push(hudHintHook);
+        }
         if (b.menuCursor) {
             const setDragging = new NativeFunction(b.menuCursor.setDragging, 'void', ['pointer', 'uint8']);
             listeners.push(Interceptor.attach(b.menuCursor.update, {
@@ -176,6 +273,7 @@ function install(b) {
                     const state = args[0];
                     const requested = args[1].readU32();
                     const before = state.readU32();
+                    noticeWheelActivity(requested);
                     // Engine category must remain untouched: changing it disables driving.
                     const protect = false;
                     calls++;
@@ -211,9 +309,15 @@ function install(b) {
                     const requested = engine.readU32();
                     const before = object.add(0x20).readU32();
                     if (!preferredCategory) preferredCategory = before;
+                    const idleWheel = requested === b.ids.wheel && retainKeyboardHints();
                     const retainPreference = requested === b.ids.mouse &&
                         [b.ids.wheel, b.ids.supplemental, b.ids.keyboard].includes(preferredCategory);
-                    if (!retainPreference) preferredCategory = requested;
+                    if (!retainPreference && !idleWheel) preferredCategory = requested;
+                    if (idleWheel) wheelHintNoiseIgnored++;
+                    if (requested === b.ids.keyboard && mode === 'ui-mouse-priority')
+                        wheelHintBaseline = wheelHintSamples();
+                    else if (![b.ids.keyboard, b.ids.mouse, b.ids.wheel].includes(requested))
+                        wheelHintBaseline = null;
                     // Winch handlers also consume the event argument directly.
                     // Keep UI interaction mouse-capable; hint readers separately
                     // receive preferredCategory (wheel until a keyboard input).
@@ -271,6 +375,7 @@ function install(b) {
                     const object = this.context.r11;
                     const engine = this.context.r10;
                     const requested = engine.readU32();
+                    noticeWheelActivity(requested);
                     const before = object.add(0x20).readU32();
                     const isWheel = requested === b.ids.wheel || requested === b.ids.supplemental;
                     const preferred = preferredCategory || before;
@@ -286,6 +391,9 @@ function install(b) {
                         // must see the original device.
                         if (scope.role === 'presentation' &&
                                 wasWheel && requested === b.ids.mouse) delivered = preferred;
+                        if (scope.role === 'presentation' && preferred === b.ids.keyboard &&
+                                wheelHintBaseline && (requested === b.ids.wheel || requested === b.ids.mouse))
+                            delivered = preferred;
                     }
                     const protect = delivered !== requested;
                     getterCalls++;
@@ -571,6 +679,8 @@ function startGame() {
         menuCursor: {update: game.base.add(CONFIG.profile.menuCursorCameraUpdateRva),
             setDragging: game.base.add(CONFIG.profile.menuCursorSetDraggingRva)},
         wheelNeutral: game.base.add(CONFIG.profile.wheelNeutralAbsFloatRva),
+        wheelHintActivity: CONFIG.profile.guards.some(g => g.name === 'wheel_state_values'),
+        hudHintFramePush: game.base.add(CONFIG.profile.guards.find(g => g.name === 'vm_frame_push_entry').rva),
         cursor: Process.getModuleByName('user32.dll').getExportByName('SetCursorPos'),
         base: game.base, size: game.size});
 }
@@ -596,6 +706,8 @@ rpc.exports = {
             menuKeys: winch.menuKeys ? {dispatch: ptr(winch.menuKeys), focus: ptr(winch.menuFocus)} : null,
             menuCursor: winch.cameraUpdate ? {update: ptr(winch.cameraUpdate), setDragging: ptr(winch.cameraDragging)} : null,
             wheelNeutral: winch.wheelNeutral ? ptr(winch.wheelNeutral) : null,
+            wheelHintActivity: !!winch.wheelHintActivity,
+            hudHintFramePush: winch.framePush ? ptr(winch.framePush) : null,
             winchHover: {before: ptr(winch.hoverSite), after: ptr(winch.hoverResume)}});
     }
 };
