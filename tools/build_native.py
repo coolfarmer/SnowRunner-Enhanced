@@ -30,6 +30,17 @@ def environment():
 def generate():
     BUILD.mkdir(parents=True, exist_ok=True)
     (ROOT / 'build/tmp').mkdir(parents=True, exist_ok=True)
+    startup = json.loads((ROOT / 'src/startup-profile.json').read_text())
+    rows = []
+    for e in startup['edits']:
+        a, b = bytes.fromhex(e['original']), bytes.fromhex(e['replacement'])
+        assert len(a) == len(b) <= 64
+        rows.append('{%dULL,%d,{%s},{%s}}' % (e['offset'], len(a), ','.join(map(str,a)), ','.join(map(str,b))))
+    (BUILD / 'startup_profile.h').write_text(
+        'typedef struct { unsigned long long offset; unsigned size; unsigned char before[64], after[64]; } StartupEdit;\n'
+        + '#define STARTUP_EDIT_COUNT %d\n#define STARTUP_ARCHIVE_SIZE %dULL\n' % (len(rows), startup['size'])
+        + 'static const unsigned char startup_sha256[32]={' + ','.join(map(str,bytes.fromhex(startup['sha256']))) + '};\n'
+        + 'static const StartupEdit startup_edits[STARTUP_EDIT_COUNT]={' + ','.join(rows) + '};\n')
     profile = json.loads((ROOT / 'src/input-profile.json').read_text())
     parts = ["const CONFIG={test:false,gamePath:Process.mainModule.path,profile:" + json.dumps(profile) + '};',
              'const NATIVE_SIGNATURES=' + json.dumps(compile_signatures(profile)) + ';',
@@ -58,10 +69,11 @@ def main():
     libs = ['user32.lib', 'shell32.lib', 'ole32.lib', 'advapi32.lib']
     invoke([*common, '/LD', str(ROOT / 'src/native/plugin.c'), '/link', *libs, '/OUT:SnowRunnerEnhanced.asi', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/harness.c'), '/link', *libs, '/OUT:native-harness.exe', '/DYNAMICBASE', '/NXCOMPAT'])
+    invoke([*common, str(ROOT / 'tests/native/startup_host.c'), '/link', *libs, '/OUT:startup-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/game_host.c'), '/link', '/OUT:game-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, '/LD', str(ROOT / 'tests/native/companion.c'), '/link', '/OUT:companion.asi'])
     (BUILD / 'build.json').write_text(json.dumps({
-        'version': '0.1.0-preview.9', 'engine': 'GumJS 17.26.3 embedded',
+        'version': '0.1.0-preview.10', 'engine': 'GumJS 17.26.3 embedded',
         'artifacts': {n: hashlib.sha256((BUILD / n).read_bytes()).hexdigest()
                       for n in ('SnowRunnerEnhanced.asi', 'native-harness.exe')},
         'v18Sources': {n: hashlib.sha256((ROOT / 'src' / n).read_bytes()).hexdigest()

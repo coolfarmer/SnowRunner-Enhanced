@@ -59,7 +59,7 @@ internal static class Program
     {
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         var flags = new[] { "plain", "json", "help", "preview" };
-        var values = new[] { "action", "game-directory", "wheel-mouse", "language" };
+        var values = new[] { "action", "game-directory", "wheel-mouse", "skip-startup-logos", "language" };
         for (int i = 0; i < args.Length; i++)
         {
             if (!args[i].StartsWith("--")) throw new ArgumentException("Unknown argument: " + args[i]);
@@ -81,6 +81,12 @@ internal static class Program
         throw new ArgumentException("--wheel-mouse true|false is required.");
     }
 
+    static bool? StartupOption(Dictionary<string,string> options, bool? fallback) {
+        if (!options.TryGetValue("skip-startup-logos", out var value)) return fallback;
+        if (bool.TryParse(value,out var flag)) return flag;
+        throw new ArgumentException("--skip-startup-logos true|false is required.");
+    }
+
     static int Command(Dictionary<string, string> options, string action)
     {
         if (!options.TryGetValue("game-directory", out var directory)) throw new ArgumentException("--game-directory is required.");
@@ -89,8 +95,8 @@ internal static class Program
         switch (action)
         {
             case "check": case "status": result = installation.Inspect(); break;
-            case "install": installation.Install(BooleanOption(options, true)); result = installation.Inspect(); break;
-            case "configure": installation.Configure(BooleanOption(options)); result = installation.Inspect(); break;
+            case "install": installation.Install(BooleanOption(options, true), StartupOption(options, false)!.Value); result = installation.Inspect(); break;
+            case "configure": installation.Configure(BooleanOption(options, installation.Enabled), StartupOption(options, null)); result = installation.Inspect(); break;
             case "uninstall":
                 result = new JsonObject { ["installed"] = false,
                     ["preserved"] = JsonSerializer.SerializeToNode(installation.Uninstall()) }; break;
@@ -237,6 +243,7 @@ internal static class Program
             catch (Exception e) { Say(e.Message, true); Pause(); directory = null; autoSelect = false; }
         }
         bool pending = installation.HasReceipt ? ReadEnabled(installation) : true;
+        bool pendingStartup = installation.HasReceipt && installation.SkipStartupLogosEnabled;
         string? notice = null;
         while (true)
         {
@@ -268,22 +275,23 @@ internal static class Program
                     case "back": break;
                     case "language": SelectLanguage(); break;
                     case "help": InteractiveHelp(); Pause(); break;
-                    case "folder": installation = Open(SelectGame()); pending = installation.HasReceipt ? ReadEnabled(installation) : true; break;
+                    case "folder": installation = Open(SelectGame()); pending = installation.HasReceipt ? ReadEnabled(installation) : true; pendingStartup = installation.HasReceipt && installation.SkipStartupLogosEnabled; break;
                     case "status": ShowStatus(installation.Inspect()); Pause(); break;
                     case "report": Say(T("Diagnostic enregistré : ", "Diagnostic saved: ") + SaveReport(installation));
                         Say(T("Joignez ce fichier à une issue dans le dépôt du projet. Aucun envoi automatique.",
                               "Attach this file to an issue in the project repository. Nothing is sent automatically.")); Pause(); break;
                     case "features":
-                        bool selected = SelectFeatures(enabled);
-                        if (installed) installation.Configure(selected); else pending = selected;
+                        var selected = SelectEnhancements(enabled, installed ? installation.SkipStartupLogosEnabled : pendingStartup);
+                        if (installed) installation.Configure(selected.Wheel, selected.Startup);
+                        else { pending = selected.Wheel; pendingStartup = selected.Startup; }
                         notice = T("Choix enregistré.", "Selection saved."); break;
                     case "install":
                         if (ui != null)
-                            ui.RunWithSpinner(T("Installation en cours…", "Installing Enhanced…"), () => installation.Install(pending));
+                            ui.RunWithSpinner(T("Installation en cours…", "Installing Enhanced…"), () => installation.Install(pending, pendingStartup));
                         else
                         {
                             Say(T("Installation en cours…", "Installing Enhanced…"));
-                            installation.Install(pending);
+                            installation.Install(pending, pendingStartup);
                         }
                         Say(T("Installation terminée. Lancez le jeu normalement.", "Installed. Start the game normally."));
                         Pause();
@@ -317,23 +325,28 @@ internal static class Program
         }
     }
 
-    static bool SelectFeatures(bool current)
+    static (bool Wheel, bool Startup) SelectEnhancements(bool wheel, bool startup)
     {
-        if (ui == null) return Choose(FeatureName, [new("on", T("Activé", "Enabled")), new("off", T("Désactivé", "Disabled"))]) == "on";
-        bool selected = current;
-        while (true)
-        {
+        if (ui == null) {
+            bool w = Choose(FeatureName, [new("on", T("Activé", "Enabled")), new("off", T("Désactivé", "Disabled"))]) == "on";
+            bool l = Choose("Skip Startup Logos", [new("on", T("Activé", "Enabled")), new("off", T("Désactivé", "Disabled"))]) == "on";
+            return (w,l);
+        }
+        bool selectedWheel=wheel, selectedStartup=startup;
+        while (true) {
             Screen();
-            Say(T("Sélectionnez les correctifs et les améliorations que vous souhaitez utiliser. Chaque amélioration peut être activée ou désactivée indépendamment.",
-                  "Select the fixes and improvements you want to use. Each enhancement can be enabled or disabled independently."));
+            Say(T("Chaque amélioration peut être activée ou désactivée indépendamment.", "Each enhancement can be enabled or disabled independently."));
+            Say(T("Skip Startup Logos saute l’avertissement de photosensibilité et les logos au prochain lancement.", "Skip Startup Logos skips the photosensitivity warning and logos at the next launch."));
             Blank();
             int choice = ui.Choose(T("PERSONNALISER LES AMÉLIORATIONS", "CUSTOMIZE ENHANCEMENTS"), [
-                new($"[{(selected ? "x" : " ")}] {FeatureName}", BreakAfter: true),
+                new($"[{(selectedWheel ? "x" : " ")}] {FeatureName}"),
+                new($"[{(selectedStartup ? "x" : " ")}] Skip Startup Logos", BreakAfter: true),
                 new(T("Enregistrer", "Save")), new(T("Annuler", "Cancel"))],
                 T("↑ ↓ Naviguer    Espace Basculer    Entrée Sélectionner", "↑ ↓ Navigate    Space Toggle    Enter Select"), separator: true, spaceSelects: true);
-            if (choice is -1 or 2) return current;
-            if (choice == 1) return selected;
-            selected = !selected;
+            if (choice is -1 or 3) return (wheel,startup);
+            if (choice==2) return (selectedWheel,selectedStartup);
+            if (choice==0) selectedWheel=!selectedWheel;
+            if (choice==1) selectedStartup=!selectedStartup;
         }
     }
 
@@ -407,6 +420,7 @@ internal static class Program
         if (installed)
         {
             if (status["wheelMouseEnabled"] != null) FeatureSummary(status["wheelMouseEnabled"]!.GetValue<bool>());
+            if (status["skipStartupLogosEnabled"] != null) Say("Skip Startup Logos — " + (status["skipStartupLogosEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
             if (status["configurationError"] != null) Say(status["configurationError"]!.GetValue<string>(), true);
             foreach (var entry in (JsonObject)status["files"]!)
                 if (entry.Value?.GetValue<string>() != "owned") Say(entry.Key + ": " + entry.Value, true);
@@ -422,6 +436,7 @@ internal static class Program
                     _ => T("Correctif interrompu : consultez le diagnostic", "Fix stopped: check the diagnostic")
                 };
                 Say(T("Dernier lancement enregistré : ", "Last recorded launch: ") + label);
+                Say("Skip Startup Logos : " + (runtime["features"]?["skip_startup_logos"]?["status"]?.GetValue<string>() ?? "unknown"));
                 Say(runtime["timeUtc"]?.GetValue<string>() ?? "");
             }
             else Say(T("Lancez le jeu une fois, puis revenez vérifier l’activation.", "Start the game once, then return to check activation."));
@@ -452,5 +467,5 @@ internal static class Program
     static void Help() => Console.WriteLine("SnowRunner Enhanced " + Installation.Version + "\n" +
         "Install.cmd [--language fr|en] [--plain] [--game-directory PATH]\n" +
         "--action check|status|install|configure|uninstall|report --game-directory PATH [--json]\n" +
-        "--wheel-mouse true|false (configure: required; install: defaults to true)\n--preview\n");
+        "--wheel-mouse true|false (install: true; configure: preserve current)\n--skip-startup-logos true|false (install: false; configure: preserve current)\n--preview\n");
 }

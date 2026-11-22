@@ -1,4 +1,4 @@
-# SnowRunner Enhanced — 0.1.0-preview.9
+# SnowRunner Enhanced — 0.1.0-preview.10
 
 Hints in open panels now follow keyboard-to-wheel switching and back, including
 Close, without having to reopen the panel. The shared icon service and navigation
@@ -101,3 +101,11 @@ Install.cmd --action configure --game-directory "D:\SteamLibrary\steamapps\commo
 Explicit `install`, `configure` and `uninstall` actions apply changes directly.
 `check` checks files and the loading mechanism; signature compatibility is
 checked in memory when the game runs.
+
+## Enhancement #2 — Skip Startup Logos
+
+In **Advanced Options → Customize enhancements**, enable **Skip Startup Logos** to skip the photosensitivity warning and the Saber, Focus and Havok logos on the next launch. It defaults to off and works independently of simultaneous mouse/wheel input. Disable it to restore the original sequence next launch.
+
+The plugin changes only the read buffers of a recognized archive in memory; `gfx.pak` stays unchanged. This preview supports one exact archive hash. A game update or another mod changing that archive retains the original intro and reports `incompatible`. `armed` means the hook is waiting for reads; `active` confirms both changes for the sequence were read. Actual game loading is still required.
+
+CLI: `Install.cmd --action configure --game-directory "GAME_PATH" --skip-startup-logos true --json`. Omitted configuration options keep their current values.

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.9/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.10/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
@@ -63,6 +63,9 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                 status = json.loads((folder / STATUS).read_text())
                 assert status['features']['wheel_mouse']['status'] == expected, status
                 assert status['processId'] == process.pid
+                startup = bool(config and config.get('features', {}).get('skip_startup_logos', {}).get('enabled', False))
+                assert status['features']['skip_startup_logos']['enabled'] == startup
+                assert status['features']['skip_startup_logos']['status'] == ('incompatible' if startup else 'disabled')
                 if synthetic:
                     assert status['features']['wheel_mouse']['compatibility']['relocatedGuards'] == GUARD_COUNT
                     assert status['features']['wheel_mouse']['counters']['active']
@@ -101,6 +104,7 @@ if __name__ == '__main__':
                  'active', delay=6000, synthetic=True, loader=loader)
     for name, config, state in [
         ('disabled', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': False}}}, 'disabled'),
+        ('startup only, unsupported archive', {'schemaVersion': 1, 'features': {'skip_startup_logos': {'enabled': True}}}, 'disabled'),
         ('omitted feature', {'schemaVersion': 1, 'features': {}}, 'disabled'),
         ('missing configuration', None, 'configuration-error'),
         ('unknown feature', {'schemaVersion': 1, 'features': {'other': {'enabled': True}}}, 'configuration-error'),
@@ -109,5 +113,6 @@ if __name__ == '__main__':
     run_case('wrong executable', None, None, wrong_name=True)
     run_case('active relocated image', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},
              'active', delay=6000, synthetic=True)
+    run_case('both features independent', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}, 'skip_startup_logos': {'enabled': True}}}, 'active', delay=6000, synthetic=True)
     run_case('unrecognized signatures', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},
              'incompatible', delay=68000)

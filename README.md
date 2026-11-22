@@ -1,6 +1,6 @@
 # SnowRunner Enhanced
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.9** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.10** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
 Opening Functions with the keyboard or wheel now releases mouse camera capture
@@ -15,6 +15,13 @@ the last keyboard action; buttons remain immediate and driving input is unchange
 The installed preview.7 passed the gas-station test on November 22, 2026:
 keyboard hints stayed visible for 15 seconds at idle with the engine running,
 then wheel movement restored the wheel hint.
+
+Enhancement #2, **Skip Startup Logos**, is an independent installer option,
+off by default. It skips the photosensitivity warning and publisher logos by
+intercepting read buffers in memory, without changing gfx.pak. This preview
+requires a recognized archive hash; unsupported archives retain their intro.
+The installed startup behavior was confirmed by the user on November 22, 2026.
+See [implementation and validation limits](Docs/STARTUP_LOGOS.md).
 
 The standalone package includes a bilingual installer. Players do not need to
 install Python, Frida, or .NET. Extract the complete release ZIP and run

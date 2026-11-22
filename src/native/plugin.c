@@ -6,24 +6,42 @@
 #include "bundle.h"
 #pragma comment(lib, "bcrypt.lib")
 
+#include "startup.h"
+
 static HMODULE self;
 static volatile LONG started;
 static wchar_t status_path[32768], temp_path[32768];
 
 static void WriteReport(const char *text) {
+    JsonParser *parser = json_parser_new();
+    char *enriched = NULL;
+    if (json_parser_load_from_data(parser, text, -1, NULL)) {
+        JsonObject *root = json_node_get_object(json_parser_get_root(parser));
+        JsonObject *features = json_object_get_object_member(root, "features");
+        if (features) {
+            JsonObject *startup = json_object_new();
+            json_object_set_boolean_member(startup,"enabled",configured_features >= 0 && (configured_features & 2) != 0);
+            json_object_set_string_member(startup,"status",StartupState());
+            json_object_set_object_member(features,"skip_startup_logos",startup);
+            enriched=json_to_string(json_parser_get_root(parser),TRUE);
+        }
+    }
+    if (enriched) text=enriched;
+
     HANDLE file = CreateFileW(temp_path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE,
                              NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (file == INVALID_HANDLE_VALUE) return;
+    if (file == INVALID_HANDLE_VALUE) { g_free(enriched); g_object_unref(parser); return; }
     DWORD written, count = (DWORD)strlen(text);
     BOOL ok = count < 65536 && WriteFile(file, text, count, &written, NULL) && count == written;
     CloseHandle(file);
     if (ok) MoveFileExW(temp_path, status_path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+    g_free(enriched); g_object_unref(parser);
 }
 
 static void SimpleStatus(const char *status, const char *reason) {
     char out[1024];
     SYSTEMTIME now; GetSystemTime(&now);
-    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.9\","
+    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.10\","
         "\"processId\":%lu,\"timeUtc\":\"%04u-%02u-%02uT%02u:%02u:%02uZ\","
         "\"features\":{\"wheel_mouse\":{\"status\":\"%s\",\"reason\":\"%s\"}}}",
         (unsigned long)GetCurrentProcessId(), now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, status, reason);
@@ -75,14 +93,19 @@ static int ReadConfiguration(const wchar_t *folder) {
             if (json_object_get_size(root) == 2 && schema && json_node_get_value_type(schema) == G_TYPE_INT64 &&
                     json_node_get_int(schema) == 1 && features && JSON_NODE_HOLDS_OBJECT(features)) {
                 JsonObject *entries = json_node_get_object(features);
-                JsonNode *wheel = json_object_get_member(entries, "wheel_mouse");
-                if (!wheel && json_object_get_size(entries) == 0) enabled = 0;
-                else if (wheel && JSON_NODE_HOLDS_OBJECT(wheel) && json_object_get_size(entries) == 1) {
-                    JsonObject *entry = json_node_get_object(wheel);
+                enabled = 0;
+                GList *members = json_object_get_members(entries);
+                for (GList *m = members; m; m = m->next) {
+                    const char *key = m->data;
+                    int bit = !strcmp(key, "wheel_mouse") ? 1 : !strcmp(key, "skip_startup_logos") ? 2 : 0;
+                    JsonNode *entryNode = json_object_get_member(entries, key);
+                    if (!bit || !JSON_NODE_HOLDS_OBJECT(entryNode)) { enabled = -1; break; }
+                    JsonObject *entry = json_node_get_object(entryNode);
                     JsonNode *flag = json_object_get_member(entry, "enabled");
-                    if (json_object_get_size(entry) == 1 && flag && json_node_get_value_type(flag) == G_TYPE_BOOLEAN)
-                        enabled = json_node_get_boolean(flag) ? 1 : 0;
+                    if (json_object_get_size(entry) != 1 || !flag || json_node_get_value_type(flag) != G_TYPE_BOOLEAN) { enabled = -1; break; }
+                    if (json_node_get_boolean(flag)) enabled |= bit;
                 }
+                g_list_free(members);
             }
         }
     }
@@ -119,10 +142,11 @@ static void EnhancedStart(void) {
     swprintf_s(temp_path, 32768, L"%lsSnowRunnerEnhanced.status.tmp", folder);
     // The static devkit needs GLib/GObject initialization before its JSON
     // parser can be used. This does not create any feature/game hooks.
-    gum_init_embedded();
-    int enabled = ReadConfiguration(folder);
+    int enabled = configured_features;
     if (enabled < 0) { SimpleStatus("configuration-error", "Missing or invalid configuration"); return; }
-    if (!enabled) { SimpleStatus("disabled", "Disabled in configuration"); return; }
+    if (!(enabled & 1)) {
+        do { SimpleStatus("disabled", "Disabled in configuration"); if (!(enabled & 2)) return; Sleep(2000); } while (1);
+    }
     HMODULE pinned;
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
                           (LPCWSTR)(uintptr_t)&EnhancedStart, &pinned)) return;
@@ -150,12 +174,26 @@ static DWORD WINAPI EnhancedWorker(void *unused) {
 
 __declspec(dllexport) void InitializeASI(void) {
     DWORD error = GetLastError();
+    wchar_t gamePath[32768];
+    if (!GetModuleFileNameW(NULL,gamePath,32768)) { SetLastError(error); return; }
+    wchar_t *gameName=wcsrchr(gamePath,L'\\');
+    if (!gameName || _wcsicmp(gameName+1,L"SnowRunner.exe")) { SetLastError(error); return; }
     if (InterlockedCompareExchange(&started, 1, 0) == 0) {
-        // Return promptly so the shared loader can initialize the other mods.
+        // Startup interception must be ready before returning to the game.
+        // Wheel discovery remains asynchronous; archive validation is opt-in.
         // Pin before starting the worker, including disabled/error paths.
         HMODULE pinned;
         if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
                               (LPCWSTR)(uintptr_t)&InitializeASI, &pinned)) {
+            gum_init_embedded();
+            wchar_t folder[32768];
+            DWORD n = GetModuleFileNameW(self, folder, 32768);
+            wchar_t *slash = n && n < 32768 ? wcsrchr(folder, L'\\') : NULL;
+            if (slash) {
+                slash[1] = 0;
+                configured_features = ReadConfiguration(folder);
+                if (configured_features >= 0) StartupInstall(folder);
+            }
             HANDLE thread = CreateThread(NULL, 0, EnhancedWorker, NULL, 0, NULL);
             if (thread) CloseHandle(thread);
             else InterlockedExchange(&started, 0);

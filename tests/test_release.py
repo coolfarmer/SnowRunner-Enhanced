@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.9'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.10'
 SETUP = PACKAGE / 'Sources/Installer/SnowRunnerEnhanced.Setup.exe'
 CONFIG = 'SnowRunnerEnhanced.json'
 RECEIPT = 'SnowRunnerEnhanced.install.json'
@@ -52,6 +52,25 @@ class ReleaseTests(unittest.TestCase):
         self.run_setup('uninstall')
         self.assertEqual(set(p.name for p in self.folder.iterdir()), {'SnowRunner.exe', *self.sentinels})
         self.assertEqual(hashlib.sha256((self.folder / 'SnowRunner.exe').read_bytes()).hexdigest(), before)
+
+    def test_startup_option_is_independent_and_preserved(self):
+        result=self.run_setup('install', '--wheel-mouse', 'false', '--skip-startup-logos', 'true')
+        self.assertFalse(result['wheelMouseEnabled'])
+        self.assertTrue(result['skipStartupLogosEnabled'])
+        result=self.run_setup('configure', '--wheel-mouse', 'true')
+        self.assertTrue(result['skipStartupLogosEnabled'])
+        result=self.run_setup('configure', '--skip-startup-logos', 'false')
+        self.assertTrue(result['wheelMouseEnabled'])
+        self.assertFalse(result['skipStartupLogosEnabled'])
+        self.run_setup('configure', '--skip-startup-logos', 'invalid', success=False)
+        self.run_setup('uninstall')
+
+    def test_legacy_configuration_keeps_startup_disabled(self):
+        self.run_setup('install')
+        (self.folder / CONFIG).write_text(json.dumps({'schemaVersion':1,'features':{'wheel_mouse':{'enabled':True}}}))
+        result=self.run_setup('configure', '--wheel-mouse', 'false')
+        self.assertFalse(result['skipStartupLogosEnabled'])
+        self.run_setup('uninstall')
 
     def test_unrelated_version_loader_is_preserved(self):
         (self.folder / 'version.dll').write_bytes(b'another mod')
@@ -241,7 +260,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_navigation_changes_language_and_preserves_pending_fixes(self):
         result = subprocess.run([SETUP, '--plain', '--language', 'en', '--game-directory', self.folder],
-                                input='2\n1\n\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
+                                input='2\n1\n\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
                                 text=True, encoding='utf-8', timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('MAIN MENU', result.stdout)

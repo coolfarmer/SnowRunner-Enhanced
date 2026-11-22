@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.9`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.10`. Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -98,8 +98,8 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.9.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.9/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.10.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.10/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
