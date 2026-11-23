@@ -155,7 +155,135 @@ function makeUiScope(stringPoolSlot, callerRoles) {
     return scope;
 }
 
-function hookHudHintUpdates(framePush, stringPoolSlot, update) {
+function makeNavButtonHitAreaFix(stringPoolSlot) {
+    // Captured NavButtonView.Show (116 words). Its empty-label branch skips
+    // hitTextArea.width, leaving the authored rectangle over the next map tab.
+    // Run the existing measured-text layout for empty labels too. This keeps
+    // the conditional's stack effect and uses the game's own width setters.
+    const words = [
+        0x80000301,0x80000101,0x80000107,0x80000007,0x80000104,0x80000006,0x80000c0e,0x80000002,
+        0x80000101,0x80000007,0x80000004,0x8000190d,0x7fffff3b,0x80000002,0x80000101,0x80000007,
+        0x8000340a,0x7fffff07,0x80000104,0x80002d0d,0x80000002,0x80000101,0x80000007,0x80000004,
+        0x8000190d,0x8000900a,0x7ffffe3b,0x80000002,0x80000101,0x80000007,0x8000360a,0x80000004,
+        0x80001b0d,0x7ffffd3b,0x80000002,0x7ffffd07,0x80000106,0x80000830,0x80006716,0x80000206,
+        0x7ffffe07,0x80008f0a,0x8000123c,0x80000002,0x7ffffd07,0x7ffffe07,0x80008f0a,0x8000613c,
+        0x80000002,0x7ffffe07,0x80008f0a,0x8000690a,0x80000306,0x80000021,0x7ffffe07,0x80008f0a,
+        0x8000123c,0x80000002,0x7ffffe07,0x80008f0a,0x8000120a,0x7fffff07,0x8000930a,0x8000123c,
+        0x80000002,0x80000007,0x8000360a,0x8000110a,0x80006016,0x80000101,0x80000008,0x80000004,
+        0x8003c10d,0x80005616,0x80000007,0x8000370a,0x80000007,0x80002f0a,0x80000306,0x80000028,
+        0x80000025,0x7ffffe07,0x80008f0a,0x80000f3c,0x80000002,0x80005f1a,0x80000007,0x8000370a,
+        0x80000007,0x80002f0a,0x80000025,0x7ffffe07,0x80008f0a,0x80000f3c,0x80000002,0x8000661a,
+        0x80000007,0x8000370a,0x7ffffe07,0x80008f0a,0x80000f3c,0x80000002,0x80006c1a,0x80000406,
+        0x7ffffe07,0x80008f0a,0x8000123c,0x80000002,0x80000101,0x80000506,0x7fffff07,0x8000920a,
+        0x80000104,0x8000720d,0x80000002,0x80000213
+    ];
+    let patched = null;
+    function named(id, expected) {
+        if (id > 0x10000000) return false;
+        const bytes = new Uint8Array(stringPoolSlot.readPointer().add(id).readByteArray(expected.length + 1));
+        return [...expected].every((c,i) => bytes[i] === c.charCodeAt(0)) &&
+            (bytes[expected.length] === 0 || bytes[expected.length] === 255);
+    }
+    function matches(fn, code, branch) {
+        if (fn.add(0x68).readU32() !== words.length || !fn.add(0x60).readPointer().equals(code) ||
+                fn.add(0x58).readU32() !== 6) return false;
+        const cls = fn.add(0x48).readPointer();
+        if (cls.isNull() || !named(cls.add(0x18).readU32(), 'NavButtonView') ||
+                !named(fn.add(0x40).readPointer().readU32(), 'Show')) return false;
+        const constants = fn.add(0x50).readPointer();
+        for (const [index, bits] of [[2,0x447a0000],[3,0x40000000],[4,0]]) {
+            const value = constants.add(index * 8);
+            if (value.readU64().shr(48).toNumber() !== 3 || value.readU32() !== bits) return false;
+        }
+        return words.every((w,i) => code.add(i*4).readU32() === (i === 38 ? branch : w));
+    }
+    return {
+        apply(fn) {
+            try {
+                if (patched) return false;
+                const code = fn.add(0x60).readPointer();
+                if (!matches(fn, code, words[38])) return false;
+                // Aligned VM instruction write on the game's method-entry thread.
+                code.add(38*4).writeU32(0x80002716);
+                patched = {fn, code};
+                return true;
+            } catch (_) { return false; } // Unrecognized scripts stay untouched.
+        },
+        restore() {
+            if (!patched) return true;
+            const {fn, code} = patched;
+            patched = null;
+            try {
+                // Never overwrite a method modified or replaced by someone else.
+                if (!matches(fn, code, 0x80002716)) return false;
+                code.add(38*4).writeU32(words[38]);
+                return true;
+            } catch (_) { return false; }
+        }
+    };
+}
+
+// A foreign edit can prevent restoration. Keep replacement bytecode alive even
+// after stop drops its fixer, until this embedded runtime shuts down with the game.
+const mapNotificationCodeStorage = [];
+function makeMapNotificationHitAreaFix(stringPoolSlot) {
+    // HideContractBtn runs while refreshing the existing side panel. Preserve
+    // both original button hides and additionally hide the unused tab0notify.
+    // Its transparent 20x20 shape otherwise intercepts the map icon's upper right.
+    const words = [0x80000101,0x80000007,0x8000550a,0x80000004,0x80001a0d,0x80000002,
+        0x80000101,0x80000007,0x8000540a,0x80000004,0x80001a0d,0x80000002,0x80000113];
+    const corrected = [...words.slice(0,-1),0x80000005,0x80000007,0x8000060a,
+        0x8000950a,0x8000183c,0x80000002,0x80000113];
+    let patch = null, replacement = null;
+    function named(id, expected) {
+        if (id > 0x10000000) return false;
+        const bytes = new Uint8Array(stringPoolSlot.readPointer().add(id).readByteArray(expected.length + 1));
+        return [...expected].every((c,i) => bytes[i] === c.charCodeAt(0)) &&
+            (bytes[expected.length] === 0 || bytes[expected.length] === 255);
+    }
+    function matches(fn, code, expected) {
+        const cls = fn.add(0x48).readPointer();
+        return !cls.isNull() && named(cls.add(0x18).readU32(), 'MinimapUiSidepanelView') &&
+            named(fn.add(0x40).readPointer().readU32(), 'HideContractBtn') &&
+            fn.add(0x58).readU32() === 0 && fn.add(0x68).readU32() === expected.length &&
+            fn.add(0x60).readPointer().equals(code) &&
+            expected.every((w,i) => code.add(i*4).readU32() === w);
+    }
+    return {
+        apply(fn) {
+            try {
+                if (patch) return false;
+                const original = fn.add(0x60).readPointer();
+                if (!matches(fn, original, words)) return false;
+                if (!replacement) {
+                    replacement = Memory.alloc(corrected.length * 4);
+                    mapNotificationCodeStorage.push(replacement);
+                }
+                corrected.forEach((w,i) => replacement.add(i*4).writeU32(w));
+                // At method entry, before the VM reads this descriptor's code.
+                fn.add(0x60).writePointer(replacement);
+                fn.add(0x68).writeU32(corrected.length);
+                patch = {fn, original, replacement};
+                return true;
+            } catch (_) { return false; }
+        },
+        restore() {
+            if (!patch) return true;
+            const {fn, original, replacement} = patch;
+            try {
+                if (!matches(fn, replacement, corrected) ||
+                        !words.every((w,i) => original.add(i*4).readU32() === w)) return false;
+                fn.add(0x60).writePointer(original);
+                fn.add(0x68).writeU32(words.length);
+                patch = null;
+                return true;
+            } catch (_) { return false; }
+        }
+    };
+}
+
+function hookHudHintUpdates(framePush, stringPoolSlot, update,
+        targetClass = 'NavigationPanelController', targetMethod = 'Update') {
     // VM calls are frequent. Discover the exact method in native code, then
     // filter by its descriptor address; only that method enters JavaScript.
     const state = Memory.alloc(16);
@@ -181,9 +309,9 @@ void on_enter(GumInvocationContext *ic) {
     if (state.target) { if (fn != state.target) return; }
     else {
         cls=word(fn+0x48); if (!cls) return;
-        if (!named(*(guint32 *)(guintptr)(cls+0x18),"NavigationPanelController")) return;
+        if (!named(*(guint32 *)(guintptr)(cls+0x18),${JSON.stringify(targetClass)})) return;
         signature=word(fn+0x40); if (!signature) return;
-        if (!named(*(guint32 *)(guintptr)signature,"Update")) return;
+        if (!named(*(guint32 *)(guintptr)signature,${JSON.stringify(targetMethod)})) return;
         state.target=fn;
     }
     error=ic->system_error;

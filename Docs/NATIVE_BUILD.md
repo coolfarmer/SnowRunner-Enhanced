@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.11`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.15`. Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -38,6 +38,74 @@ d’installation des hooks ne réessaie pas. Une faute pendant le fonctionnement
 repasse en observation dans la V18 et déclenche ensuite le retrait de ses hooks.
 
 ## Indépendance
+
+### Coin supérieur droit de la carte (preview.15)
+
+L’enhancement nº 1 masque `GetUiObject().tab0notify` lors de
+`MinimapUiSidepanelView.HideContractBtn`, une méthode appelée à l’actualisation
+et au changement d’onglet du panneau déjà chargé. Les 13 instructions originales
+et les noms de classe/méthode sont contrôlés avant d’installer une copie de
+19 instructions. Les deux actions originales sont conservées ; seul le masquage
+du repère inutilisé est ajouté. Les autres notifications restent inchangées.
+Le pointeur et la longueur d’origine sont restaurés en observation, faute ou arrêt
+si le code correspond encore exactement au correctif. Les objets déjà masqués
+conservent leur visibilité jusqu’à leur recréation.
+
+Les essais GFX de preview.13 (échelle nulle) et preview.14 (déplacement hors
+écran) ont échoué en jeu et sont retirés. L’archive `gfx.pak` et le lecteur des
+logos ne participent plus à cette correction. Le compteur
+`mapNotificationHitAreaRepairs` indique l’application de la méthode corrigée.
+
+Le 23 novembre 2026, essai sur la session déjà ouverte : masquage actif, clic
+réussi à (202,132) ; repère réactivé, même clic bloqué ; nouveau masquage, clic
+réussi à (195,140), en 2560×1440. L’utilisateur confirme « Ça fonctionne oui! ».
+La version complète conservant les deux actions originales a ensuite été
+exécutée dans la même session et le clic (202,132) a réussi. Aucun redémarrage.
+Le test VM exécute les instructions, vérifie les deux boutons et l’isolation des
+autres notifications, les signatures refusées et la restauration prudente.
+La preview.15 installée a ensuite été confirmée par l’utilisateur le
+23 novembre 2026. Le diagnostic du nouveau processus confirme un correctif
+de navigation, un correctif de notification et zéro faute ; l’empreinte de
+l’ASI installé correspond au paquet construit.
+
+Validation automatisée : 575 assertions dans le moteur embarqué, le test VM
+du masquage dans Frida et l’hôte natif, 12 tests de compatibilité, le scanner
+natif, 82 contrôles d’interface et la suite des chargeurs ASI passent. Lors de
+la suite de 44 tests Python, 26 ont passé et 18 scénarios d’installation ont
+été bloqués par la protection exigeant la fermeture du jeu resté ouvert.
+Ces scénarios devront être rejoués lors d’un prochain arrêt du jeu.
+
+### Zone cliquable des boutons sans texte (preview.12)
+
+L’enhancement nº 1 découvre `NavButtonView.Show` au point d’entrée VM déjà
+contrôlé. Il vérifie le nom, les 116 instructions, les six constantes et les
+trois valeurs flottantes de mise en page. Une instruction de branchement est
+redirigée vers le bloc existant qui calcule la largeur du texte et de sa zone
+cliquable, même pour un libellé vide. Le test conditionnel conserve son effet
+sur la pile. Les boutons avec libellé suivent le même chemin qu’auparavant.
+Le défaut du composant partagé est corrigé pour les boutons sans texte ; les
+flèches de la carte en sont le cas confirmé en jeu. Aucun `gfx.pak` n’est édité.
+
+Le correctif est appliqué sur le thread d’entrée de la méthode. Le passage en
+observation, une faute ou l’arrêt restaurent l’instruction uniquement si la
+méthode correspond encore exactement au code corrigé. Une modification tierce
+est préservée et comptée dans `navigationHitAreaRestoreSkipped`.
+Les objets UI déjà mis en page conservent leurs dimensions jusqu’à leur
+prochaine reconstruction. La régression interprète le bloc original capturé :
+un libellé vide conserve une zone de 74,4 unités avant correction, puis une zone
+de 2 unités après correction. Les libellés non vides restent identiques.
+
+L’essai temporaire est confirmé par l’utilisateur le 23 novembre 2026. Après
+installation, un second défaut est reproduit dans le coin supérieur droit de
+l’icône : le placeholder invisible `tab0notify` recouvre cette zone. Dans
+`minimapMenuPanel`, il est placé à (136,91), avec une forme de 20×20 unités,
+au-dessus de `tab0` placé à (116,91). `MinimapUiSidepanelView.InitContent`
+masque les placeholders `tab1notify` et `tab2notify`, mais laisse `tab0notify`
+intact. Les clics échouent à (202,132) et (195,140) en 2560×1440 ; ils
+réussissent à (202,150), (195,150) et (180,132). Preview.12 ne corrige pas ce
+second défaut ; preview.15 ajoute le masquage validé décrit ci-dessus.
+
+### Séparation des composants
 
 Les sources, dépendances de construction, caches, configurations et paquets
 restent propres à Enhanced. Le seul composant partagé dans le dossier du jeu
@@ -98,8 +166,8 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.11.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.11/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.15.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.15/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.

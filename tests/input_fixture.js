@@ -190,7 +190,61 @@ const hudPrefix=[0x80000301,0x80000207,0x8000001b,0x80001118,0x80000002,
 const hudTail=[0x80000101,0x80000007,0x80000004,0x80001006,0x8000310e,0x80000002,0x80000113];
 hudVm.context.add(0x18).writePointer(hudArgs);
 hudFn.add(0x60).writePointer(hudCode);hudHolderFn.add(0x60).writePointer(hudHolderCode);
+const navMethod=vmStack('','','', [['NavButtonView','Show']]);
+const navFn=navMethod.context.add(0x30).readPointer().add(8).readPointer();
+const navCode=Memory.alloc(TEST_NAV_CONTEXT.words.length*4),navConstants=Memory.alloc(6*8);
+navFn.add(0x60).writePointer(navCode);navFn.add(0x50).writePointer(navConstants);
+// Interpret the recorded game's layout block, rather than duplicating the
+// correction. The untouched method reproduces the overlapping text target.
+function navigationLayout(text) {
+    const field={18:74.4,97:'',15:0};
+    Object.defineProperty(field,105,{get:()=>field[97].length*8});
+    const hit={18:74.4},container={143:field},ui={144:container,147:hit};
+    const locals={0:{54:{17:false},55:0,47:0},'-1':ui,'-2':container,'-3':text};
+    const values=TEST_NAV_CONTEXT.constants,stack=[];
+    let pc=35,steps=0;
+    while(pc<108 && ++steps<200) {
+        const w=navCode.add(pc++*4).readU32(),op=w&255,arg=(w>>>8)-0x800000;
+        if(op===1)continue;
+        if(op===2){stack.pop();continue;}
+        if(op===6){stack.push(values[arg]);continue;}
+        if(op===7){stack.push(locals[arg]);continue;}
+        if(op===10){stack.push(stack.pop()[arg]);continue;}
+        if(op===60){const object=stack.pop(),value=stack.pop();object[arg]=value;stack.push(value);continue;}
+        if(op===22){if(!stack.pop())pc=arg;continue;}
+        if(op===26){pc=arg;continue;}
+        const right=stack.pop(),left=stack.pop();
+        if(op===48 && arg===8)stack.push(left!==right);
+        else if(op===33)stack.push(left+right);
+        else if(op===37)stack.push(left-right);
+        else throw Error('Unexpected recorded Show opcode '+op+' at '+(pc-1));
+    }
+    if(pc!==108)throw Error('Layout did not reach animation block');
+    return {hitWidth:hit[18],textWidth:field[18],text:field[97]};
+}
 rpc.exports = {
+    navigationShow(options) {
+        const o={text:'',layout:true,...options};
+        if(o.reset) {
+            TEST_NAV_CONTEXT.words.forEach((w,i)=>navCode.add(i*4).writeU32(w));
+            navFn.add(0x48).readPointer().add(0x18).writeU32(intern(o.targetClass||'NavButtonView'));
+            navFn.add(0x40).readPointer().writeU32(intern(o.targetMethod||'Show'));
+            navFn.add(0x68).writeU32(o.length||116);navFn.add(0x58).writeU32(o.constantCount||6);
+            navConstants.writeByteArray(new Uint8Array(48));
+            for(const [i,value] of [[2,1000],[3,2],[4,0]]) {
+                navConstants.add(i*8).writeU64(uint64(o.constantTag||3).shl(48));
+                navConstants.add(i*8).writeFloat(value);
+            }
+            if(o.badConstant)navConstants.add(3*8).writeFloat(9);
+            if(o.badCode)navCode.add(63*4).writeU32(0);
+            if(o.badTail)navCode.add(115*4).writeU32(0);
+        }
+        if(o.foreignBranch)navCode.add(38*4).writeU32(0x80002816);
+        const error=pushFrame(navMethod.context,navFn);
+        return {error,branch:navCode.add(38*4).readU32(),
+            changed:TEST_NAV_CONTEXT.words.flatMap((w,i)=>navCode.add(i*4).readU32()===w?[]:[i]),
+            ...(o.layout && !o.badCode && !o.badTail ? {layout:navigationLayout(o.text)} : {})};
+    },
     info() { return {selector: String(target.select_type), uiCallback: String(target.notify_ui),
         uiGetter: String(getterCode.add(10)), stringPoolSlot: String(poolSlot),
         roles: TEST_ROLES,

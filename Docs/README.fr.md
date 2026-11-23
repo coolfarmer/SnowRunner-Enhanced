@@ -1,4 +1,14 @@
-# SnowRunner Enhanced — 0.1.0-preview.11
+# SnowRunner Enhanced — 0.1.0-preview.15
+
+Preview.15 corrige le survol et le clic dans le coin supérieur droit de l’icône
+de carte, dans l’enhancement nº 1. Le repère de notification inutilisé est
+masqué par le code de l’interface, en conservant les deux actions existantes
+des boutons. Le correctif de preview.12 pour le bouton gauche est conservé.
+L’essai en mémoire du 23 novembre 2026 passe aux deux points auparavant bloqués,
+avec comparaison activé/désactivé et confirmation de l’utilisateur.
+La preview.15 installée a ensuite été testée et confirmée en jeu le
+23 novembre 2026 : les deux correctifs sont actifs et le diagnostic
+ne signale aucune erreur d’instrumentation.
 
 Preview.11 conserve le curseur utilisable dans le menu principal après une
 entrée du volant. Cette correction de l’enhancement 1 cible uniquement le

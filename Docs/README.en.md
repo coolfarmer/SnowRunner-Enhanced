@@ -1,4 +1,13 @@
-# SnowRunner Enhanced — 0.1.0-preview.11
+# SnowRunner Enhanced — 0.1.0-preview.15
+
+Preview.15 fixes the map icon’s upper-right hover and click area in enhancement #1.
+It hides an unused notification placeholder through the live UI method, while
+preserving both existing button actions. The preview.12 fix for the left
+navigation button is retained. Live memory testing on November 23, 2026 passed
+at both previously blocked points, including an on/off comparison, and the
+user confirmed the result. The installed preview.15 was then tested and
+confirmed in game on November 23, 2026; both repairs are active with no
+instrumentation faults reported.
 
 Preview.11 keeps the cursor usable in the main menu after wheel input. This
 enhancement #1 correction targets only the main menu's device-change handler.

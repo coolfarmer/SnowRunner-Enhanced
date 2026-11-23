@@ -13,6 +13,13 @@ let menuRefreshFocusKeeps = 0;
 let menuCursorReleases = 0;
 let pendingMenuCursor = null;
 let hudHintHook = null;
+let navigationHitAreaHook = null;
+let navigationHitAreaFix = null;
+let navigationHitAreaRepairs = 0;
+let navigationHitAreaRestoreSkipped = 0;
+let mapNotificationHitAreaFix = null;
+let mapNotificationHitAreaRepairs = 0;
+let mapNotificationHitAreaRestoreSkipped = 0;
 let hudHintRefreshes = 0;
 let hudHintChecks = 0;
 const hudHintPreferences = new Map();
@@ -50,7 +57,13 @@ function emit(event) {
 function fail(error) {
     faults++;
     mode = 'observe';
+    restoreNavigationHitArea();
     emit({kind: 'fault', error: String(error)});
+}
+
+function restoreNavigationHitArea() {
+    if (navigationHitAreaFix && !navigationHitAreaFix.restore()) navigationHitAreaRestoreSkipped++;
+    if (mapNotificationHitAreaFix && !mapNotificationHitAreaFix.restore()) mapNotificationHitAreaRestoreSkipped++;
 }
 
 function label(value) { return names[value] || 'unknown:' + value; }
@@ -59,6 +72,7 @@ function setMode(next) {
     if (next !== 'observe' && next !== 'ui-mouse-priority') throw new Error('Invalid mode');
     if (next === 'ui-mouse-priority' && faults) throw new Error('Fault latched; restart capture');
     mode = next;
+    if (next === 'observe') restoreNavigationHitArea();
     pendingMenuCursor = null;
     lastWheelNeutralValue = null;
     hudHintPreferences.clear();
@@ -69,18 +83,23 @@ function setMode(next) {
 
 function status() {
     return {active, mode, calls, redirected, uiNotificationsSuppressed, menuSelectionResets, menuFocusRestores, menuRefreshFocusKeeps, getterCalls, getterRedirected,
-        menuCursorReleases, hudHintRefreshes, hudHintChecks, wheelHintNoiseIgnored, wheelHintActivations, hintNotificationRequests, wheelNeutralFiltered, faults, dropped, queued: events.length, preferredCategory: label(preferredCategory),
+        menuCursorReleases, hudHintRefreshes, hudHintChecks, navigationHitAreaRepairs, navigationHitAreaRestoreSkipped, wheelHintNoiseIgnored, wheelHintActivations, hintNotificationRequests, wheelNeutralFiltered, faults, dropped, queued: events.length, preferredCategory: label(preferredCategory),
+        mapNotificationHitAreaRepairs, mapNotificationHitAreaRestoreSkipped,
         winchModeCalls, winchModeRedirected, winchHoverCalls, winchHoverRedirected,
         counts, getterCallers};
 }
 
 function stop() {
     mode = 'observe';
+    restoreNavigationHitArea();
     pendingMenuCursor = null;
     for (const listener of listeners) listener.detach();
     listeners = [];
     Interceptor.flush();
     hudHintHook = null;
+    navigationHitAreaHook = null;
+    navigationHitAreaFix = null;
+    mapNotificationHitAreaFix = null;
     hudHintPreferences.clear();
     wheelHintBaseline = null;
     active = false;
@@ -180,6 +199,21 @@ function install(b) {
     }
     try {
         if (b.hudHintFramePush) {
+            navigationHitAreaFix = makeNavButtonHitAreaFix(b.stringPoolSlot);
+            navigationHitAreaHook = hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (_vm, fn) => {
+                if (mode === 'ui-mouse-priority' && navigationHitAreaFix.apply(fn)) {
+                    navigationHitAreaRepairs++;
+                    emit({kind:'navigation-hit-area-repair'});
+                }
+            }, 'NavButtonView', 'Show');
+            listeners.push(navigationHitAreaHook);
+            mapNotificationHitAreaFix = makeMapNotificationHitAreaFix(b.stringPoolSlot);
+            listeners.push(hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (_vm, fn) => {
+                if (mode === 'ui-mouse-priority' && mapNotificationHitAreaFix.apply(fn)) {
+                    mapNotificationHitAreaRepairs++;
+                    emit({kind: 'map-notification-hit-area-repaired'});
+                }
+            }, 'MinimapUiSidepanelView', 'HideContractBtn'));
             hudHintHook = hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (vm, fn) => {
                 try {
                     if (mode !== 'ui-mouse-priority') return;

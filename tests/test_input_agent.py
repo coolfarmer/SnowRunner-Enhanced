@@ -25,8 +25,10 @@ def main():
         device.resume(pid)
         roles = json.loads((ROOT / 'src/input-profile.json').read_text())['callerRoles']
         hud_context = json.loads((ROOT / 'tests/fixtures/hud_hint_context.json').read_text())
+        nav_context = json.loads((ROOT / 'tests/fixtures/navigation_show.json').read_text())
         fixture = session.create_script('const TEST_ROLES=' + json.dumps(roles) + ';\n' +
                                         'const TEST_HUD_CONTEXT=' + json.dumps(hud_context) + ';\n' +
+                                        'const TEST_NAV_CONTEXT=' + json.dumps(nav_context) + ';\n' +
                                         (ROOT / 'tests/input_fixture.js').read_text())
         fixture.load()
         f = fixture.exports_sync
@@ -430,6 +432,46 @@ def main():
             assert result['resultBits'] & 0x7f800000 == 0x7f800000, result
             assert result['after'] == result['original'], result
             checks += 1
+        print('Checking empty-label navigation hit areas', flush=True)
+        a.mode('observe')
+        baseline = f.navigation_show({'reset': True, 'text': ''})
+        assert baseline['layout']['hitWidth'] == 74.4 and baseline['layout']['textWidth'] == 0, baseline
+        a.mode('ui-mouse-priority')
+        fixed = f.navigation_show({'text': ''})
+        assert fixed['layout']['hitWidth'] == fixed['layout']['textWidth'] == 2, fixed
+        assert fixed['error'] == 0x1234 and fixed['changed'] == [38], fixed
+        assert a.status()['navigationHitAreaRepairs'] == 1
+        checks += 4
+        # Same recorded Show bytecode, interpreted with a real label: preserve
+        # its measured text/target width, including the keyboard hint layout.
+        label_fixed = f.navigation_show({'text': 'Carte globale'})['layout']
+        a.mode('observe')
+        restored = f.navigation_show({'text': 'Carte globale'})
+        assert restored['layout'] == label_fixed and restored['changed'] == [], restored
+        assert f.navigation_show({'text': ''})['layout']['hitWidth'] == 74.4
+        checks += 2
+        for invalid in ({'targetClass':'Other'}, {'targetMethod':'Hide'}, {'length':115},
+                        {'badCode':True}, {'badTail':True}, {'constantCount':5},
+                        {'constantTag':1}, {'badConstant':True}):
+            a.mode('observe')
+            f.navigation_show({'reset':True, **invalid})
+            before = a.status()['navigationHitAreaRepairs']
+            a.mode('ui-mouse-priority')
+            result = f.navigation_show({'layout':False})
+            assert result['branch'] == 0x80006716 and result['error'] == 0x1234, (invalid,result)
+            assert a.status()['navigationHitAreaRepairs'] == before
+            checks += 1
+        a.mode('observe')
+        f.navigation_show({'reset':True})
+        a.mode('ui-mouse-priority')
+        assert f.navigation_show({})['layout']['hitWidth'] == 2
+        # Teardown must not overwrite a later, unrelated modification.
+        f.navigation_show({'foreignBranch':True, 'layout':False})
+        a.mode('observe')
+        assert f.navigation_show({'layout':False})['branch'] == 0x80002816
+        assert a.status()['navigationHitAreaRestoreSkipped'] == 1
+        f.navigation_show({'reset':True})
+        checks += 3
         print('Checking HUD hint refresh and cache isolation', flush=True)
         a.mode('observe')
         a.fixture_preference(33)
@@ -585,7 +627,11 @@ def main():
         assert f.run(22, 33, 99)['state'] == [33, 1, 1, 33, 99]
         checks += 1
         assert not a.status()['faults'] and not errors, (a.status(), errors)
+        a.mode('ui-mouse-priority')
+        assert f.navigation_show({})['layout']['hitWidth'] == 2
         a.stop()
+        assert f.navigation_show({})['changed'] == []
+        checks += 2
         assert not a.status()['active']
         assert f.hud_hint_update({'receiver':4})['forced'] == 0
         checks += 1
