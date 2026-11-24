@@ -1,4 +1,6 @@
-# SnowRunner Enhanced — 0.1.0-preview.16
+# SnowRunner Enhanced — 0.1.0-preview.17
+
+Preview.17 ajoute le menu **ENHANCED** aux paramètres du jeu. Il reste actif indépendamment des améliorations sélectionnées.
 
 Preview.15 corrige le survol et le clic dans le coin supérieur droit de l’icône
 de carte, désormais regroupé dans l’enhancement nº 3 : Map. Le repère de notification inutilisé est
@@ -138,3 +140,9 @@ Ligne de commande : `Install.cmd --action configure --game-directory "CHEMIN_DU_
 - Correction du survol et du clic de l’icône de carte, à côté de Tâches et Contrats (zones gauche et supérieure droite).
 
 Depuis preview.16, **Map** (`map`) est une option indépendante, activée par défaut, dans **Options avancées → Personnaliser les améliorations**. Elle regroupe les deux correctifs auparavant inclus dans l’enhancement nº 1. Les changements prennent effet au prochain lancement.
+
+## Menu ENHANCED (preview.17)
+
+L’onglet **ENHANCED** suit **VOLANT** dans les paramètres du jeu. Il appartient au plugin lui-même et reste disponible même si toutes les améliorations facultatives sont désactivées. Il ne constitue pas une quatrième amélioration à cocher dans l’installateur.
+
+La ligne **Pourquoi je vois ça?** affiche une explication dans le panneau de description, sans valeur à droite. La catégorie **MAP** contient le curseur fictif **Zoom sensitivity** (0–100, valeur initiale 50). Sa valeur est temporaire, sans effet sur la caméra et sans sauvegarde.

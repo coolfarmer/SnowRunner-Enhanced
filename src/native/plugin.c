@@ -47,7 +47,7 @@ static void WriteReport(const char *text) {
 static void SimpleStatus(const char *status, const char *reason) {
     char out[1024];
     SYSTEMTIME now; GetSystemTime(&now);
-    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.16\","
+    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.17\","
         "\"processId\":%lu,\"timeUtc\":\"%04u-%02u-%02uT%02u:%02u:%02uZ\","
         "\"features\":{\"wheel_mouse\":{\"status\":\"%s\",\"reason\":\"%s\"}}}",
         (unsigned long)GetCurrentProcessId(), now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, status, reason);
@@ -150,9 +150,7 @@ static void EnhancedStart(void) {
     // parser can be used. This does not create any feature/game hooks.
     int enabled = configured_features;
     if (enabled < 0) { SimpleStatus("configuration-error", "Missing or invalid configuration"); return; }
-    if (!(enabled & 5)) {
-        do { SimpleStatus("disabled", "Disabled in configuration"); if (!(enabled & 2)) return; Sleep(2000); } while (1);
-    }
+    // Core UI is always loaded, including when every optional enhancement is off.
     HMODULE pinned;
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
                           (LPCWSTR)(uintptr_t)&EnhancedStart, &pinned)) return;

@@ -14,21 +14,24 @@ class BootstrapTests(unittest.TestCase):
         source = '''
 const data=Memory.alloc(16);
 for(let i=0;i<4;i++) data.add(4*i).writeU32(11*(i+1));
-const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12}}};
-const NATIVE_SIGNATURES=[],ENHANCED_HOST={gameSha256:'test'};
+const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12},guards:[{name:'vm_frame_push_entry',rva:0}],stringPoolSlotRva:8}};
+const SETTINGS_PROFILE={},NATIVE_SIGNATURES=[],ENHANCED_HOST={gameSha256:'test'};
+let menuStarts=0,menuError=false,reports=[],order=[];
+const makeEnhancedSettingsMenu=()=>({start:()=>{order.push('menu');menuStarts++;if(menuError)throw Error('menu');},
+status:()=>({enabled:true,running:true,status:'waiting-for-settings'})});
 let queued=[],interval=null,states=[],starts=0,stops=0,scanError=false,startError=false,faults=0,active=false;
 const nativeProbe={describe:()=>({name:'SnowRunner.exe',sections:[]}),scan:()=>{if(scanError)throw Error('scan');return {};}};
 const resolveNativeProfile=()=>({profile:CONFIG.profile,details:{relocatedGuards:30}});
-const nativeAgent={start:()=>{starts++;if(startError)throw Error('install');active=true;},
+const nativeAgent={start:()=>{order.push('agent');starts++;if(startError)throw Error('install');active=true;},
 mode:()=>{},status:()=>({active,faults}),drain:()=>{},stop:()=>{stops++;active=false;}};
 (function(Process,setTimeout,setInterval,clearInterval,send){
 ''' + (ROOT / 'src/native/bootstrap.js').read_text() + '''
-})({mainModule:{base:data},id:123},fn=>queued.push(fn),fn=>{interval=fn;return 1;},()=>{interval=null;},m=>states.push(m.enhancedStatus.features.wheel_mouse.status));
+})({mainModule:{base:data},id:123},fn=>queued.push(fn),fn=>{interval=fn;return 1;},()=>{interval=null;},m=>{reports.push(m.enhancedStatus);states.push(m.enhancedStatus.features.wheel_mouse.status);});
 rpc.exports={
- set:(key,value)=>{if(key==='scan')scanError=value;if(key==='start')startError=value;if(key==='faults')faults=value;if(key==='ids')data.writeU32(value);},
+ set:(key,value)=>{if(key==='menu')menuError=value;if(key==='features')CONFIG.features=value;if(key==='scan')scanError=value;if(key==='start')startError=value;if(key==='faults')faults=value;if(key==='ids')data.writeU32(value);},
  tick:()=>{if(queued.length)queued.shift()();},
  monitor:()=>{if(interval)interval();},
- state:()=>({states,starts,stops,active,pending:queued.length,interval:interval!==null})};
+ state:()=>({states,starts,stops,active,menuStarts,order,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
 '''
         self.script = self.device.create_script(source)
         self.script.load()
@@ -65,8 +68,34 @@ rpc.exports={
         state = self.api.state()
         self.assertEqual(state['states'][-1], 'faulted')
         self.assertFalse(state['active'])
-        self.assertFalse(state['interval'])
+        self.assertTrue(state['interval'])
         self.assertEqual(state['stops'], 1)
+        self.assertTrue(state['report']['components']['settings_menu']['running'])
+
+    def test_core_menu_runs_with_every_enhancement_disabled(self):
+        self.api.set('features', {'wheel_mouse': False, 'map': False})
+        self.api.set('ids', 0)
+        self.api.tick()
+        state = self.api.state()
+        self.assertEqual(state['starts'], 0)
+        self.assertEqual(state['menuStarts'], 1)
+        self.assertEqual(set(state['report']['features']), {'wheel_mouse', 'map'})
+        self.assertTrue(all(f['status'] == 'disabled' for f in state['report']['features'].values()))
+        self.assertTrue(state['report']['components']['settings_menu']['running'])
+
+    def test_optional_hooks_validate_before_shared_entry_is_hooked(self):
+        self.api.tick()
+        self.assertEqual(self.api.state()['order'], ['agent', 'menu'])
+
+    def test_menu_failure_does_not_stop_optional_corrections(self):
+        self.api.set('menu', True); self.api.tick()
+        state = self.api.state()
+        self.assertTrue(state['active'])
+        self.assertEqual(state['report']['components']['settings_menu']['status'], 'error')
+
+    def test_optional_install_failure_does_not_stop_menu(self):
+        self.api.set('start', True); self.api.tick()
+        self.assertTrue(self.api.state()['report']['components']['settings_menu']['running'])
 
 
 if __name__ == '__main__': unittest.main(verbosity=2)

@@ -1,5 +1,7 @@
 # SnowRunner Enhanced
 
+Preview.17 adds the always-on **ENHANCED** settings menu, independent of the optional enhancements.
+
 Preview.15 fixes the map icon’s upper-right hover and click area, now grouped under enhancement #3: Map.
 It hides an unused notification placeholder through the live UI method, while
 preserving both existing button actions. The preview.12 fix for the left
@@ -9,7 +11,7 @@ user confirmed the result. The installed preview.15 was then tested and
 confirmed in game on November 23, 2026; both repairs are active with no
 instrumentation faults reported.
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.16** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.17** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
 Opening Functions with the keyboard or wheel now releases mouse camera capture
@@ -92,3 +94,9 @@ packages, and logs are ignored by Git.
 - Fixed a bug where the Map icon (next to Tasks and Contracts) wasn't responding correctly to hovering and clicking.
 
 Since preview.16, **Map** (`map`) is an independent option, enabled by default, in **Advanced Options → Customize enhancements**. It contains both the left and upper-right hit-area repairs previously included in enhancement #1. Changes take effect on the next launch.
+
+## ENHANCED settings menu (preview.17)
+
+The **ENHANCED** tab follows **STEERING WHEEL** in the game settings. It belongs to the plugin itself and remains available with every optional enhancement disabled. It is not a fourth enhancement or an installer checkbox.
+
+The informational row **Pourquoi je vois ça?** displays contextual help without a value on the right. **MAP** contains a **Zoom sensitivity** demonstration slider (0–100, initially 50). Its temporary value has no effect on the camera and is not saved. The explanatory text is currently in French.

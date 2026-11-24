@@ -46,7 +46,10 @@ def generate():
              'const NATIVE_SIGNATURES=' + json.dumps(compile_signatures(profile)) + ';',
              (ROOT / 'src/compatibility_probe.js').read_text(), 'const nativeProbe=rpc.exports;',
              (ROOT / 'src/vm_scope.js').read_text(), (ROOT / 'src/input_agent.js').read_text(),
-             'const nativeAgent=rpc.exports;', (ROOT / 'src/native/resolve.js').read_text(),
+             'const nativeAgent=rpc.exports;',
+             'const SETTINGS_PROFILE=' + (ROOT / 'src/settings-profile.json').read_text(encoding='utf-8') + ';',
+             (ROOT / 'src/settings_menu.js').read_text(encoding='utf-8'),
+             (ROOT / 'src/native/resolve.js').read_text(),
              (ROOT / 'src/native/bootstrap.js').read_text()]
     source = '\n'.join(parts).encode('utf-8')
     # An unsigned byte array avoids MSVC's individual string literal limit.
@@ -73,11 +76,11 @@ def main():
     invoke([*common, str(ROOT / 'tests/native/game_host.c'), '/link', '/OUT:game-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, '/LD', str(ROOT / 'tests/native/companion.c'), '/link', '/OUT:companion.asi'])
     (BUILD / 'build.json').write_text(json.dumps({
-        'version': '0.1.0-preview.16', 'engine': 'GumJS 17.26.3 embedded',
+        'version': '0.1.0-preview.17', 'engine': 'GumJS 17.26.3 embedded',
         'artifacts': {n: hashlib.sha256((BUILD / n).read_bytes()).hexdigest()
                       for n in ('SnowRunnerEnhanced.asi', 'native-harness.exe')},
         'v18Sources': {n: hashlib.sha256((ROOT / 'src' / n).read_bytes()).hexdigest()
-                       for n in ('input_agent.js', 'vm_scope.js', 'input-profile.json')}
+                       for n in ('input_agent.js', 'vm_scope.js', 'input-profile.json', 'settings_menu.js', 'settings-profile.json')}
     }, indent=2))
 
 

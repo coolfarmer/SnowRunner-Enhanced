@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.16`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.17`. Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -27,7 +27,7 @@ le jeu avant toute modification ou désinstallation.
 
 La configuration est lue avant de créer le script du correctif. L’initialisation
 de base de Gum/GLib est nécessaire pour lire le JSON ; une feature désactivée
-ne crée ni script ni interceptions V18. Une configuration inconnue ou invalide
+ne crée pas ses interceptions V18. Le composant commun du menu ENHANCED est chargé même lorsque toutes les features sont désactivées. Une configuration inconnue ou invalide
 laisse le correctif inactif.
 
 Les signatures sont compilées au build depuis le profil V18. À l’exécution,
@@ -166,8 +166,8 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.16.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.16/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.17.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.17/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
@@ -320,3 +320,11 @@ Retirer Enhanced via son installateur avant de revenir à un lanceur de test.
 ### Enhancement #3 : Map (preview.16)
 
 Les deux réparations de zone cliquable sont contrôlées par `features.map.enabled`. Les hooks souris/volant ne sont pas installés lorsque `wheel_mouse` est désactivé. Map utilise encore la découverte et les vérifications de compatibilité communes au moteur natif.
+
+### Composant commun : paramètres ENHANCED (preview.17)
+
+`src/settings_menu.js` est embarqué dans l’ASI, hors de `CONFIG.features`. Le diagnostic séparé `components.settings_menu` décrit son état. Les catégories du menu sont créées par le constructeur natif SSL, après contrôle du bytecode CreateData et des membres utilisés. Le contrôleur Luminosité fournit uniquement le modèle de vue ; les nouvelles valeurs utilisent des contrôleurs génériques indépendants. Le préfixe est restauré au prochain appel et chaque instance contient au plus un onglet ajouté. Une arène bornée de 64 Kio conserve les constantes référencées par la VM jusqu’à la fermeture du jeu. Aucun fichier de jeu ou paramètre caméra n’est modifié.
+
+Le prototype puis le module de production ont été exécutés dans la session ouverte le 24 novembre 2026. Après installation de preview.17 et redémarrage normal du jeu, l’utilisateur confirme le même jour que le menu s’affiche et fonctionne. Le diagnostic du nouveau processus confirme le chargement du composant commun et des correctifs facultatifs sans faute.
+
+Validation preview.17 : 53 tests Python passent avec le jeu fermé, dont quatre tests du cycle de vie du menu dans GumJS ; 82 contrôles d’interface, 587 assertions V18, 12 tests du résolveur et le scanner natif passent. La suite des chargeurs ASI 10.0.2 et 8.5.0 passe, y compris les quatre combinaisons Map/souris-volant. Quand toutes les options sont désactivées, `components.settings_menu` reste chargé.
