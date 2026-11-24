@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.21'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.24'
 SETUP = PACKAGE / 'Sources/Installer/SnowRunnerEnhanced.Setup.exe'
 CONFIG = 'SnowRunnerEnhanced.json'
 RECEIPT = 'SnowRunnerEnhanced.install.json'
@@ -46,7 +46,9 @@ class ReleaseTests(unittest.TestCase):
     def test_install_toggle_uninstall_preserves_other_mod(self):
         before = hashlib.sha256((self.folder / 'SnowRunner.exe').read_bytes()).hexdigest()
         self.assertFalse(self.run_setup('check')['installed'])
-        self.assertTrue(self.run_setup('install')['wheelMouseEnabled'])
+        installed = self.run_setup('install')
+        for flag in ('wheelMouseEnabled', 'mapEnabled', 'skipStartupLogosEnabled', 'generalImprovementsEnabled'):
+            self.assertTrue(installed[flag], flag)
         self.assertFalse(self.run_setup('configure', '--wheel-mouse', 'false')['wheelMouseEnabled'])
         self.assertTrue(self.run_setup('configure', '--wheel-mouse', 'true')['wheelMouseEnabled'])
         self.run_setup('uninstall')
@@ -98,6 +100,40 @@ class ReleaseTests(unittest.TestCase):
         (self.folder / CONFIG).write_text(json.dumps({'schemaVersion':1,'features':{'wheel_mouse':{'enabled':True}}}))
         result=self.run_setup('configure', '--wheel-mouse', 'false')
         self.assertFalse(result['skipStartupLogosEnabled'])
+        self.assertFalse(result['generalImprovementsEnabled'])
+        self.run_setup('uninstall')
+
+    def test_existing_preview_updates_with_all_features_on_once(self):
+        self.run_setup('install', '--wheel-mouse', 'false', '--map', 'false',
+                       '--skip-startup-logos', 'false', '--general-improvements', 'false')
+        receipt_path = self.folder / RECEIPT
+        receipt = json.loads(receipt_path.read_text())
+        del receipt['allEnabledDefaults']
+        plugin = self.folder / 'SnowRunnerEnhanced.asi'
+        original = plugin.read_bytes()
+        plugin.write_bytes(b'prior preview')
+        receipt['files'][plugin.name] = hashlib.sha256(plugin.read_bytes()).hexdigest()
+        receipt_path.write_text(json.dumps(receipt))
+        result = self.run_setup('install')
+        self.assertEqual(plugin.read_bytes(), original)
+        for flag in ('wheelMouseEnabled', 'mapEnabled', 'skipStartupLogosEnabled', 'generalImprovementsEnabled'):
+            self.assertTrue(result[flag])
+        self.run_setup('configure', '--map', 'false')
+        self.assertFalse(self.run_setup('configure')['mapEnabled'])
+        self.run_setup('uninstall')
+
+    def test_general_improvements_can_run_alone(self):
+        result = self.run_setup('install', '--wheel-mouse', 'false', '--map', 'false', '--skip-startup-logos', 'false')
+        self.assertTrue(result['generalImprovementsEnabled'])
+        self.assertFalse(result['skipStartupLogosEnabled'])
+        result = self.run_setup('configure', '--general-improvements', 'false')
+        self.assertFalse(result['generalImprovementsEnabled'])
+        result = self.run_setup('configure', '--skip-startup-logos', 'true')
+        self.assertFalse(result['generalImprovementsEnabled'])
+        result = self.run_setup('configure', '--general-improvements', 'true')
+        self.assertTrue(result['generalImprovementsEnabled'])
+        self.assertTrue(result['skipStartupLogosEnabled'])
+        self.assertFalse(result['mapEnabled'])
         self.run_setup('uninstall')
 
     def test_unrelated_version_loader_is_preserved(self):
@@ -288,7 +324,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_navigation_changes_language_and_preserves_pending_fixes(self):
         result = subprocess.run([SETUP, '--plain', '--language', 'en', '--game-directory', self.folder],
-                                input='2\n1\n\n2\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
+                                input='2\n1\n\n2\n2\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
                                 text=True, encoding='utf-8', timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('MAIN MENU', result.stdout)
@@ -304,6 +340,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue((self.folder / RECEIPT).exists())
         self.assertFalse(self.run_setup('status')['wheelMouseEnabled'])
         self.assertFalse(self.run_setup('status')['mapEnabled'])
+        self.assertFalse(self.run_setup('status')['generalImprovementsEnabled'])
 
     def test_linked_folder_refused(self):
         linked = self.folder / 'linked'

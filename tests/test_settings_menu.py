@@ -22,19 +22,22 @@ rpc.exports.run=(scenario)=>{
  function descriptor(c,id){return c.add(0x58).readPointer().add(id*32+8).readPointer();}
  function type(c){const p=alloc(48);p.add(8).writeU32(c.add(0x18).readU32());p.add(32).writePointer(c.or('0x3000000000000'));return p.or('0x30000000000000');}
  const props=a=>a.map(([n,id])=>[n,id,5]);
- const settingsClass=klass('UiSettingsController',[...props([['view',5],['deviceListener',8],['uiSystem',9],['localizationUpdateNotifier',11],['inputScreen',54],['settings',56],['tabBar',57],['activeTabs',63]]),['GetView',34,2],['InitContent',20,2]]);
- const gammaClass=klass('UiOneSettingSliderGammaController',[...props([['view',5],['uiSystem',9],['header',39],['desc',40],['shouldBeVisible',41],['minValue',50],['maxValue',51],['defaultValue',52],['stepInterval',53],['textfield',54]]),['Init',13,2]]);
+ const settingsClass=klass('UiSettingsController',[...props([['view',5],['deviceListener',8],['uiSystem',9],['localizationUpdateNotifier',11],['inputScreen',54],['settings',56],['tabBar',57],['activeTabs',63]]),['GetView',34,2],['InitContent',20,2],['SetForLocale',33,2],['UpdateViewData',24,2]]);
+ const gammaClass=klass('UiOneSettingSliderGammaController',[...props([['view',5],['uiSystem',9],['header',39],['desc',40],['shouldBeVisible',41],['minValue',50],['maxValue',51],['defaultValue',52],['stepInterval',53],['textfield',54]]),['Init',13,2],['SetForLocale',33,2]]);
  const sliderClass=klass('UiOneSettingSliderController',props([['header',39],['view',5],['hackCurrent',55],['textfield',54]]));
  gammaClass.add(0x20).writePointer(sliderClass);
  const viewClass=klass('SliderView',[...props([['uiObjectDesc',5],['changeSound',31],['descriptionImage',32],['textFormat',41]]),['GetUiObject',25,2]]);
- const barClass=klass('TabBar',[['items',65,5],['CreateItem',52,2],['UnsubscribeContent',29,2],['SubscribeContent',28,2],['Show',16,2]]);
+ const barClass=klass('TabBar',[['items',65,5],['CreateItem',52,2],['UnsubscribeContent',29,2],['SubscribeContent',28,2],['Show',16,2],['UpdateTabsOffset',82,2]]);
  const presetClass=klass('Preset',[['name',6,5]]),arrayClass=klass('array');
  function array(n){const a=object(arrayClass);a.add(0x40).writePointer(alloc(128));a.add(0x48).writeU32(n);return a;}
  const self=object(settingsClass),gamma=object(gammaClass),bar=object(barClass),tabs=array(7),items=array(7),system=object(klass('System',[['GetCurrentLocale',70,2]]));
- const stepMembers=[...props([['view',5],['uiSystem',9],['header',39],['desc',40],['shouldBeVisible',41],['defaultStepperIndex',50],['hackCurrent',51]]),['SetForLocale',33,2],['Init',13,2]];
+ const stepMembers=[...props([['view',5],['uiSystem',9],['header',39],['desc',40],['shouldBeVisible',41],['defaultStepperIndex',50],['hackCurrent',51]]),['SetForLocale',33,2],['Init',13,2],['CreateInitialData',27,2]];
  const onOff=klass('UiOneSettingStepperOnOff',stepMembers),derived=klass('NativeToggle',stepMembers),step=object(derived);
+ const initializerConstants=alloc(32);initializerConstants.add(8).writePointer(type(arrayClass));
+ descriptor(onOff,27).add(0x50).writePointer(initializerConstants);descriptor(onOff,27).add(0x58).writeU32(4);
  derived.add(0x20).writePointer(onOff);
- const stepView=klass('UiOneSettingStepperView',props([['uiObjectDesc',5],['changeSound',31],['descriptionImage',32]]));
+ const stepView=klass('UiOneSettingStepperView',[...props([['uiObjectDesc',5],['changeSound',31],['descriptionImage',32],
+    ['updateCurrentWithoutNotification',41]]),['UpdateStepperCurrent',43,2],['GetUiObject',25,2]]);
  put(step,5,tag(object(stepView)));put(step,9,tag(system));
  put(self,63,tag(tabs));put(self,57,tag(bar));put(bar,65,tag(items));put(gamma,5,tag(object(viewClass)));put(gamma,9,tag(system));put(self,9,tag(system));
  tabs.add(0x40).readPointer().writePointer(tag(object(presetClass)));
@@ -44,10 +47,10 @@ rpc.exports.run=(scenario)=>{
  PROFILE.createDataWords.forEach((w,i)=>code.add(i*4).writeU32(w));sig.writeU32(name('CreateData'));
  fn.add(0x40).writePointer(sig);fn.add(0x50).writePointer(constants);fn.add(0x58).writeU32(10);fn.add(0x60).writePointer(code);fn.add(0x68).writeU32(PROFILE.createDataWords.length);
  function vm(p,arg=ptr(0)){const v=alloc(32),args=alloc(16);args.writePointer(tag(p));args.add(8).writePointer(arg);v.add(0x18).writePointer(args);return v;}
- const callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};});
+ const callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{mapEnabled:scenario!=='no-map'});
  menu.start(ptr(0),slot);
  const visit=()=>callbacks['UiSettingsController.CreateData'](vm(self),fn);
- const capture=()=>{callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);callbacks['UiOneSettingStepperController.InitContent'](vm(step),fn);};
+ const capture=()=>{callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);callbacks['UiOneSettingStepperController.InitContent']?.(vm(step),fn);};
  visit();const waiting=menu.status();capture();
  if(scenario==='body')code.add(8).writeU32(0);
  if(scenario==='tabs'){tabs.add(0x48).writeU32(8);items.add(0x48).writeU32(8);tabs.add(0x40).readPointer().add(56).writePointer(tag(object(presetClass)));}
@@ -58,16 +61,68 @@ rpc.exports.run=(scenario)=>{
   const expected=[22,23,24,25,26].includes(w&255)?(w+delta*256)>>>0:w;
   return replacement.add((delta+1+i)*4).readU32()===expected;
  });
- const strings=[];let title=null,label=null,panningLabel=null,northLabel=null;
- for(let i=10;i<fn.add(0x58).readU32();i++){const v=newConstants.add(i*8).readPointer();if(v.shr(48).toUInt32()===16){const p=untag(v),s=p.add(16).readPointer().readUtf8String(p.add(8).readU32());strings.push(s);if(s==='ENHANCED')title=v;if(s==='Zoom sensitivity')label=v;if(s==='Panning sensitivity')panningLabel=v;if(s==='Keep North Up')northLabel=v;}}
- if(scenario==='north'){
-   const row=object(onOff);put(row,39,northLabel);
-   function locale(value){
-     const s=alloc(48);s.add(8).writeU32(value.length);s.add(12).writeU32(1);s.add(16).writeUtf8String(value);
-     callbacks['ComponentUiControllerBase.SetForLocale'](vm(row,s.or('0x10000000000000')));
-     const header=untag(row.add(0x30+39*8).readPointer());return header.add(16).readPointer().readUtf8String();
+ const readText=v=>{const p=untag(v);return p.add(16).readPointer().readUtf8String(p.add(8).readU32());};
+ function strings(){
+   const result={};
+   for(let i=10;i<fn.add(0x58).readU32();i++){
+     const v=newConstants.add(i*8).readPointer();
+     if(v.shr(48).toUInt32()===16)result[readText(v)]=v;
    }
-   const french=locale('fr-FR'),english=locale('en');
+   return result;
+ }
+ const en=strings(),title=en.ENHANCED,label=en['Zoom sensitivity'],panningLabel=en['Panning sensitivity'];
+ const localeFn=descriptor(settingsClass,33),localeCode=alloc(60);
+ const originalLocale=[0x80000101,0x80000107,0x80000007,0x80000104,0x80000006,0x8000210e,0x80000002,
+   0x80000101,0x80000107,0x80000007,0x8000390a,0x80000104,0x8000210d,0x80000002,0x80000213];
+ originalLocale.forEach((w,i)=>localeCode.add(4*i).writeU32(w));localeFn.add(0x60).writePointer(localeCode);localeFn.add(0x68).writeU32(15);
+ function locale(row,value){
+   const s=alloc(96),len=encodeURIComponent(value).replace(/%[A-F0-9]{2}/gi,'x').length;
+   s.add(8).writeU32(len);s.add(12).writeU32(1);s.add(16).writeUtf8String(value);
+   const args=vm(row,s.or('0x10000000000000'));
+   if(row.equals(self))callbacks['UiSettingsController.SetForLocale'](args,localeFn);
+   else callbacks['ComponentUiControllerBase.SetForLocale'](args);
+ }
+ if(scenario==='locales'||scenario==='no-map'){
+   function displayedStrings(){
+     const words=fn.add(0x60).readPointer(),prefixLength=fn.add(0x68).readU32()-PROFILE.createDataWords.length+1;
+     const result=new Set();
+     for(let i=0;i<prefixLength;i++){
+       const word=words.add(i*4).readU32();
+       if((word&255)!==6)continue;
+       const v=newConstants.add(((word>>>8)-0x800000)*8).readPointer();
+       if(v.shr(48).toUInt32()===16)result.add(readText(v));
+     }
+     return [...result];
+   }
+   const usedEn=displayedStrings(),info=object(sliderClass);put(info,39,en['Why am I seeing this?']);
+   locale(info,'FR_ca');const fr=strings(),usedFr=displayedStrings();
+   locale(info,'en-US');const explicitEnglish=strings();
+   locale(info,'français');
+   const slider=object(sliderClass),pan=object(sliderClass);
+   for(const [row,caption] of [[slider,'Sensibilité du zoom'],[pan,'Sensibilité de rotation']]){
+     put(row,39,fr[caption]);put(row,5,tag(object(viewClass)));
+   }
+   if(scenario==='locales'){
+     const getter=alloc(128),body=alloc(PROFILE.getterWords.length*4);
+     PROFILE.getterWords.forEach((w,i)=>body.add(i*4).writeU32(w));
+     getter.add(0x60).writePointer(body);getter.add(0x68).writeU32(PROFILE.getterWords.length);
+     callbacks['UiOneSettingSliderController.GetCurrentValue'](vm(slider),getter);
+     callbacks['UiOneSettingSliderController.GetCurrentValue'](vm(pan),getter);
+   }
+   const enhanced=object(presetClass);put(enhanced,6,fr['ENHANCED']);
+   tabs.add(0x40).readPointer().add(56).writePointer(tag(enhanced));tabs.add(0x48).writeU32(8);items.add(0x48).writeU32(8);
+   locale(self,'de-DE');const fallback=strings();
+   const redraw=localeFn.add(0x60).readPointer(),redrawsScreen=!redraw.equals(localeCode)&&redraw.add(17*4).readU32()===0x8000180d;
+   visit();
+   const refreshed=!fn.add(0x60).readPointer().equals(replacement)&&!fn.add(0x60).readPointer().equals(code);
+   const usedRefresh=displayedStrings();
+   put(enhanced,6,title);visit();const restored=fn.add(0x60).readPointer().equals(code);
+   menu.stop();return {usedEn,usedFr,usedRefresh,en:Object.keys(en),fr:Object.keys(fr),explicitEnglish:Object.keys(explicitEnglish),fallback:Object.keys(fallback),refreshed,restored,redrawsScreen,localeRestored:localeFn.add(0x60).readPointer().equals(localeCode),
+     zoom:slider.add(0x30+55*8).readFloat(),pan:pan.add(0x30+55*8).readFloat(),status:menu.status()};
+ }
+ if(scenario==='north'){
+   locale(self,'french');
+   const row=object(onOff);put(row,39,strings()['Garder le nord en haut']);
    const cc=klass('MinimapCameraController',[['rotation',31,5],['UpdateImpl',91,2]]);
    descriptor(cc,31).add(0x50).writeU32(26);
    const camera=object(cc),rotation=camera.add(0x30+26*8),update=descriptor(cc,91),words=alloc(PROFILE.mapUpdateWords.length*4);
@@ -79,7 +134,7 @@ rpc.exports.run=(scenario)=>{
    const change=(p,v)=>callbacks['UiOneSettingStepperOnOff.UpdateStatus'](vm(p,ptr(v?'0x20000d62d1c01':'0x20000d62d1c00')));
    change(step,true);frame();const free=rotation.readFloat();change(row,true);frame();const aligned=rotation.readFloat();
    rotation.writeFloat(12);frame();const locked=rotation.readFloat();change(row,false);rotation.writeFloat(27);frame();
-   menu.stop();return {french,english,free,aligned,locked,unlocked:rotation.readFloat(),state:menu.status()};
+   menu.stop();return {free,aligned,locked,unlocked:rotation.readFloat(),state:menu.status()};
  }
  const slider=object(sliderClass),sliderView=object(viewClass);put(slider,39,label);put(slider,5,tag(sliderView));
  callbacks['UiOneSettingSliderController.GetCurrentValue'](vm(slider));
@@ -101,7 +156,7 @@ rpc.exports.run=(scenario)=>{
  visit();const repeat=menu.status(),restored=fn.add(0x60).readPointer().equals(code)&&fn.add(0x50).readPointer().equals(constants);
  // Model a recreated Settings controller using the same class method.
  callbacks['UiSettingsController.InitContent']();tabs.add(0x48).writeU32(7);items.add(0x48).writeU32(7);visit();const resetWait=menu.status();capture();visit();const recreated=menu.status();
- menu.stop();return {waiting,installed,branches,strings,boundValue,boundFormat,panValue,separate,repeat,restored,resetWait,recreated,stopped:menu.status(),finalRestore:fn.add(0x60).readPointer().equals(code)};
+ menu.stop();return {waiting,installed,branches,boundValue,boundFormat,panValue,separate,repeat,restored,resetWait,recreated,stopped:menu.status(),finalRestore:fn.add(0x60).readPointer().equals(code)};
 };
 '''
 
@@ -123,8 +178,6 @@ class SettingsMenuTests(unittest.TestCase):
 
     def test_localized_north_toggle_locks_only_its_own_camera_setting(self):
         result = self.script.exports_sync.run('north')
-        self.assertEqual(result['french'], 'Garder le nord en haut')
-        self.assertEqual(result['english'], 'Keep North Up')
         self.assertAlmostEqual(result['free'], -278.7, places=3)
         self.assertEqual((result['aligned'], result['locked'], result['unlocked']), (0, 0, 27))
         self.assertIsNone(result['state']['keepNorthUp']['fault'])
@@ -135,17 +188,10 @@ class SettingsMenuTests(unittest.TestCase):
         self.assertIsNone(r['installed']['fault'], r)
         self.assertEqual(r['installed']['installations'], 1)
         self.assertTrue(r['branches'])
-        self.assertIn('Pourquoi je vois ça?', r['strings'])
-        self.assertIn('MAP', r['strings'])
-        self.assertIn('Panning sensitivity', r['strings'])
-        self.assertIn('Keep North Up', r['strings'])
-        self.assertTrue(any('cinquante fois plus lent' in s and 'sauvegardés' in s for s in r['strings']))
         self.assertEqual(r['panValue'], 50)
         self.assertTrue(r['separate'])
         self.assertEqual(r['boundValue'], 50)
         self.assertEqual(r['boundFormat'], '0x1000000000002')
-        self.assertTrue(any('réglage d’origine' in s and 'sauvegardés' in s for s in r['strings']))
-        self.assertTrue(any('apparaît' in s and 'installé' in s for s in r['strings']))
         self.assertEqual(r['repeat']['installations'], 1)
         self.assertTrue(r['restored'])
         self.assertEqual(r['resetWait']['status'], 'waiting-for-controls')
@@ -153,6 +199,37 @@ class SettingsMenuTests(unittest.TestCase):
         self.assertEqual(r['recreated']['arenaBytes'], r['installed']['arenaBytes'])
         self.assertTrue(r['finalRestore'])
         self.assertFalse(r['stopped']['running'])
+
+    def test_every_visible_string_follows_the_game_locale(self):
+        for scenario in ('locales', 'no-map'):
+            with self.subTest(scenario=scenario):
+                result = self.script.exports_sync.run(scenario)
+                english, french = set(result['en']), set(result['fr'])
+                self.assertEqual(english, set(result['explicitEnglish']))
+                self.assertEqual(english, set(result['fallback']))
+                self.assertIn('ENHANCED', english & french)
+                self.assertTrue({'MAP', 'Why am I seeing this?', 'Zoom sensitivity',
+                                 'Panning sensitivity', 'Keep North Up', 'Off', 'On'} <= english - french)
+                self.assertTrue({'CARTE', 'Pourquoi cet onglet ?', 'Sensibilité du zoom',
+                                 'Sensibilité de rotation', 'Garder le nord en haut', 'Désactivé', 'Activé'} <= french - english)
+                unused_en, unused_fr = set(), set()
+                if scenario == 'no-map':
+                    unused_en = {s for s in english if s in ('Keep North Up', 'On', 'Off') or s.startswith('Keeps north')}
+                    unused_fr = {s for s in french if s in ('Garder le nord en haut', 'Activé', 'Désactivé') or s.startswith('Garde le nord')}
+                self.assertEqual((english - french) - set(result['usedEn']), unused_en)
+                self.assertEqual((french - english) - set(result['usedFr']), unused_fr)
+                self.assertEqual((english - french) - set(result['usedRefresh']), unused_en)
+                self.assertEqual(len(english - french), 11)
+                self.assertEqual(len(french - english), 11)
+                for texts, extracts in [(english, ('four times slower', 'fifty times slower', 'freely', 'plugin')),
+                                        (french, ('quatre fois plus lent', 'cinquante fois plus lentement', 'librement', 'plugin'))]:
+                    for extract in extracts:
+                        self.assertTrue(any(extract in text for text in texts), extract)
+                self.assertIsNone(result['status']['fault'])
+                self.assertTrue(result['refreshed'] and result['restored'])
+                self.assertTrue(result['redrawsScreen'] and result['localeRestored'])
+                if scenario == 'locales':
+                    self.assertEqual((result['zoom'], result['pan']), (50, 50))
 
     def test_changed_bytecode_is_left_untouched(self):
         r = self.script.exports_sync.run('body')

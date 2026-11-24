@@ -3,12 +3,12 @@
 // Core UI belongs to the plugin, never to a configurable enhancement group.
 CONFIG.features = {wheel_mouse: ENHANCED_HOST.wheelMouse !== false, map: ENHANCED_HOST.map !== false};
 let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
-let menuFailure = null;
+let menuFailure = null, functionsRepeat = null, repeatState = "disabled";
 function reportNative(state, extra = {}) {
     featureState = state;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.21',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.24',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
-        components: {settings_menu: settingsMenu ? settingsMenu.status() :
+        components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
         features: Object.fromEntries(Object.entries(CONFIG.features).map(([key, enabled]) =>
             [key, enabled ? {enabled, status: state, ...extra} : {enabled, status: 'disabled'}])),
@@ -62,6 +62,13 @@ function attemptStart() {
         settingsMenu.start(Process.mainModule.base.add(result.profile.guards.find(g => g.name === 'vm_frame_push_entry').rva),
             Process.mainModule.base.add(result.profile.stringPoolSlotRva));
     } catch (error) { menuFailure = String(error); settingsMenu = null; }
+    if (ENHANCED_HOST.general === true) {
+        repeatState = 'unsupported';
+        if (ENHANCED_HOST.gameSha256 === CONFIG.profile.gameSha256) {
+            try { functionsRepeat = startFunctionsRepeat(result.profile); }
+            catch (error) { repeatState = String(error); }
+        }
+    }
     function report() { reportNative(agentState, {compatibility: result.details, counters: nativeAgent.status(), reason: agentReason}); }
     report();
     let previous = '';

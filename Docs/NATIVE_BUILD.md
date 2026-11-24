@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.21`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.24`. Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -166,8 +166,8 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.21.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.21/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.24.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.24/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
@@ -364,3 +364,11 @@ Le sélecteur sous MAP utilise le contrôleur Marche/Arrêt du jeu et sa langue 
 Sur la preview.20, un clic vers OFF produisait bien un index zéro. La VM écrivait le booléen faux dans l’octet de poids faible en laissant des données dans les trois octets suivants. La preview.21 lit cet octet seul. Le test du sélecteur reproduit ce remplissage et vérifie le retour à la rotation libre.
 
 Le 24 novembre 2026, l’utilisateur a confirmé en jeu que le nord revient en haut sur une carte déjà tournée et que le verrou tient. Après installation de la preview.21, il a également confirmé que le sélecteur reste sur OFF et que la carte tourne de nouveau librement.
+
+### Enhancement #4 – General Improvements (preview.23)
+
+La liste du panneau Fonctions correspond à la classe `optionPanelList` de `hud_lib.gfx`. Après son constructeur parent, le constructeur affecte la valeur publique `wrapping = "wrap"`. Les méthodes du jeu `ScrollingList.handleInput` et `FindEnabledLir` assurent le déplacement. Pour conserver la taille de la ressource, l’initialiseur de cette même classe libère ses sept dernières portées au retour de méthode. La pile des opérandes et l’affectation de la classe restent identiques. Les fenêtres de lecture figurent dans `functionsMenuEdits` et utilisent le contrôle d’empreinte de `gfx.pak`. Le statut `active` confirme la lecture de toutes les fenêtres corrigées. Le joueur a confirmé la navigation circulaire en jeu avec la preview.23.
+
+### Défilement continu (preview.24)
+
+Après relancement avec la preview.24 installée, le joueur a confirmé le défilement continu au clavier et avec la croix directionnelle de la manette. Le volant reste à tester séparément.

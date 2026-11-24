@@ -32,12 +32,13 @@ def generate():
     (ROOT / 'build/tmp').mkdir(parents=True, exist_ok=True)
     startup = json.loads((ROOT / 'src/startup-profile.json').read_text())
     rows = []
-    for e in startup['edits']:
-        a, b = bytes.fromhex(e['original']), bytes.fromhex(e['replacement'])
-        assert len(a) == len(b) <= 64
-        rows.append('{%dULL,%d,{%s},{%s}}' % (e['offset'], len(a), ','.join(map(str,a)), ','.join(map(str,b))))
+    for feature, edits in [(2, startup['edits']), (8, startup['functionsMenuEdits'])]:
+        for e in edits:
+            a, b = bytes.fromhex(e['original']), bytes.fromhex(e['replacement'])
+            assert 0 < len(a) == len(b) < 63
+            rows.append('{%dULL,%d,%d,{%s},{%s}}' % (e['offset'], len(a), feature, ','.join(map(str,a)), ','.join(map(str,b))))
     (BUILD / 'startup_profile.h').write_text(
-        'typedef struct { unsigned long long offset; unsigned size; unsigned char before[64], after[64]; } StartupEdit;\n'
+        'typedef struct { unsigned long long offset; unsigned size, feature; unsigned char before[64], after[64]; } StartupEdit;\n'
         + '#define STARTUP_EDIT_COUNT %d\n#define STARTUP_ARCHIVE_SIZE %dULL\n' % (len(rows), startup['size'])
         + 'static const unsigned char startup_sha256[32]={' + ','.join(map(str,bytes.fromhex(startup['sha256']))) + '};\n'
         + 'static const StartupEdit startup_edits[STARTUP_EDIT_COUNT]={' + ','.join(rows) + '};\n')
@@ -48,6 +49,7 @@ def generate():
              (ROOT / 'src/vm_scope.js').read_text(), (ROOT / 'src/input_agent.js').read_text(),
              'const nativeAgent=rpc.exports;',
              'const SETTINGS_PROFILE=' + (ROOT / 'src/settings-profile.json').read_text(encoding='utf-8') + ';',
+             (ROOT / 'src/functions_repeat.js').read_text(encoding='utf-8'),
              (ROOT / 'src/map_zoom.js').read_text(encoding='utf-8'),
              (ROOT / 'src/map_panning.js').read_text(encoding='utf-8'),
              (ROOT / 'src/settings_menu.js').read_text(encoding='utf-8'),
@@ -79,7 +81,7 @@ def main():
     invoke([*common, str(ROOT / 'tests/native/game_host.c'), '/link', '/OUT:game-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, '/LD', str(ROOT / 'tests/native/companion.c'), '/link', '/OUT:companion.asi'])
     (BUILD / 'build.json').write_text(json.dumps({
-        'version': '0.1.0-preview.21', 'engine': 'GumJS 17.26.3 embedded',
+        'version': '0.1.0-preview.24', 'engine': 'GumJS 17.26.3 embedded',
         'artifacts': {n: hashlib.sha256((BUILD / n).read_bytes()).hexdigest()
                       for n in ('SnowRunnerEnhanced.asi', 'native-harness.exe')},
         'v18Sources': {n: hashlib.sha256((ROOT / 'src' / n).read_bytes()).hexdigest()

@@ -1,10 +1,32 @@
 'use strict';
 
+// Only user-visible strings belong here. Keys used by the settings dictionary are stable.
+const enhancedMenuText = {
+    // The two VM strings have distinct identities to track the locale of an existing tab.
+    title: ['ENHANCED', 'ENHANCED'],
+    category: ['MAP', 'CARTE'],
+    infoLabel: ['Why am I seeing this?', 'Pourquoi cet onglet ?'],
+    infoDesc: ['SnowRunner Enhanced adds this tab so you can configure the plugin in the game settings.',
+        'SnowRunner Enhanced ajoute cet onglet pour vous permettre de configurer le plugin dans les paramètres du jeu.'],
+    zoomLabel: ['Zoom sensitivity', 'Sensibilité du zoom'],
+    zoomDesc: ['Adjusts map zoom speed. At 50, zoom uses the original game speed. At 0, it is four times slower. At 100, it is four times faster. Changes are applied and saved immediately.',
+        'Règle la vitesse du zoom sur la carte. À 50, le zoom conserve la vitesse d’origine du jeu. À 0, il est quatre fois plus lent. À 100, il est quatre fois plus rapide. Les changements sont appliqués et sauvegardés immédiatement.'],
+    panningLabel: ['Panning sensitivity', 'Sensibilité de rotation'],
+    panningDesc: ['Adjusts how fast the map rotates while you hold the right mouse button. At 50, rotation uses the original game speed. At 0, it is fifty times slower. At 100, it is four times faster. Changes are applied and saved immediately.',
+        'Règle la vitesse de rotation de la carte lorsque vous maintenez le bouton droit de la souris. À 50, la carte tourne à la vitesse d’origine du jeu. À 0, elle tourne cinquante fois plus lentement. À 100, elle tourne quatre fois plus vite. Les changements sont appliqués et sauvegardés immédiatement.'],
+    northLabel: ['Keep North Up', 'Garder le nord en haut'],
+    northDesc: ['Keeps north at the top of the map. Turn this off to rotate the map freely.',
+        'Garde le nord en haut de la carte. Désactivez cette option pour tourner la carte librement.'],
+    off: ['Off', 'Désactivé'],
+    on: ['On', 'Activé']
+};
+
 function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options = {}) {
     let hooks=[], pendingGamma=null, pendingStepper=null, plan=null, patch=null, methodOwner=null;
+    let localePatch=null;
     let poolSlot=null, running=false, state='waiting', fault=null, installations=0, visits=0;
-    const zoom=makeMapZoomSensitivity(profile,{receiver,prop,get,owns:p=>!!plan&&className(p)==='UiOneSettingSliderController'&&prop(p,'header').readPointer().equals(plan.labelValue)},options,attach);
-    const panning=makeMapPanningSensitivity(profile,{receiver,prop,get,owns:p=>!!plan&&className(p)==='UiOneSettingSliderController'&&prop(p,'header').readPointer().equals(plan.panningLabelValue)},options,attach);
+    const zoom=makeMapZoomSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','zoomLabel')},options,attach);
+    const panning=makeMapPanningSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','panningLabel')},options,attach);
     const mapEnabled=options.mapEnabled!==false;
     let northUp=options.keepNorthUp===true, cameraClass=null, northFault=null;
     function obj(v){if(v.shr(48).toUInt32()!==0x20)throw Error('Expected VM object');return v.and('0xffffffffffff');}
@@ -19,7 +41,10 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
     }
     function className(p){return name(cls(p).add(0x18).readU32());}
     function member(p,n,kind){
-        const c=cls(p),t=c.add(0x58).readPointer(),count=c.add(0x60).readU32();
+        return classMember(cls(p),n,kind);
+    }
+    function classMember(c,n,kind){
+        const t=c.add(0x58).readPointer(),count=c.add(0x60).readU32();
         if(count>500)throw Error('Invalid class member count');
         for(let i=0;i<count;i++){
             const e=t.add(i*32);
@@ -37,10 +62,10 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
     }
     function restore(){
         if(!patch)return;
-        const {fn,code,constants,count,words}=patch;
-        if(!fn.add(0x60).readPointer().equals(plan.code)||fn.add(0x68).readU32()!==plan.words.length||
+        const {fn,code,constants,count,words,program}=patch;
+        if(!fn.add(0x60).readPointer().equals(program.p)||fn.add(0x68).readU32()!==program.words.length||
                 !fn.add(0x50).readPointer().equals(plan.constants)||fn.add(0x58).readU32()!==plan.count||
-                !plan.words.every((w,i)=>plan.code.add(i*4).readU32()===w))throw Error('Foreign settings bytecode; not overwritten');
+                !program.words.every((w,i)=>program.p.add(i*4).readU32()===w))throw Error('Foreign settings bytecode; not overwritten');
         fn.add(0x60).writePointer(code);fn.add(0x68).writeU32(words);
         fn.add(0x50).writePointer(constants);fn.add(0x58).writeU32(count);patch=null;
     }
@@ -55,26 +80,54 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
             return;
         }
     }
-    function ownsNorth(control){
-        if(!plan?.northLabels || className(control)!=='UiOneSettingStepperOnOff')return false;
-        const header=prop(control,'header').readPointer();
-        return plan.northLabels.some(label=>label.equals(header));
+    function ownsRow(control,kind,key){
+        return !!plan && className(control)===kind && plan.matches(key,prop(control,'header').readPointer());
     }
-    function setNorthLocale(vm){
-        const control=receiver(vm);
-        if(!ownsNorth(control))return;
-        const value=vm.add(0x18).readPointer().add(8).readPointer();
-        if(value.shr(48).toUInt32()!==16)return;
+    function ownsNorth(control){return ownsRow(control,'UiOneSettingStepperOnOff','northLabel');}
+    function localeIndex(value){
+        if(value.shr(48).toUInt32()!==16)return 0;
         const s=untag(value);
-        if(s.isNull())return;
+        if(s.isNull())return 0;
         const length=s.add(8).readU32();
-        if(!length||length>128)return;
+        if(!length||length>128)return 0;
         const data=s.add(12).readU32()===1?s.add(16):s.add(16).readPointer();
-        const language=data.readUtf8String(length);
-        const index=/^(?:fr(?:$|[-_])|fra$|fre$|french$|français$)/i.test(language)?1:0;
-        // Both alternatives are permanent constants owned by this menu.
-        prop(control,'header').writePointer(plan.northLabels[index]);
-        prop(control,'desc').writePointer(plan.northDescriptions[index]);
+        if(data.isNull())return 0;
+        try{
+            const language=data.readUtf8String(length).trim();
+            return /^(?:fr|fra|fre|french|français)(?:$|[-_])/i.test(language)?1:0;
+        }catch(_){return 0;}
+    }
+    function setMenuLocale(vm){
+        if(!plan)return;
+        const control=receiver(vm);
+        if(!ownsRow(control,'UiOneSettingSliderController','infoLabel'))return;
+        plan.selectLocale(localeIndex(vm.add(0x18).readPointer().add(8).readPointer()));
+    }
+    function restoreLocale(){
+        if(!localePatch)return;
+        const {fn,code}=localePatch;
+        if(!fn.add(0x60).readPointer().equals(plan.redraw.p)||fn.add(0x68).readU32()!==plan.redraw.words.length||
+                !plan.redraw.words.every((w,i)=>plan.redraw.p.add(i*4).readU32()===w))
+            throw Error('Foreign settings locale bytecode; not overwritten');
+        fn.add(0x60).writePointer(code);fn.add(0x68).writeU32(plan.localeWords.length);localePatch=null;
+    }
+    function settingsLocale(vm,fn){
+        restoreLocale();
+        if(!plan)return;
+        const self=receiver(vm);
+        if(className(self)!=='UiSettingsController')return;
+        plan.selectLocale(localeIndex(vm.add(0x18).readPointer().add(8).readPointer()));
+        const tabs=untag(prop(self,'activeTabs').readPointer());
+        if(tabs.isNull()||arrayCount(tabs)!==8)return;
+        const preset=obj(tabs.add(0x40).readPointer().add(7*8).readPointer());
+        const title=prop(preset,'name').readPointer();
+        if(!plan.matches('title',title)||plan.current('title').equals(title))return;
+        const code=fn.add(0x60).readPointer();
+        if(!method(self,'SetForLocale').equals(fn)||fn.add(0x68).readU32()!==plan.localeWords.length||
+                !plan.localeWords.every((w,i)=>code.add(i*4).readU32()===w))
+            throw Error('Unsupported settings locale method');
+        localePatch={fn,code};
+        fn.add(0x60).writePointer(plan.redraw.p);fn.add(0x68).writeU32(plan.redraw.words.length);
     }
     function changeNorth(vm){
         const control=receiver(vm);
@@ -116,37 +169,51 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
         const n=arrayCount(tabs),m=arrayCount(items);
         if(n===8&&m===8){
             const last=obj(tabs.add(0x40).readPointer().add(7*8).readPointer());
-            if(!plan||!prop(last,'name').readPointer().equals(plan.titleValue))throw Error('Foreign eighth settings tab');
-            state='active';return; // Native objects already own our tab.
-        }
-        if(n!==7||m!==7)throw Error('Unsupported settings tab layout');
-        if(!pendingGamma||(mapEnabled&&!pendingStepper)){state='waiting-for-controls';return;}
+            const title=prop(last,'name').readPointer();
+            if(!plan||!plan.matches('title',title))throw Error('Foreign eighth settings tab');
+            if(plan.current('title').equals(title)){state='active';return;}
+            // The native view keeps its rendered label. Refresh it along with the
+            // preset before CreateData lays out the selected tab in the new locale.
+        }else if(n!==7||m!==7)throw Error('Unsupported settings tab layout');
+        if(n===7&&(!pendingGamma||(mapEnabled&&!pendingStepper))){state='waiting-for-controls';return;}
         const gamma=pendingGamma;
-        if(className(gamma)!=='UiOneSettingSliderGammaController'||!get(gamma,'uiSystem').equals(get(self,'uiSystem')))
-            throw Error('Unexpected brightness template');
         const original=fn.add(0x60).readPointer(),originalConstants=fn.add(0x50).readPointer(),originalCount=fn.add(0x58).readU32();
         if(name(fn.add(0x40).readPointer().readU32())!=='CreateData'||fn.add(0x68).readU32()!==profile.createDataWords.length||
                 originalCount!==10||!profile.createDataWords.every((w,i)=>original.add(i*4).readU32()===w))throw Error('Settings bytecode mismatch');
-        expectMembers(self,[['view',5,5],['deviceListener',8,5],['uiSystem',9,5],['localizationUpdateNotifier',11,5],
-            ['inputScreen',54,5],['settings',56,5],['tabBar',57,5],['activeTabs',63,5],['GetView',34,2]]);
-        expectMembers(gamma,[['header',39,5],['desc',40,5],['shouldBeVisible',41,5],['minValue',50,5],['maxValue',51,5],
-            ['defaultValue',52,5],['stepInterval',53,5],['textfield',54,5],['Init',13,2]]);
-        expectMembers(get(gamma,'view'),[['uiObjectDesc',5,5],['changeSound',31,5],['descriptionImage',32,5],['GetUiObject',25,2]]);
-        expectMembers(bar,[['CreateItem',52,2],['UnsubscribeContent',29,2],['SubscribeContent',28,2],['Show',16,2]]);
-        if(!plan){plan=build(self,gamma,fn,tabs,originalConstants,originalCount);methodOwner=fn;}
-        if(!methodOwner.equals(fn))throw Error('Settings method owner changed');
-        plan.gammaSlot.writePointer(gamma.or('0x20000000000000'));
-        if(mapEnabled){
-            if(!get(pendingStepper.control,'uiSystem').equals(get(self,'uiSystem')))throw Error('Unexpected on/off template');
-            plan.stepperSlot.writePointer(pendingStepper.control.or('0x20000000000000'));
-            plan.northIndexSlot.writePointer(ptr(northUp?'0x1000000000001':'0x1000000000000'));
+        if(n===7){
+            if(className(gamma)!=='UiOneSettingSliderGammaController'||!get(gamma,'uiSystem').equals(get(self,'uiSystem')))
+                throw Error('Unexpected brightness template');
+            expectMembers(self,[['view',5,5],['deviceListener',8,5],['uiSystem',9,5],['localizationUpdateNotifier',11,5],
+                ['inputScreen',54,5],['settings',56,5],['tabBar',57,5],['activeTabs',63,5],['GetView',34,2],['UpdateViewData',24,2]]);
+            expectMembers(gamma,[['header',39,5],['desc',40,5],['shouldBeVisible',41,5],['minValue',50,5],['maxValue',51,5],
+                ['defaultValue',52,5],['stepInterval',53,5],['textfield',54,5],['Init',13,2]]);
+            expectMembers(get(gamma,'view'),[['uiObjectDesc',5,5],['changeSound',31,5],['descriptionImage',32,5],['GetUiObject',25,2]]);
+            expectMembers(bar,[['CreateItem',52,2],['UnsubscribeContent',29,2],['SubscribeContent',28,2],['Show',16,2],['items',65,5],['UpdateTabsOffset',82,2]]);
+            if(!plan){plan=build(self,gamma,fn,tabs,originalConstants,originalCount);methodOwner=fn;}
+            plan.gammaSlot.writePointer(gamma.or('0x20000000000000'));
+            if(mapEnabled){
+                if(!get(pendingStepper.control,'uiSystem').equals(get(self,'uiSystem')))throw Error('Unexpected on/off template');
+                plan.stepperSlot.writePointer(pendingStepper.control.or('0x20000000000000'));
+                plan.northIndexSlot.writePointer(ptr(northUp?'0x1000000000001':'0x1000000000000'));
+            }
         }
-        patch={fn,code:original,constants:originalConstants,count:originalCount,words:profile.createDataWords.length};
+        if(!methodOwner.equals(fn))throw Error('Settings method owner changed');
+        const program=n===7?plan.install:plan.refresh;
+        patch={fn,program,code:original,constants:originalConstants,count:originalCount,words:profile.createDataWords.length};
         fn.add(0x50).writePointer(plan.constants);fn.add(0x58).writeU32(plan.count);
-        fn.add(0x60).writePointer(plan.code);fn.add(0x68).writeU32(plan.words.length);
-        installations++;state='active';
+        fn.add(0x60).writePointer(program.p);fn.add(0x68).writeU32(program.words.length);
+        if(n===7)installations++;state='active';
     }
-    function guarded(callback){return (...args)=>{if(fault)return;try{callback(...args);}catch(e){fault=String(e);state='incompatible';try{restore();}catch(_){};}};}
+    function guarded(callback){
+        return (...args)=>{
+            if(fault)return;
+            try{callback(...args);}catch(e){
+                fault=String(e);state='incompatible';
+                try{restore();}catch(_){}
+                try{restoreLocale();}catch(_){}
+            }
+        };
+    }
     function build(self,gamma,fn,tabs,originalConstants,originalCount){
 // A bounded process-lifetime arena avoids dangling type/string constants when
 // the VM keeps a reference. Its 64 KiB is released by Windows at game exit.
@@ -162,13 +229,21 @@ const preset=obj(tabs.add(0x40).readPointer().readPointer());
 const presetType=type(cls(preset)),sliderType=type(cls(gamma).add(0x20).readPointer()),viewType=type(cls(get(gamma,'view')));
 if(name(cls(gamma).add(0x20).readPointer().add(0x18).readU32())!=='UiOneSettingSliderController')throw Error('Wrong slider base');
 const initType=add(method(self,'InitContent').add(0x50).readPointer().add(5*8).readPointer());
-const title=add(textValue('ENHANCED')),category=add(textValue('MAP')),key=add(textValue('EnhancedZoom')),
- label=add(textValue('Zoom sensitivity')),description=add(textValue('Règle la sensibilité du zoom de la carte. 50 correspond au réglage d’origine du jeu. 0 : quatre fois plus lent. 100 : quatre fois plus rapide. Les changements sont appliqués immédiatement et sauvegardés.')),
- empty=add(textValue('')),gammaValue=add(gamma.or('0x20000000000000'));
-const panningKey=add(textValue('EnhancedPanning')),panningLabel=add(textValue('Panning sensitivity')),
- panningDescription=add(textValue('Règle la vitesse de rotation de la carte avec le clic droit maintenu. 50 correspond à la vitesse d’origine du jeu. 0 : cinquante fois plus lent. 100 : quatre fois plus rapide. Les changements sont appliqués immédiatement et sauvegardés.'));
-const infoKey=add(textValue('EnhancedAbout')),infoLabel=add(textValue('Pourquoi je vois ça?')),
- infoDesc=add(textValue('Ce menu apparaît parce que le plugin SnowRunner Enhanced est installé. Il vous permet de configurer certaines options proposées par le plugin.'));
+const variants={},slots={};
+for(const [key,pair] of Object.entries(enhancedMenuText)){
+    variants[key]=pair.map(textValue);
+    slots[key]=add(variants[key][0]);
+}
+const current=key=>constants.add(slots[key]*8).readPointer();
+const matches=(key,value)=>variants[key].some(v=>v.equals(value));
+function selectLocale(index){
+    for(const key of Object.keys(slots))constants.add(slots[key]*8).writePointer(variants[key][index]);
+}
+const {title,category,zoomLabel:label,zoomDesc:description,panningLabel,panningDesc:panningDescription,infoLabel,infoDesc}=slots;
+const key=add(textValue('EnhancedZoom')),panningKey=add(textValue('EnhancedPanning')),infoKey=add(textValue('EnhancedAbout'));
+const empty=add(textValue('')),gammaValue=add(gamma.or('0x20000000000000'));
+const getLocale=member(get(self,'uiSystem'),'GetCurrentLocale',2).id;
+expectMembers(gamma,[['SetForLocale',33,2]]);
 function floatConstant(v){const p=alloc(8);p.writeFloat(v);p.add(6).writeU16(3);return add(p.readPointer());}
 const zero=floatConstant(0),hundred=floatConstant(100),fifty=floatConstant(50),one=floatConstant(1);
 // Typed stack assembler; function arguments are pushed in reverse order.
@@ -182,31 +257,50 @@ function set(receiver,id,value){return [...value,...receiver,W(60,id),W(2)];}
 function assign(local,value){return [...value,W(59,local),W(2)];}
 function create(local,t){return assign(local,[W(1,1),W(57,t),W(4,0),W(58,t)]);}
 function append(array,value){return [...value,...array,W(66),W(2)];}
-let northRow=[],northData={};
+let northRow=[],northData={},refreshNorth=[];
 if(mapEnabled){
     const template=pendingStepper.control;
     expectMembers(template,[['view',5,5],['header',39,5],['desc',40,5],['shouldBeVisible',41,5],
         ['defaultStepperIndex',50,5],['hackCurrent',51,5],['SetForLocale',33,2],['Init',13,2]]);
-    expectMembers(get(template,'view'),[['uiObjectDesc',5,5],['changeSound',31,5],['descriptionImage',32,5]]);
-    const getLocale=member(get(self,'uiSystem'),'GetCurrentLocale',2).id;
+    expectMembers(get(template,'view'),[['uiObjectDesc',5,5],['changeSound',31,5],['descriptionImage',32,5],
+        ['updateCurrentWithoutNotification',41,5],['UpdateStepperCurrent',43,2],['GetUiObject',25,2]]);
     const stepper=type(pendingStepper.base),stepView=type(cls(get(template,'view')));
     const stepSource=add(template.or('0x20000000000000')),northKey=add(textValue('EnhancedKeepNorthUp'));
-    const labels=['Keep North Up','Garder le nord en haut'].map(textValue);
-    const descriptions=['Keep north at the top of the map.','Garde le nord en haut de la carte.'].map(textValue);
-    const header=add(labels[0]),help=add(descriptions[0]),index=add(ptr('0x1000000000000'));
-    northData={stepperSlot:constants.add(stepSource*8),northIndexSlot:constants.add(index*8),northLabels:labels,northDescriptions:descriptions};
+    const {northLabel:header,northDesc:help}=slots,index=add(ptr('0x1000000000000'));
+    northData={stepperSlot:constants.add(stepSource*8),northIndexSlot:constants.add(index*8)};
+    // The native on/off initializer constructs array<string> from constant 1.
+    const initializer=classMember(pendingStepper.base,'CreateInitialData',2).desc;
+    if(initializer.add(0x58).readU32()<2)throw Error('Missing stepper value array type');
+    const arrayType=initializer.add(0x50).readPointer().add(8).readPointer();
+    if(arrayType.shr(48).toUInt32()!==0x30)throw Error('Unexpected stepper value array type');
+    const stringsType=add(arrayType);
+    const choices=[
+        ...create(-10,stringsType),...append(L(-10),C(slots.off)),...append(L(-10),C(slots.on)),
+        ...set(L(-13),41,B(1)), // Suppress change notifications while replacing the displayed choices.
+        ...stmt(call(field(call(L(-13),25),144),96,[L(-10)])),
+        ...stmt(call(L(-13),43,[field(L(-12),51)]))
+    ];
+    refreshNorth=[...refreshRow(northKey,header,help),...choices];
     northRow=[
         ...create(-11,5),...set(L(-11),4,C(northKey)),...set(L(-11),5,B(0)),...append(field(L(-9),4),L(-11)),
         ...create(-12,stepper),...set(L(-12),39,C(header)),...set(L(-12),40,C(help)),
-        // Select the game's current locale before the view consumes its header.
-        ...stmt(call(L(-12),33,[call(S(9),getLocale)])),
         ...create(-13,stepView),...set(L(-13),5,field(field(C(stepSource),5),5)),
         ...set(L(-13),31,field(field(C(stepSource),5),31)),...set(L(-13),32,C(empty)),
         ...set(L(-12),5,L(-13)),...set(L(-12),41,B(1)),...set(L(-12),50,I(0)),...set(L(-12),51,C(index)),
-        ...stmt(call(L(-12),13,[L(-14)])),...stmt(call(S(56),5,[C(northKey),L(-12)]))
+        ...stmt(call(L(-12),13,[L(-14)])),...choices,...stmt(call(S(56),5,[C(northKey),L(-12)]))
+    ];
+}
+function refreshRow(key,label,help){
+    return [
+        ...assign(-12,[...C(key),...S(56),W(68)]),...assign(-13,field(L(-12),5)),
+        ...set(L(-12),39,C(label)),...set(L(-12),40,C(help)),
+        // Both slider and stepper InitContent set textCont.tfContainer.tf.text.
+        ...set(field(field(field(call(L(-13),25),143),145),143),97,C(label))
     ];
 }
 const prefix=[W(1,17),
+ // Read the game locale before the first caption is consumed, including when Map is disabled.
+ ...create(-16,sliderType),...set(L(-16),39,C(infoLabel)),...stmt(call(L(-16),33,[call(S(9),getLocale)])),
  ...create(-9,presetType),...set(L(-9),6,C(title)),
  ...create(-10,5),...set(L(-10),4,C(infoKey)),...set(L(-10),5,B(0)),...append(field(L(-9),4),L(-10)),
  ...create(-10,3),...set(L(-10),4,C(category)),...append(field(L(-9),4),L(-10)),
@@ -220,7 +314,7 @@ const prefix=[W(1,17),
  ...stmt(call(L(-12),13,[L(-14)])),
  // Reuse the native selectable row, with its value control hidden. This
  // informational row has only a title and contextual help, no game action.
- ...create(-16,sliderType),...create(-17,viewType),
+ ...create(-17,viewType),
  ...set(L(-17),5,field(field(C(gammaValue),5),5)),...set(L(-17),32,C(empty)),
  ...set(L(-16),5,L(-17)),...set(L(-16),39,C(infoLabel)),...set(L(-16),40,C(infoDesc)),...set(L(-16),41,B(1)),
  ...set(L(-16),50,C(zero)),...set(L(-16),51,C(hundred)),...set(L(-16),52,C(fifty)),...set(L(-16),53,C(one)),...set(L(-16),54,I(1)),
@@ -243,17 +337,34 @@ const prefix=[W(1,17),
 ];
 function relocated(words,delta){return words.map(w=>[0x16,0x17,0x18,0x19,0x1a].includes(w&255)?W(w&255,(w>>>8)-0x800000+delta):w);}
 function code(words){const p=alloc(words.length*4);words.forEach((w,i)=>p.add(i*4).writeU32(w));return {p,words};}
-const install=code([...prefix,...relocated(profile.createDataWords.slice(1),prefix.length-1)]);
-return {...northData,code:install.p,words:install.words,constants,count:nconst,gammaSlot:constants.add(gammaValue*8),titleValue:constants.add(title*8).readPointer(),labelValue:constants.add(label*8).readPointer(),panningLabelValue:constants.add(panningLabel*8).readPointer(),bytes:used};
+const at=(array,index)=>[...I(index),...array,W(63)];
+const refreshPrefix=[W(1,17),
+    ...assign(-9,at(S(63),7)),...set(L(-9),6,C(title)),
+    ...set(at(field(L(-9),4),1),4,C(category)),
+    ...refreshRow(infoKey,infoLabel,infoDesc),...refreshRow(key,label,description),
+    ...refreshRow(panningKey,panningLabel,panningDescription),...refreshNorth,
+    // UiSettingsTabElementView uses tfCont.tf.text; recompute native tab widths afterward.
+    ...assign(-13,call(at(field(S(57),65),7),34)),
+    ...set(field(field(call(L(-13),25),141),143),97,C(title)),...stmt(call(S(57),82))
+];
+function program(prefix){return code([...prefix,...relocated(profile.createDataWords.slice(1),prefix.length-1)]);}
+// The native locale callback updates the tab bar only. Also ask the settings
+// controller to redraw its current tab through its usual CreateData path.
+const localeWords=[W(1,1),...L(1),...L(0),...I(1),...C(0),W(14,33),W(2),
+    ...stmt(call(S(57),33,[L(1)])),W(19,2)];
+const redraw=code([...localeWords.slice(0,-1),...stmt(call(L(0),24)),W(19,2)]);
+return {...northData,redraw,localeWords,install:program(prefix),refresh:program(refreshPrefix),constants,count:nconst,
+    gammaSlot:constants.add(gammaValue*8),matches,current,selectLocale,bytes:used};
     }
     return {
         start(framePush,stringPoolSlot){
             if(running)throw Error('Settings menu already started');poolSlot=stringPoolSlot;
             try{
                 hooks.push(attach(framePush,poolSlot,guarded(()=>{pendingGamma=null;pendingStepper=null;}),'UiSettingsController','InitContent'));
+                hooks.push(attach(framePush,poolSlot,guarded(setMenuLocale),'ComponentUiControllerBase','SetForLocale'));
+                hooks.push(attach(framePush,poolSlot,guarded(settingsLocale),'UiSettingsController','SetForLocale'));
                 if(mapEnabled){
                     hooks.push(attach(framePush,poolSlot,guarded(captureStepper),'UiOneSettingStepperController','InitContent'));
-                    hooks.push(attach(framePush,poolSlot,guarded(setNorthLocale),'ComponentUiControllerBase','SetForLocale'));
                     hooks.push(attach(framePush,poolSlot,guarded(changeNorth),'UiOneSettingStepperOnOff','UpdateStatus'));
                     hooks.push(attach(framePush,poolSlot,orientCamera,'MinimapCameraController','UpdateImpl'));
                 }
@@ -266,6 +377,6 @@ return {...northData,code:install.p,words:install.words,constants,count:nconst,g
             }catch(e){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{panning.stop();}throw e;}
         },
         status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0,zoomSensitivity:zoom.status(),panningSensitivity:panning.status(),keepNorthUp:{enabled:mapEnabled&&northUp,fault:northFault}};},
-        stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{try{panning.stop();}finally{restore();running=false;state='stopped';}}}
+        stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{try{panning.stop();}finally{try{restore();}finally{restoreLocale();}running=false;state='stopped';}}}
     };
 }

@@ -283,7 +283,7 @@ function makeMapNotificationHitAreaFix(stringPoolSlot) {
 }
 
 function hookHudHintUpdates(framePush, stringPoolSlot, update,
-        targetClass = 'NavigationPanelController', targetMethod = 'Update') {
+        targetClass = 'NavigationPanelController', targetMethod = 'Update', interior = false) {
     // VM calls are frequent. Discover the exact method in native code, then
     // filter by its descriptor address; only that method enters JavaScript.
     const state = Memory.alloc(16);
@@ -315,11 +315,11 @@ void on_enter(GumInvocationContext *ic) {
         state.target=fn;
     }
     error=ic->system_error;
-    update(gum_invocation_context_get_nth_argument(ic,0),(void *)(guintptr)fn);
+    update(${interior ? '(void *)(guintptr)ic->cpu_context->r8' : 'gum_invocation_context_get_nth_argument(ic,0)'},(void *)(guintptr)fn);
     ic->system_error=error;
 }
 `, {state, update:callback});
-    const hook = Interceptor.attach(framePush, {onEnter:module.on_enter});
+    const hook = Interceptor.attach(framePush, interior ? module.on_enter : {onEnter:module.on_enter});
     // Retain compiled code and the callback until after detach + flush.
     return {detach:() => hook.detach(), keepAlive:[state, callback, module]};
 }

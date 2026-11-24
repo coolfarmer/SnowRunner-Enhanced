@@ -1,5 +1,13 @@
 # SnowRunner Enhanced
 
+## Enhancement #4 – General Improvements
+
+Preview.24 repeats Up or Down while held in Functions. Repetition starts after 420 ms and continues about every 140 ms until release. After restarting with preview.24 installed, the player confirmed continuous scrolling with both the keyboard and the controller D-pad. Steering wheel input still needs a separate test.
+
+Preview.23 adds wraparound navigation to **Functions**. Press Down on the last selectable action to highlight the first, or Up on the first to highlight the last. The installer enables this option by default on a new installation.
+
+Preview.22 translates the in-game settings tab, map options and help text into English and French. Other game languages display the English text.
+
 Preview.21 adds **Keep North Up** under **ENHANCED → MAP**. Turn it on to align a rotated map with north. Turn it off to rotate freely again. Both directions have been tested in game.
 
 Preview.17 adds the always-on **ENHANCED** settings menu, independent of the optional enhancements.
@@ -13,7 +21,7 @@ user confirmed the result. The installed preview.15 was then tested and
 confirmed in game on November 23, 2026; both repairs are active with no
 instrumentation faults reported.
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.21** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.24** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
 Opening Functions with the keyboard or wheel now releases mouse camera capture
@@ -30,7 +38,7 @@ keyboard hints stayed visible for 15 seconds at idle with the engine running,
 then wheel movement restored the wheel hint.
 
 Enhancement #2, **Skip Startup Logos**, is an independent installer option,
-off by default. It skips the photosensitivity warning and publisher logos by
+on by default. It skips the photosensitivity warning and publisher logos by
 intercepting read buffers in memory, without changing gfx.pak. This preview
 requires a recognized archive hash; unsupported archives retain their intro.
 The installed startup behavior was confirmed by the user on November 22, 2026.
@@ -97,11 +105,13 @@ packages, and logs are ignored by Git.
 
 Since preview.16, **Map** (`map`) is an independent option, enabled by default, in **Advanced Options → Customize enhancements**. It contains both the left and upper-right hit-area repairs previously included in enhancement #1. Changes take effect on the next launch.
 
-## ENHANCED settings menu (preview.17)
+## ENHANCED settings menu
+
+The menu follows the game language. French displays **ENHANCED → CARTE**. English and all other languages display **ENHANCED → MAP**.
 
 The **ENHANCED** tab follows **STEERING WHEEL** in the game settings. It belongs to the plugin itself and remains available with every optional enhancement disabled. It is not a fourth enhancement or an installer checkbox.
 
-The informational row **Pourquoi je vois ça?** displays contextual help without a value on the right. With enhancement #3 **Map** enabled, **Zoom sensitivity** controls map zoom immediately. Its numeric value appears on the right: **0 = ×0.25, 50 = the original game setting, 100 = ×4**. Restore defaults returns it to 50. The preference is saved in `SnowRunnerEnhanced.settings.json` next to the plugin and retained across upgrades and reinstalls. The explanatory text is currently in French.
+The informational row **Why am I seeing this?** displays contextual help without a value on the right. With enhancement #3 **Map** enabled, **Zoom sensitivity** controls map zoom immediately. Its numeric value appears on the right: **0 = ×0.25, 50 = the original game setting, 100 = ×4**. Restore defaults returns it to 50. The preference is saved in `SnowRunnerEnhanced.settings.json` next to the plugin and retained across upgrades and reinstalls.
 
 **Panning sensitivity**, below zoom in **ENHANCED → MAP**, controls rotation while holding the right mouse button: **0 = fifty times slower (×0.02), 50 = original speed, 100 = four times faster**. The initial and restored default is **50**. Changes take effect immediately; zoom and rotation are saved independently in the same preferences file. Existing zoom preferences are preserved, with rotation initially set to 50.
 

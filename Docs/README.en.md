@@ -1,4 +1,10 @@
-# SnowRunner Enhanced — 0.1.0-preview.21
+# SnowRunner Enhanced — 0.1.0-preview.24
+
+## Enhancement #4 – General Improvements
+
+Preview.24 repeats Up or Down while held in Functions. Repetition starts after 420 ms and continues about every 140 ms until release. After restarting with preview.24 installed, the player confirmed continuous scrolling with both the keyboard and the controller D-pad. Steering wheel input still needs a separate test.
+
+In **Functions**, press **Down** on the last selectable action to highlight the first, or **Up** on the first to highlight the last. For an existing preview, choose **Update Enhanced** in the installer to enable all four enhancements. You can then customize them. New installations also start with all four enabled. Find it under **Advanced Options → Customize enhancements**.
 
 Preview.17 adds the always-on **ENHANCED** settings menu, independent of the optional enhancements.
 
@@ -121,7 +127,7 @@ checked in memory when the game runs.
 
 ## Enhancement #2 — Skip Startup Logos
 
-In **Advanced Options → Customize enhancements**, enable **Skip Startup Logos** to skip the photosensitivity warning and the Saber, Focus and Havok logos on the next launch. It defaults to off and works independently of simultaneous mouse/wheel input. Disable it to restore the original sequence next launch.
+In **Advanced Options → Customize enhancements**, enable **Skip Startup Logos** to skip the photosensitivity warning and the Saber, Focus and Havok logos on the next launch. It defaults to on and works independently of simultaneous mouse/wheel input. Disable it to restore the original sequence next launch.
 
 The plugin changes only the read buffers of a recognized archive in memory; `gfx.pak` stays unchanged. This preview supports one exact archive hash. A game update or another mod changing that archive retains the original intro and reports `incompatible`. `armed` means the hook is waiting for reads; `active` confirms both changes for the sequence were read. Actual game loading is still required.
 
@@ -133,11 +139,13 @@ CLI: `Install.cmd --action configure --game-directory "GAME_PATH" --skip-startup
 
 Since preview.16, **Map** (`map`) is an independent option, enabled by default, in **Advanced Options → Customize enhancements**. It contains both the left and upper-right hit-area repairs previously included in enhancement #1. Changes take effect on the next launch.
 
-## ENHANCED settings menu (preview.17)
+## ENHANCED settings menu
+
+The menu follows the game language. French displays **ENHANCED → CARTE**. English and all other languages display **ENHANCED → MAP**.
 
 The **ENHANCED** tab follows **STEERING WHEEL** in the game settings. It belongs to the plugin itself and remains available with every optional enhancement disabled. It is not a fourth enhancement or an installer checkbox.
 
-The informational row **Pourquoi je vois ça?** displays contextual help without a value on the right. With enhancement #3 **Map** enabled, **Zoom sensitivity** controls map zoom immediately. Its numeric value appears on the right: **0 = ×0.25, 50 = the original game setting, 100 = ×4**. Restore defaults returns it to 50. The preference is saved in `SnowRunnerEnhanced.settings.json` next to the plugin and retained across upgrades and reinstalls. The explanatory text is currently in French.
+The informational row **Why am I seeing this?** displays contextual help without a value on the right. With enhancement #3 **Map** enabled, **Zoom sensitivity** controls map zoom immediately. Its numeric value appears on the right: **0 = ×0.25, 50 = the original game setting, 100 = ×4**. Restore defaults returns it to 50. The preference is saved in `SnowRunnerEnhanced.settings.json` next to the plugin and retained across upgrades and reinstalls.
 
 **Panning sensitivity**, below zoom in **ENHANCED → MAP**, controls rotation while holding the right mouse button: **0 = fifty times slower (×0.02), 50 = original speed, 100 = four times faster**. The initial and restored default is **50**. Changes take effect immediately; zoom and rotation are saved independently in the same preferences file. Existing zoom preferences are preserved, with rotation initially set to 50.
 

@@ -19,6 +19,7 @@ static StartupPending startup_pending[32];
 static void StartupPatch(PVOID buffer, ULONGLONG offset, ULONG_PTR count) {
     for (unsigned i=0; i<STARTUP_EDIT_COUNT; ++i) {
         const StartupEdit *edit=&startup_edits[i];
+        if (!(configured_features & edit->feature)) continue;
         ULONGLONG begin=max(offset,edit->offset), end=min(offset+count,edit->offset+edit->size);
         if(begin<end) {
             size_t dst=(size_t)(begin-offset), src=(size_t)(begin-edit->offset), n=(size_t)(end-begin);
@@ -51,7 +52,8 @@ static LONG NTAPI StartupReadHook(HANDLE file,HANDLE event,PVOID apc,PVOID conte
     if(target) {
         BOOL overlap=FALSE;
         for(unsigned i=0;i<STARTUP_EDIT_COUNT;i++)
-            if((ULONGLONG)position.QuadPart<startup_edits[i].offset+startup_edits[i].size &&
+            if((configured_features & startup_edits[i].feature) &&
+               (ULONGLONG)position.QuadPart<startup_edits[i].offset+startup_edits[i].size &&
                (ULONGLONG)position.QuadPart+size>startup_edits[i].offset)overlap=TRUE;
         if(overlap) {
             for(unsigned i=0;i<32;i++) if(startup_pending[i].io==iosb && startup_pending[i].file==file) {pending=&startup_pending[i];break;}
@@ -108,7 +110,7 @@ static BOOL StartupHash(HANDLE file) {
 }
 
 static void StartupInstall(const wchar_t *folder) {
-    if (!(configured_features & 2)) return;
+    if (!(configured_features & (2 | 8))) return;
     startup_state="incompatible";
     wchar_t path[32768];
     swprintf_s(path,32768,L"%ls..\\..\\preload\\paks\\client\\gfx.pak",folder);
@@ -134,6 +136,16 @@ static void StartupInstall(const wchar_t *folder) {
 }
 
 static const char *StartupState(void) {
+    if (configured_features < 0 || !(configured_features & 2)) return "disabled";
     LONG seen=InterlockedCompareExchange(&startup_seen,0,0);
     return ((seen&3)==3 || (seen&12)==12) ? "active" : startup_state;
+}
+
+static const char *FunctionsMenuState(void) {
+    if (configured_features < 0) return "configuration-error";
+    if (!(configured_features & 8)) return "disabled";
+    LONG seen=InterlockedCompareExchange(&startup_seen,0,0);
+    for (unsigned i=0; i<STARTUP_EDIT_COUNT; ++i)
+        if (startup_edits[i].feature == 8 && !(seen & (1L << i))) return startup_state;
+    return "active";
 }

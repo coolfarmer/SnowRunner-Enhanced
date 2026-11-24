@@ -25,6 +25,10 @@ static void WriteReport(const char *text) {
             json_object_set_boolean_member(startup,"enabled",configured_features >= 0 && (configured_features & 2) != 0);
             json_object_set_string_member(startup,"status",StartupState());
             json_object_set_object_member(features,"skip_startup_logos",startup);
+            JsonObject *general = json_object_new();
+            json_object_set_boolean_member(general,"enabled",configured_features >= 0 && (configured_features & 8) != 0);
+            json_object_set_string_member(general,"status",FunctionsMenuState());
+            json_object_set_object_member(features,"general_improvements",general);
             if (!json_object_has_member(features,"map")) {
                 JsonObject *map = json_object_new();
                 json_object_set_boolean_member(map,"enabled",configured_features >= 0 && (configured_features & 4) != 0);
@@ -49,7 +53,7 @@ static void WriteReport(const char *text) {
 static void SimpleStatus(const char *status, const char *reason) {
     char out[1024];
     SYSTEMTIME now; GetSystemTime(&now);
-    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.21\","
+    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.24\","
         "\"processId\":%lu,\"timeUtc\":\"%04u-%02u-%02uT%02u:%02u:%02uZ\","
         "\"features\":{\"wheel_mouse\":{\"status\":\"%s\",\"reason\":\"%s\"}}}",
         (unsigned long)GetCurrentProcessId(), now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, status, reason);
@@ -105,7 +109,8 @@ static int ReadConfiguration(const wchar_t *folder) {
                 GList *members = json_object_get_members(entries);
                 for (GList *m = members; m; m = m->next) {
                     const char *key = m->data;
-                    int bit = !strcmp(key, "wheel_mouse") ? 1 : !strcmp(key, "skip_startup_logos") ? 2 : !strcmp(key, "map") ? 4 : 0;
+                    int bit = !strcmp(key, "wheel_mouse") ? 1 : !strcmp(key, "skip_startup_logos") ? 2 :
+                        !strcmp(key, "map") ? 4 : !strcmp(key, "general_improvements") ? 8 : 0;
                     JsonNode *entryNode = json_object_get_member(entries, key);
                     if (!bit || !JSON_NODE_HOLDS_OBJECT(entryNode)) { enabled = -1; break; }
                     JsonObject *entry = json_node_get_object(entryNode);
@@ -162,7 +167,7 @@ static void EnhancedStart(void) {
     GMainContext *context = g_main_context_new();
     g_main_context_push_thread_default(context);
     SettingsPreferences preferences=SettingsLoad(folder);
-    char *source = g_strdup_printf("const ENHANCED_HOST={gameSha256:'%s',wheelMouse:%s,map:%s,zoomSensitivity:%d,panningSensitivity:%d,keepNorthUp:%s};\n%s", hash, (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", preferences.zoom, preferences.panning, preferences.keep_north_up?"true":"false", enhanced_bundle);
+    char *source = g_strdup_printf("const ENHANCED_HOST={gameSha256:'%s',general:%s,wheelMouse:%s,map:%s,zoomSensitivity:%d,panningSensitivity:%d,keepNorthUp:%s};\n%s", hash, (enabled & 8) ? "true" : "false", (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", preferences.zoom, preferences.panning, preferences.keep_north_up?"true":"false", enhanced_bundle);
     GError *error = NULL;
     GumScript *script = gum_script_backend_create_sync(gum_script_backend_obtain_qjs(), "Enhanced", source, NULL, NULL, &error);
     g_free(source);

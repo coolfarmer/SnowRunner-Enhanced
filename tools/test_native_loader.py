@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.21/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.24/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
@@ -68,6 +68,9 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                 startup = bool(config and config.get('features', {}).get('skip_startup_logos', {}).get('enabled', False))
                 assert status['features']['skip_startup_logos']['enabled'] == startup
                 assert status['features']['skip_startup_logos']['status'] == ('incompatible' if startup else 'disabled')
+                general = bool(config and config.get('features', {}).get('general_improvements', {}).get('enabled', False))
+                general_state = 'configuration-error' if expected == 'configuration-error' else 'incompatible' if general else 'disabled'
+                assert status['features']['general_improvements'] == {'enabled': general, 'status': general_state}
                 if map_state is not None:
                     assert status['features']['map']['status'] == map_state, status
                 if synthetic:
@@ -82,7 +85,7 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                     assert zoom['enabled'] == map_enabled and zoom['running'] == map_enabled, status
                     assert zoom['value'] == zoom_value and zoom['fault'] is None, status
                     assert status['settingsPersistence'] == ('default' if zoom_value == 50 else 'loaded'), status
-                    assert set(status['features']) == {'wheel_mouse', 'map', 'skip_startup_logos'}
+                    assert set(status['features']) == {'wheel_mouse', 'map', 'skip_startup_logos', 'general_improvements'}
                     for feature in status['features'].values():
                         if feature['status'] == 'active':
                             assert feature['compatibility']['relocatedGuards'] == GUARD_COUNT
@@ -123,6 +126,7 @@ if __name__ == '__main__':
     for name, config, state in [
         ('disabled', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': False}}}, 'disabled'),
         ('startup only, unsupported archive', {'schemaVersion': 1, 'features': {'skip_startup_logos': {'enabled': True}}}, 'disabled'),
+        ('general improvements only, unsupported archive', {'schemaVersion': 1, 'features': {'general_improvements': {'enabled': True}}}, 'disabled'),
         ('omitted feature', {'schemaVersion': 1, 'features': {}}, 'disabled'),
         ('missing configuration', None, 'configuration-error'),
         ('unknown feature', {'schemaVersion': 1, 'features': {'other': {'enabled': True}}}, 'configuration-error'),

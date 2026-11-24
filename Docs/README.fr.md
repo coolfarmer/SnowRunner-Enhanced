@@ -1,4 +1,10 @@
-# SnowRunner Enhanced — 0.1.0-preview.21
+# SnowRunner Enhanced — 0.1.0-preview.24
+
+## Enhancement #4 – General Improvements
+
+Preview.24 ajoute le défilement par maintien de Haut ou Bas dans Fonctions. La répétition commence après 420 ms puis se poursuit toutes les 140 ms environ. Après relancement avec la preview.24 installée, le joueur a confirmé le défilement continu au clavier et avec la croix directionnelle de la manette. Le volant reste à tester séparément.
+
+Dans **Fonctions**, appuyez sur **Bas** sur la dernière action sélectionnable pour revenir à la première. **Haut** sur la première revient à la dernière. Sur une préversion existante, choisissez **Mettre à jour Enhanced** pour activer les quatre améliorations. Elles sont aussi activées sur une nouvelle installation. Vous pouvez ensuite les régler sous **Options avancées → Personnaliser les améliorations**.
 
 Preview.17 ajoute le menu **ENHANCED** aux paramètres du jeu. Il reste actif indépendamment des améliorations sélectionnées.
 
@@ -129,7 +135,7 @@ la compatibilité des signatures est vérifiée dans le jeu.
 
 ## Enhancement #2 — Skip Startup Logos
 
-Dans **Options avancées → Personnaliser les améliorations**, activez **Skip Startup Logos** pour sauter l’avertissement de photosensibilité et les logos Saber, Focus et Havok au prochain lancement. L’option est désactivée par défaut et indépendante de l’utilisation simultanée souris/volant. Désactivez-la pour retrouver les écrans d’origine au lancement suivant.
+Dans **Options avancées → Personnaliser les améliorations**, activez **Skip Startup Logos** pour sauter l’avertissement de photosensibilité et les logos Saber, Focus et Havok au prochain lancement. L’option est activée par défaut et indépendante de l’utilisation simultanée souris/volant. Désactivez-la pour retrouver les écrans d’origine au lancement suivant.
 
 Le plugin intercepte uniquement les lectures de l’archive reconnue et adapte les données en mémoire. `gfx.pak` n’est pas modifié. La préversion reconnaît une empreinte précise de cette archive : une mise à jour ou un autre mod qui la modifie laisse l’introduction d’origine et produit l’état `incompatible`. `armed` signifie que l’interception attend les lectures ; `active` confirme la lecture des deux changements de la séquence. Le chargement réel du jeu reste nécessaire.
 
@@ -141,12 +147,14 @@ Ligne de commande : `Install.cmd --action configure --game-directory "CHEMIN_DU_
 
 Depuis preview.16, **Map** (`map`) est une option indépendante, activée par défaut, dans **Options avancées → Personnaliser les améliorations**. Elle regroupe les deux correctifs auparavant inclus dans l’enhancement nº 1. Les changements prennent effet au prochain lancement.
 
-## Menu ENHANCED (preview.17)
+## Menu ENHANCED
+
+Le menu suit la langue du jeu. En français, il affiche **ENHANCED → CARTE**. En anglais et dans toute autre langue, il affiche **ENHANCED → MAP**.
 
 L’onglet **ENHANCED** suit **VOLANT** dans les paramètres du jeu. Il appartient au plugin lui-même et reste disponible même si toutes les améliorations facultatives sont désactivées. Il ne constitue pas une quatrième amélioration à cocher dans l’installateur.
 
-La ligne **Pourquoi je vois ça?** affiche une explication dans le panneau de description, sans valeur à droite. Avec l’enhancement nº 3 **Map** activé, **Zoom sensitivity** règle immédiatement le zoom de la carte. Le nombre apparaît à droite : **0 = ×0,25, 50 = réglage d’origine du jeu, 100 = ×4**. La restauration des valeurs par défaut remet le curseur à 50. La préférence est sauvegardée dans `SnowRunnerEnhanced.settings.json`, à côté du plugin, et conservée lors des mises à jour et réinstallations.
+La ligne **Pourquoi cet onglet ?** affiche une explication dans le panneau de description, sans valeur à droite. Avec l’enhancement nº 3 **Map** activé, **Sensibilité du zoom** règle immédiatement le zoom de la carte. Le nombre apparaît à droite : **0 = ×0,25, 50 = réglage d’origine du jeu, 100 = ×4**. La restauration des valeurs par défaut remet le curseur à 50. La préférence est sauvegardée dans `SnowRunnerEnhanced.settings.json`, à côté du plugin, et conservée lors des mises à jour et réinstallations.
 
-**Panning sensitivity**, sous le zoom dans **ENHANCED → MAP**, règle la rotation au clic droit maintenu : **0 = cinquante fois plus lent (×0,02), 50 = vitesse d’origine, 100 = quatre fois plus rapide**. La valeur par défaut et la restauration des valeurs par défaut sont **50**. Les changements sont immédiats ; le zoom et la rotation sont sauvegardés séparément dans le même fichier de préférences. Une ancienne préférence de zoom est conservée, avec la rotation initialisée à 50.
+**Sensibilité de rotation**, sous le zoom dans **ENHANCED → CARTE**, règle la rotation au clic droit maintenu : **0 = cinquante fois plus lent (×0,02), 50 = vitesse d’origine, 100 = quatre fois plus rapide**. La valeur par défaut et la restauration des valeurs par défaut sont **50**. Les changements sont immédiats ; le zoom et la rotation sont sauvegardés séparément dans le même fichier de préférences. Une ancienne préférence de zoom est conservée, avec la rotation initialisée à 50.
 
 **Garder le nord en haut** oriente la carte vers le nord et verrouille sa rotation. Désactivez cette option pour tourner la carte librement. Elle est désactivée par défaut et votre choix est sauvegardé.
