@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.18/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.19/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
@@ -32,7 +32,7 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
         if config is not None:
             (folder / 'SnowRunnerEnhanced.json').write_text(json.dumps(config), encoding='utf-8')
         if zoom_value != 50:
-            (folder / 'SnowRunnerEnhanced.settings.json').write_text(json.dumps({'schemaVersion':1,'zoomSensitivity':zoom_value}))
+            (folder / 'SnowRunnerEnhanced.settings.json').write_text(json.dumps({'schemaVersion':2,'zoomSensitivity':zoom_value,'panningSensitivity':0}))
         original = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.iterdir()}
         process = subprocess.Popen([exe, str(delay)], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
@@ -75,6 +75,9 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                     assert core['enabled'] and core['running'], status
                     assert core['status'] == 'waiting-for-settings' and core['fault'] is None, status
                     zoom = core['zoomSensitivity']
+                    panning = core['panningSensitivity']
+                    assert panning['value'] == (0 if zoom_value != 50 else 50), status
+                    assert panning['enabled'] == config['features'].get('map',{}).get('enabled',False), status
                     map_enabled = bool(config.get('features', {}).get('map', {}).get('enabled', False))
                     assert zoom['enabled'] == map_enabled and zoom['running'] == map_enabled, status
                     assert zoom['value'] == zoom_value and zoom['fault'] is None, status

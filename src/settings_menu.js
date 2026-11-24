@@ -4,6 +4,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
     let hooks=[], pendingGamma=null, plan=null, patch=null, methodOwner=null;
     let poolSlot=null, running=false, state='waiting', fault=null, installations=0, visits=0;
     const zoom=makeMapZoomSensitivity(profile,{receiver,prop,get,owns:p=>!!plan&&className(p)==='UiOneSettingSliderController'&&prop(p,'header').readPointer().equals(plan.labelValue)},options,attach);
+    const panning=makeMapPanningSensitivity(profile,{receiver,prop,get,owns:p=>!!plan&&className(p)==='UiOneSettingSliderController'&&prop(p,'header').readPointer().equals(plan.panningLabelValue)},options,attach);
     function obj(v){if(v.shr(48).toUInt32()!==0x20)throw Error('Expected VM object');return v.and('0xffffffffffff');}
     function untag(v){return v.and('0xffffffffffff');}
     function cls(p){return p.add(0x18).readPointer();}
@@ -94,6 +95,8 @@ const initType=add(method(self,'InitContent').add(0x50).readPointer().add(5*8).r
 const title=add(textValue('ENHANCED')),category=add(textValue('MAP')),key=add(textValue('EnhancedZoom')),
  label=add(textValue('Zoom sensitivity')),description=add(textValue('Règle la sensibilité du zoom de la carte. 50 correspond au réglage d’origine du jeu. 0 : quatre fois plus lent. 100 : quatre fois plus rapide. Les changements sont appliqués immédiatement et sauvegardés.')),
  empty=add(textValue('')),gammaValue=add(gamma.or('0x20000000000000'));
+const panningKey=add(textValue('EnhancedPanning')),panningLabel=add(textValue('Panning sensitivity')),
+ panningDescription=add(textValue('Règle la vitesse de rotation de la carte avec le clic droit maintenu. 50 correspond à la vitesse d’origine du jeu. 0 : cinquante fois plus lent. 100 : quatre fois plus rapide. Les changements sont appliqués immédiatement et sauvegardés.'));
 const infoKey=add(textValue('EnhancedAbout')),infoLabel=add(textValue('Pourquoi je vois ça?')),
  infoDesc=add(textValue('Ce menu apparaît parce que le plugin SnowRunner Enhanced est installé. Il vous permet de configurer certaines options proposées par le plugin.'));
 function floatConstant(v){const p=alloc(8);p.writeFloat(v);p.add(6).writeU16(3);return add(p.readPointer());}
@@ -130,7 +133,15 @@ const prefix=[W(1,17),
  ...stmt(call(L(-16),13,[L(-14)])),
  ...set(field(call(L(-17),25),144),24,B(0)),
  ...stmt(call(S(56),5,[C(infoKey),L(-16)])),
- ...stmt(call(S(56),5,[C(key),L(-12)])),...append(S(63),L(-9)),
+ ...stmt(call(S(56),5,[C(key),L(-12)])),
+ ...create(-11,5),...set(L(-11),4,C(panningKey)),...set(L(-11),5,B(0)),...append(field(L(-9),4),L(-11)),
+ ...create(-12,sliderType),...create(-13,viewType),
+ ...set(L(-13),5,field(field(C(gammaValue),5),5)),
+ ...set(L(-13),31,field(field(C(gammaValue),5),31)),...set(L(-13),32,C(empty)),
+ ...set(L(-12),5,L(-13)),...set(L(-12),39,C(panningLabel)),...set(L(-12),40,C(panningDescription)),...set(L(-12),41,B(options.mapEnabled===false?0:1)),
+ ...set(L(-12),50,C(zero)),...set(L(-12),51,C(hundred)),...set(L(-12),52,C(fifty)),...set(L(-12),53,C(one)),...set(L(-12),54,I(2)),
+ ...stmt(call(L(-12),13,[L(-14)])),...stmt(call(S(56),5,[C(panningKey),L(-12)])),
+ ...append(S(63),L(-9)),
  ...assign(-15,call([W(8)],127,[C(title),C(title)])),
  ...set(L(-15),5,field(call(call(L(0),34),25),148)),
  ...stmt(call(S(57),52,[L(-15)])),...stmt(call(S(57),29)),...stmt(call(S(57),28)),...stmt(call(S(57),16,[B(0)]))
@@ -138,7 +149,7 @@ const prefix=[W(1,17),
 function relocated(words,delta){return words.map(w=>[0x16,0x17,0x18,0x19,0x1a].includes(w&255)?W(w&255,(w>>>8)-0x800000+delta):w);}
 function code(words){const p=alloc(words.length*4);words.forEach((w,i)=>p.add(i*4).writeU32(w));return {p,words};}
 const install=code([...prefix,...relocated(profile.createDataWords.slice(1),prefix.length-1)]);
-return {code:install.p,words:install.words,constants,count:nconst,gammaSlot:constants.add(gammaValue*8),titleValue:constants.add(title*8).readPointer(),labelValue:constants.add(label*8).readPointer(),bytes:used};
+return {code:install.p,words:install.words,constants,count:nconst,gammaSlot:constants.add(gammaValue*8),titleValue:constants.add(title*8).readPointer(),labelValue:constants.add(label*8).readPointer(),panningLabelValue:constants.add(panningLabel*8).readPointer(),bytes:used};
     }
     return {
         start(framePush,stringPoolSlot){
@@ -149,11 +160,11 @@ return {code:install.p,words:install.words,constants,count:nconst,gammaSlot:cons
                 // Also supports attachment after the game has initialized its settings.
                 hooks.push(attach(framePush,poolSlot,guarded(capture),'UiOneSettingSliderGammaController','GetCurrentValue'));
                 hooks.push(attach(framePush,poolSlot,guarded(visit),'UiSettingsController','CreateData'));
-                zoom.start(framePush,poolSlot);
+                zoom.start(framePush,poolSlot);panning.start(framePush,poolSlot);
                 running=true;state='waiting-for-settings';
-            }catch(e){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];zoom.stop();throw e;}
+            }catch(e){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{panning.stop();}throw e;}
         },
-        status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0,zoomSensitivity:zoom.status()};},
-        stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{restore();running=false;state='stopped';}}
+        status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0,zoomSensitivity:zoom.status(),panningSensitivity:panning.status()};},
+        stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{try{panning.stop();}finally{restore();running=false;state='stopped';}}}
     };
 }

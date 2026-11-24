@@ -6,7 +6,7 @@ let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
 let menuFailure = null;
 function reportNative(state, extra = {}) {
     featureState = state;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.18',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.19',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
@@ -48,9 +48,15 @@ function attemptStart() {
     // The optional agent validates original entry bytes before either component
     // attaches to the shared VM entry point. Its failure does not disable the UI.
     try {
+        const validPreference = value => Number.isInteger(value) && value >= 0 && value <= 100 ? value : 50;
+        const preferences = {schemaVersion: 2, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
+            panningSensitivity: validPreference(ENHANCED_HOST.panningSensitivity)};
+        const savePreference = (key, value) => { preferences[key] = value; send({enhancedSettings: {...preferences}}); };
         settingsMenu = makeEnhancedSettingsMenu(SETTINGS_PROFILE, hookHudHintUpdates, {
-            mapEnabled: CONFIG.features.map, zoomSensitivity: ENHANCED_HOST.zoomSensitivity,
-            onZoomChange: value => send({enhancedSettings: {schemaVersion: 1, zoomSensitivity: value}})
+            mapEnabled: CONFIG.features.map, zoomSensitivity: preferences.zoomSensitivity,
+            panningSensitivity: preferences.panningSensitivity,
+            onZoomChange: value => savePreference('zoomSensitivity', value),
+            onPanningChange: value => savePreference('panningSensitivity', value)
         });
         settingsMenu.start(Process.mainModule.base.add(result.profile.guards.find(g => g.name === 'vm_frame_push_entry').rva),
             Process.mainModule.base.add(result.profile.stringPoolSlotRva));

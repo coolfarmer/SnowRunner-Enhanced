@@ -16,7 +16,7 @@ const data=Memory.alloc(16);
 for(let i=0;i<4;i++) data.add(4*i).writeU32(11*(i+1));
 const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12},guards:[{name:'vm_frame_push_entry',rva:0}],stringPoolSlotRva:8}};
 const SETTINGS_PROFILE={},NATIVE_SIGNATURES=[],ENHANCED_HOST={gameSha256:'test'};
-let menuStarts=0,menuError=false,reports=[],order=[],menuOptions;
+let menuStarts=0,menuError=false,settingsSaves=[],reports=[],order=[],menuOptions;
 const hookHudHintUpdates=()=>{};
 const makeEnhancedSettingsMenu=(_profile,_attach,options)=>{menuOptions=options;return {start:()=>{order.push('menu');menuStarts++;if(menuError)throw Error('menu');},
 status:()=>({enabled:true,running:true,status:'waiting-for-settings'})};};
@@ -27,12 +27,13 @@ const nativeAgent={start:()=>{order.push('agent');starts++;if(startError)throw E
 mode:()=>{},status:()=>({active,faults}),drain:()=>{},stop:()=>{stops++;active=false;}};
 (function(Process,setTimeout,setInterval,clearInterval,send){
 ''' + (ROOT / 'src/native/bootstrap.js').read_text() + '''
-})({mainModule:{base:data},id:123},fn=>queued.push(fn),fn=>{interval=fn;return 1;},()=>{interval=null;},m=>{reports.push(m.enhancedStatus);states.push(m.enhancedStatus.features.wheel_mouse.status);});
+})({mainModule:{base:data},id:123},fn=>queued.push(fn),fn=>{interval=fn;return 1;},()=>{interval=null;},m=>{if(m.enhancedSettings){settingsSaves.push(m.enhancedSettings);return;}reports.push(m.enhancedStatus);states.push(m.enhancedStatus.features.wheel_mouse.status);});
 rpc.exports={
  set:(key,value)=>{if(key==='menu')menuError=value;if(key==='features')CONFIG.features=value;if(key==='scan')scanError=value;if(key==='start')startError=value;if(key==='faults')faults=value;if(key==='ids')data.writeU32(value);},
  tick:()=>{if(queued.length)queued.shift()();},
  monitor:()=>{if(interval)interval();},
- state:()=>({states,starts,stops,active,menuStarts,order,mapEnabled:menuOptions?.mapEnabled,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
+ change:(key,value)=>menuOptions[key==='zoom'?'onZoomChange':'onPanningChange'](value),
+ state:()=>({settingsSaves,states,starts,stops,active,menuStarts,order,mapEnabled:menuOptions?.mapEnabled,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
 '''
         self.script = self.device.create_script(source)
         self.script.load()
@@ -41,6 +42,16 @@ rpc.exports={
     def tearDown(self):
         self.script.unload()
         self.device.kill(self.pid)
+
+    def test_slider_saves_preserve_the_other_preference(self):
+        self.api.tick()
+        self.api.change('panning', 0)
+        self.api.change('zoom', 75)
+        self.api.change('panning', 50)
+        self.assertEqual(self.api.state()['settingsSaves'], [
+            dict(schemaVersion=2, zoomSensitivity=50, panningSensitivity=0),
+            dict(schemaVersion=2, zoomSensitivity=75, panningSensitivity=0),
+            dict(schemaVersion=2, zoomSensitivity=75, panningSensitivity=50)])
 
     def test_discovery_retries_without_hooks_and_stops(self):
         self.api.set('scan', True)

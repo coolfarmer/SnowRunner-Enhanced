@@ -49,7 +49,7 @@ static void WriteReport(const char *text) {
 static void SimpleStatus(const char *status, const char *reason) {
     char out[1024];
     SYSTEMTIME now; GetSystemTime(&now);
-    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.18\","
+    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.19\","
         "\"processId\":%lu,\"timeUtc\":\"%04u-%02u-%02uT%02u:%02u:%02uZ\","
         "\"features\":{\"wheel_mouse\":{\"status\":\"%s\",\"reason\":\"%s\"}}}",
         (unsigned long)GetCurrentProcessId(), now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, status, reason);
@@ -161,8 +161,8 @@ static void EnhancedStart(void) {
     char hash[65] = "unavailable"; HashGame(hash);
     GMainContext *context = g_main_context_new();
     g_main_context_push_thread_default(context);
-    int zoomSensitivity=SettingsLoad(folder);
-    char *source = g_strdup_printf("const ENHANCED_HOST={gameSha256:'%s',wheelMouse:%s,map:%s,zoomSensitivity:%d};\n%s", hash, (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", zoomSensitivity, enhanced_bundle);
+    SettingsPreferences preferences=SettingsLoad(folder);
+    char *source = g_strdup_printf("const ENHANCED_HOST={gameSha256:'%s',wheelMouse:%s,map:%s,zoomSensitivity:%d,panningSensitivity:%d};\n%s", hash, (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", preferences.zoom, preferences.panning, enhanced_bundle);
     GError *error = NULL;
     GumScript *script = gum_script_backend_create_sync(gum_script_backend_obtain_qjs(), "Enhanced", source, NULL, NULL, &error);
     g_free(source);

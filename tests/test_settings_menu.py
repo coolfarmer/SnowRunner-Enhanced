@@ -39,7 +39,7 @@ rpc.exports.run=(scenario)=>{
  PROFILE.createDataWords.forEach((w,i)=>code.add(i*4).writeU32(w));sig.writeU32(name('CreateData'));
  fn.add(0x40).writePointer(sig);fn.add(0x50).writePointer(constants);fn.add(0x58).writeU32(10);fn.add(0x60).writePointer(code);fn.add(0x68).writeU32(PROFILE.createDataWords.length);
  function vm(p){const v=alloc(32),args=alloc(8);args.writePointer(tag(p));v.add(0x18).writePointer(args);return v;}
- const callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{callbacks[c+'.'+m]=cb;return {detach(){}};});
+ const callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};});
  menu.start(ptr(0),slot);
  const visit=()=>callbacks['UiSettingsController.CreateData'](vm(self),fn);
  const capture=()=>callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);
@@ -53,11 +53,19 @@ rpc.exports.run=(scenario)=>{
   const expected=[22,23,24,25,26].includes(w&255)?(w+delta*256)>>>0:w;
   return replacement.add((delta+1+i)*4).readU32()===expected;
  });
- const strings=[];let title=null,label=null;
- for(let i=10;i<fn.add(0x58).readU32();i++){const v=newConstants.add(i*8).readPointer();if(v.shr(48).toUInt32()===16){const p=untag(v),s=p.add(16).readPointer().readUtf8String(p.add(8).readU32());strings.push(s);if(s==='ENHANCED')title=v;if(s==='Zoom sensitivity')label=v;}}
+ const strings=[];let title=null,label=null,panningLabel=null;
+ for(let i=10;i<fn.add(0x58).readU32();i++){const v=newConstants.add(i*8).readPointer();if(v.shr(48).toUInt32()===16){const p=untag(v),s=p.add(16).readPointer().readUtf8String(p.add(8).readU32());strings.push(s);if(s==='ENHANCED')title=v;if(s==='Zoom sensitivity')label=v;if(s==='Panning sensitivity')panningLabel=v;}}
  const slider=object(sliderClass),sliderView=object(viewClass);put(slider,39,label);put(slider,5,tag(sliderView));
  callbacks['UiOneSettingSliderController.GetCurrentValue'](vm(slider));
  const boundValue=slider.add(0x30+55*8).readFloat(),boundFormat=sliderView.add(0x30+41*8).readPointer().toString();
+ const pan=object(sliderClass),panView=object(viewClass);put(pan,39,panningLabel);put(pan,5,tag(panView));
+ const getter=alloc(128),getterCode=alloc(PROFILE.getterWords.length*4);
+ PROFILE.getterWords.forEach((w,i)=>getterCode.add(i*4).writeU32(w));getter.add(0x60).writePointer(getterCode);getter.add(0x68).writeU32(PROFILE.getterWords.length);
+ callbacks['UiOneSettingSliderController.GetCurrentValue'](vm(pan),getter);
+ const panValue=pan.add(0x30+55*8).readFloat(),panStatus=menu.status().panningSensitivity;
+ callbacks['UiOneSettingSliderController.GetCurrentValue'](vm(slider),getter);
+ const separate=slider.add(0x30+55*8).readFloat()===50&&getter.add(0x60).readPointer().equals(getterCode)&&!panStatus.fault;
+
  if(scenario==='foreign'){
   replacement.writeU32(0);let rejected=false;try{menu.stop();}catch(_){rejected=true;}
   return {rejected,preserved:fn.add(0x60).readPointer().equals(replacement)};
@@ -67,7 +75,7 @@ rpc.exports.run=(scenario)=>{
  visit();const repeat=menu.status(),restored=fn.add(0x60).readPointer().equals(code)&&fn.add(0x50).readPointer().equals(constants);
  // Model a recreated Settings controller using the same class method.
  callbacks['UiSettingsController.InitContent']();tabs.add(0x48).writeU32(7);items.add(0x48).writeU32(7);visit();const resetWait=menu.status();capture();visit();const recreated=menu.status();
- menu.stop();return {waiting,installed,branches,strings,boundValue,boundFormat,repeat,restored,resetWait,recreated,stopped:menu.status(),finalRestore:fn.add(0x60).readPointer().equals(code)};
+ menu.stop();return {waiting,installed,branches,strings,boundValue,boundFormat,panValue,separate,repeat,restored,resetWait,recreated,stopped:menu.status(),finalRestore:fn.add(0x60).readPointer().equals(code)};
 };
 '''
 
@@ -78,6 +86,7 @@ class SettingsMenuTests(unittest.TestCase):
         self.pid = self.device.spawn(None)
         source = 'const PROFILE=' + (ROOT/'src/settings-profile.json').read_text() + ';\n'
         source += (ROOT/'src/map_zoom.js').read_text(encoding='utf-8')
+        source += (ROOT/'src/map_panning.js').read_text(encoding='utf-8')
         source += (ROOT/'src/settings_menu.js').read_text(encoding='utf-8') + FIXTURE
         self.script = self.device.create_script(source)
         self.script.load()
@@ -94,6 +103,10 @@ class SettingsMenuTests(unittest.TestCase):
         self.assertTrue(r['branches'])
         self.assertIn('Pourquoi je vois ça?', r['strings'])
         self.assertIn('MAP', r['strings'])
+        self.assertIn('Panning sensitivity', r['strings'])
+        self.assertTrue(any('cinquante fois plus lent' in s and 'sauvegardés' in s for s in r['strings']))
+        self.assertEqual(r['panValue'], 50)
+        self.assertTrue(r['separate'])
         self.assertEqual(r['boundValue'], 50)
         self.assertEqual(r['boundFormat'], '0x1000000000002')
         self.assertTrue(any('réglage d’origine' in s and 'sauvegardés' in s for s in r['strings']))
