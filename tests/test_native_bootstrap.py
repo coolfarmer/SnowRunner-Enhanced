@@ -16,9 +16,10 @@ const data=Memory.alloc(16);
 for(let i=0;i<4;i++) data.add(4*i).writeU32(11*(i+1));
 const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12},guards:[{name:'vm_frame_push_entry',rva:0}],stringPoolSlotRva:8}};
 const SETTINGS_PROFILE={},NATIVE_SIGNATURES=[],ENHANCED_HOST={gameSha256:'test'};
-let menuStarts=0,menuError=false,reports=[],order=[];
-const makeEnhancedSettingsMenu=()=>({start:()=>{order.push('menu');menuStarts++;if(menuError)throw Error('menu');},
-status:()=>({enabled:true,running:true,status:'waiting-for-settings'})});
+let menuStarts=0,menuError=false,reports=[],order=[],menuOptions;
+const hookHudHintUpdates=()=>{};
+const makeEnhancedSettingsMenu=(_profile,_attach,options)=>{menuOptions=options;return {start:()=>{order.push('menu');menuStarts++;if(menuError)throw Error('menu');},
+status:()=>({enabled:true,running:true,status:'waiting-for-settings'})};};
 let queued=[],interval=null,states=[],starts=0,stops=0,scanError=false,startError=false,faults=0,active=false;
 const nativeProbe={describe:()=>({name:'SnowRunner.exe',sections:[]}),scan:()=>{if(scanError)throw Error('scan');return {};}};
 const resolveNativeProfile=()=>({profile:CONFIG.profile,details:{relocatedGuards:30}});
@@ -31,7 +32,7 @@ rpc.exports={
  set:(key,value)=>{if(key==='menu')menuError=value;if(key==='features')CONFIG.features=value;if(key==='scan')scanError=value;if(key==='start')startError=value;if(key==='faults')faults=value;if(key==='ids')data.writeU32(value);},
  tick:()=>{if(queued.length)queued.shift()();},
  monitor:()=>{if(interval)interval();},
- state:()=>({states,starts,stops,active,menuStarts,order,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
+ state:()=>({states,starts,stops,active,menuStarts,order,mapEnabled:menuOptions?.mapEnabled,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
 '''
         self.script = self.device.create_script(source)
         self.script.load()
@@ -79,6 +80,7 @@ rpc.exports={
         state = self.api.state()
         self.assertEqual(state['starts'], 0)
         self.assertEqual(state['menuStarts'], 1)
+        self.assertFalse(state['mapEnabled'])
         self.assertEqual(set(state['report']['features']), {'wheel_mouse', 'map'})
         self.assertTrue(all(f['status'] == 'disabled' for f in state['report']['features'].values()))
         self.assertTrue(state['report']['components']['settings_menu']['running'])

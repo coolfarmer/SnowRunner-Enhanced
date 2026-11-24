@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.17`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.18`. Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -166,8 +166,8 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.17.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.17/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.18.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.18/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
@@ -328,3 +328,19 @@ Les deux réparations de zone cliquable sont contrôlées par `features.map.enab
 Le prototype puis le module de production ont été exécutés dans la session ouverte le 24 novembre 2026. Après installation de preview.17 et redémarrage normal du jeu, l’utilisateur confirme le même jour que le menu s’affiche et fonctionne. Le diagnostic du nouveau processus confirme le chargement du composant commun et des correctifs facultatifs sans faute.
 
 Validation preview.17 : 53 tests Python passent avec le jeu fermé, dont quatre tests du cycle de vie du menu dans GumJS ; 82 contrôles d’interface, 587 assertions V18, 12 tests du résolveur et le scanner natif passent. La suite des chargeurs ASI 10.0.2 et 8.5.0 passe, y compris les quatre combinaisons Map/souris-volant. Quand toutes les options sont désactivées, `components.settings_menu` reste chargé.
+
+### Enhancement #3 : sensibilité du zoom (preview.18)
+
+`src/map_zoom.js` relie le curseur ENHANCED à `MinimapCameraController.Zoom`, uniquement lorsque `features.map.enabled` est activé. Le multiplicateur vaut `4 ** ((valeur - 50) / 50)` : 0 → ×0,25 ; 50 → ×1 ; 100 → ×4. À 50, le descripteur reprend le bytecode d’origine sans opération supplémentaire. Les limites de caméra et le calcul natif du temps restent inchangés. Le corps de Zoom et ses constantes sont vérifiés avant remplacement et avant restauration ; une modification étrangère n’est jamais écrasée.
+
+L’affichage reprend le format entier du CDV. Le conteneur `sliderTf` **et** son champ `tf` doivent être visibles. Le préfixe de `UpdateSliderCurrent` s’applique uniquement à la vue créée par Enhanced ; le corps partagé est restauré avant les autres vues. Le contrôleur est identifié par sa classe et la constante de titre appartenant au menu. Les branchements sont relocalisés, et les copies de code restent dans une arène bornée de 16 Kio jusqu’à la fermeture du processus.
+
+La valeur est sauvegardée séparément dans `SnowRunnerEnhanced.settings.json` par le composant natif, avec écriture temporaire puis remplacement atomique. Le fichier de configuration des améliorations et son empreinte d’installation ne changent pas. Une préférence absente ou invalide reprend 50 ; `settingsPersistence` signale les erreurs de lecture/écriture dans le diagnostic. Le fichier est conservé après désinstallation. Le slider est masqué et ses hooks ne sont pas installés si Map est désactivé.
+
+Validation en mémoire du 24 novembre 2026, avant intégration : zoom dans les deux sens, valeurs 0/50/100, affichage numérique, retour à 50 et navigation Vidéo ↔ ENHANCED. La dernière session de test a enregistré 455 appels de zoom aux extrêmes, 100 changements du slider, 104 mises à jour d’affichage, aucune faute et une restauration complète des deux méthodes. L’utilisateur a confirmé le résultat dans le jeu. Les contrôles CDV sont restés à 107/80. La manette et le redémarrage avec l’ASI preview.18 ne font pas partie de cette validation physique.
+
+Tests ajoutés : exécution du bytecode du zoom et du préfixe d’affichage dans GumJS, raccordement au contrôleur créé, restauration, refus des méthodes modifiées, désactivation de Map, persistance après relance du composant natif, fichiers invalides et échec d’écriture. Les 587 assertions V18 et le correctif de zone cliquable passent également dans l’hôte natif.
+
+Validation automatisée preview.18 : 20 tests ciblés menu/zoom/démarrage/préférences, 82 contrôles de l’interface de l’installateur, 12 tests du résolveur et le scanner natif passent. Les chargeurs ASI 10.0.2 et 8.5.0, les configurations invalides et les quatre combinaisons Map/souris-volant passent ; ces dernières relisent aussi une préférence à 75. La suite complète d’installation/désinstallation est différée tant que le jeu réel est ouvert, car l’installateur bloque toute modification dans cette situation. Le paquet est compilé ; son installation dans le jeu réel nécessite de fermer celui-ci.
+
+Validation après installation, le 24 novembre 2026 : la preview.18 est installée avec empreinte vérifiée, options et autres plugins conservés. Les 28 tests d’installation/désinstallation passent (le test de jonction nécessite les permissions hors bac à sable). Après relancement, l’utilisateur confirme : « Tout fonctionne ».

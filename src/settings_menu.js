@@ -1,8 +1,9 @@
 'use strict';
 
-function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates) {
+function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options = {}) {
     let hooks=[], pendingGamma=null, plan=null, patch=null, methodOwner=null;
     let poolSlot=null, running=false, state='waiting', fault=null, installations=0, visits=0;
+    const zoom=makeMapZoomSensitivity(profile,{receiver,prop,get,owns:p=>!!plan&&className(p)==='UiOneSettingSliderController'&&prop(p,'header').readPointer().equals(plan.labelValue)},options,attach);
     function obj(v){if(v.shr(48).toUInt32()!==0x20)throw Error('Expected VM object');return v.and('0xffffffffffff');}
     function untag(v){return v.and('0xffffffffffff');}
     function cls(p){return p.add(0x18).readPointer();}
@@ -91,7 +92,7 @@ const presetType=type(cls(preset)),sliderType=type(cls(gamma).add(0x20).readPoin
 if(name(cls(gamma).add(0x20).readPointer().add(0x18).readU32())!=='UiOneSettingSliderController')throw Error('Wrong slider base');
 const initType=add(method(self,'InitContent').add(0x50).readPointer().add(5*8).readPointer());
 const title=add(textValue('ENHANCED')),category=add(textValue('MAP')),key=add(textValue('EnhancedZoom')),
- label=add(textValue('Zoom sensitivity')),description=add(textValue('Option de demonstration. Valeur temporaire, sans effet sur le zoom.')),
+ label=add(textValue('Zoom sensitivity')),description=add(textValue('Règle la sensibilité du zoom de la carte. 50 correspond au réglage d’origine du jeu. 0 : quatre fois plus lent. 100 : quatre fois plus rapide. Les changements sont appliqués immédiatement et sauvegardés.')),
  empty=add(textValue('')),gammaValue=add(gamma.or('0x20000000000000'));
 const infoKey=add(textValue('EnhancedAbout')),infoLabel=add(textValue('Pourquoi je vois ça?')),
  infoDesc=add(textValue('Ce menu apparaît parce que le plugin SnowRunner Enhanced est installé. Il vous permet de configurer certaines options proposées par le plugin.'));
@@ -116,8 +117,8 @@ const prefix=[W(1,17),
  ...create(-12,sliderType),...create(-13,viewType),
  ...set(L(-13),5,field(field(C(gammaValue),5),5)),
  ...set(L(-13),31,field(field(C(gammaValue),5),31)),...set(L(-13),32,C(empty)),
- ...set(L(-12),5,L(-13)),...set(L(-12),39,C(label)),...set(L(-12),40,C(description)),...set(L(-12),41,B(1)),
- ...set(L(-12),50,C(zero)),...set(L(-12),51,C(hundred)),...set(L(-12),52,C(fifty)),...set(L(-12),53,C(one)),...set(L(-12),54,I(1)),
+ ...set(L(-12),5,L(-13)),...set(L(-12),39,C(label)),...set(L(-12),40,C(description)),...set(L(-12),41,B(options.mapEnabled===false?0:1)),
+ ...set(L(-12),50,C(zero)),...set(L(-12),51,C(hundred)),...set(L(-12),52,C(fifty)),...set(L(-12),53,C(one)),...set(L(-12),54,I(2)),
  ...create(-14,initType),...set(L(-14),6,S(8)),...set(L(-14),7,S(11)),...set(L(-14),8,S(9)),...set(L(-14),9,S(54)),
  ...stmt(call(L(-12),13,[L(-14)])),
  // Reuse the native selectable row, with its value control hidden. This
@@ -137,7 +138,7 @@ const prefix=[W(1,17),
 function relocated(words,delta){return words.map(w=>[0x16,0x17,0x18,0x19,0x1a].includes(w&255)?W(w&255,(w>>>8)-0x800000+delta):w);}
 function code(words){const p=alloc(words.length*4);words.forEach((w,i)=>p.add(i*4).writeU32(w));return {p,words};}
 const install=code([...prefix,...relocated(profile.createDataWords.slice(1),prefix.length-1)]);
-return {code:install.p,words:install.words,constants,count:nconst,gammaSlot:constants.add(gammaValue*8),titleValue:constants.add(title*8).readPointer(),bytes:used};
+return {code:install.p,words:install.words,constants,count:nconst,gammaSlot:constants.add(gammaValue*8),titleValue:constants.add(title*8).readPointer(),labelValue:constants.add(label*8).readPointer(),bytes:used};
     }
     return {
         start(framePush,stringPoolSlot){
@@ -148,10 +149,11 @@ return {code:install.p,words:install.words,constants,count:nconst,gammaSlot:cons
                 // Also supports attachment after the game has initialized its settings.
                 hooks.push(attach(framePush,poolSlot,guarded(capture),'UiOneSettingSliderGammaController','GetCurrentValue'));
                 hooks.push(attach(framePush,poolSlot,guarded(visit),'UiSettingsController','CreateData'));
+                zoom.start(framePush,poolSlot);
                 running=true;state='waiting-for-settings';
-            }catch(e){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];throw e;}
+            }catch(e){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];zoom.stop();throw e;}
         },
-        status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0};},
-        stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];restore();running=false;state='stopped';}
+        status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0,zoomSensitivity:zoom.status()};},
+        stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{restore();running=false;state='stopped';}}
     };
 }

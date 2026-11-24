@@ -23,7 +23,8 @@ Automatically detected Steam installations still skip
 the folder question. Customize enhancements contains three independent options:
 Simultaneous Mouse & Wheel Input (enabled by default), Skip Startup Logos
 (disabled by default), and #3 : Map (enabled by default). Map owns the two
-hover/click repairs for the Map icon next to Tasks and Contracts. Install Enhanced immediately installs the
+hover/click repairs for the Map icon next to Tasks and Contracts, and the zoom
+sensitivity slider in Settings → ENHANCED. Install Enhanced immediately installs the
 current selection without a destination or fixes confirmation. A cyan dotted
 spinner and localized installation message appear while it runs, for at least
 one second even when installation finishes sooner. Longer installations keep

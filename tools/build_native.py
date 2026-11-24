@@ -48,6 +48,7 @@ def generate():
              (ROOT / 'src/vm_scope.js').read_text(), (ROOT / 'src/input_agent.js').read_text(),
              'const nativeAgent=rpc.exports;',
              'const SETTINGS_PROFILE=' + (ROOT / 'src/settings-profile.json').read_text(encoding='utf-8') + ';',
+             (ROOT / 'src/map_zoom.js').read_text(encoding='utf-8'),
              (ROOT / 'src/settings_menu.js').read_text(encoding='utf-8'),
              (ROOT / 'src/native/resolve.js').read_text(),
              (ROOT / 'src/native/bootstrap.js').read_text()]
@@ -72,15 +73,16 @@ def main():
     libs = ['user32.lib', 'shell32.lib', 'ole32.lib', 'advapi32.lib']
     invoke([*common, '/LD', str(ROOT / 'src/native/plugin.c'), '/link', *libs, '/OUT:SnowRunnerEnhanced.asi', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/harness.c'), '/link', *libs, '/OUT:native-harness.exe', '/DYNAMICBASE', '/NXCOMPAT'])
+    invoke([*common, str(ROOT / 'tests/native/settings_host.c'), '/link', *libs, '/OUT:settings-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/startup_host.c'), '/link', *libs, '/OUT:startup-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/game_host.c'), '/link', '/OUT:game-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, '/LD', str(ROOT / 'tests/native/companion.c'), '/link', '/OUT:companion.asi'])
     (BUILD / 'build.json').write_text(json.dumps({
-        'version': '0.1.0-preview.17', 'engine': 'GumJS 17.26.3 embedded',
+        'version': '0.1.0-preview.18', 'engine': 'GumJS 17.26.3 embedded',
         'artifacts': {n: hashlib.sha256((BUILD / n).read_bytes()).hexdigest()
                       for n in ('SnowRunnerEnhanced.asi', 'native-harness.exe')},
         'v18Sources': {n: hashlib.sha256((ROOT / 'src' / n).read_bytes()).hexdigest()
-                       for n in ('input_agent.js', 'vm_scope.js', 'input-profile.json', 'settings_menu.js', 'settings-profile.json')}
+                       for n in ('input_agent.js', 'vm_scope.js', 'input-profile.json', 'map_zoom.js', 'settings_menu.js', 'settings-profile.json')}
     }, indent=2))
 
 

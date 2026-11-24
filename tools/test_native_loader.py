@@ -12,13 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.17/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.18/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
 
 
-def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None, map_state=None):
+def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None, map_state=None, zoom_value=50):
     with tempfile.TemporaryDirectory(prefix='loader-', dir=ROOT / 'build/tests') as directory:
         folder = Path(directory)
         exe = folder / ('Other.exe' if wrong_name else 'SnowRunner.exe')
@@ -31,6 +31,8 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
         shutil.copyfile(ROOT / 'build/native/companion.asi', folder / 'ZZCompanion.asi')
         if config is not None:
             (folder / 'SnowRunnerEnhanced.json').write_text(json.dumps(config), encoding='utf-8')
+        if zoom_value != 50:
+            (folder / 'SnowRunnerEnhanced.settings.json').write_text(json.dumps({'schemaVersion':1,'zoomSensitivity':zoom_value}))
         original = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.iterdir()}
         process = subprocess.Popen([exe, str(delay)], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
@@ -72,6 +74,11 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                     core = status['components']['settings_menu']
                     assert core['enabled'] and core['running'], status
                     assert core['status'] == 'waiting-for-settings' and core['fault'] is None, status
+                    zoom = core['zoomSensitivity']
+                    map_enabled = bool(config.get('features', {}).get('map', {}).get('enabled', False))
+                    assert zoom['enabled'] == map_enabled and zoom['running'] == map_enabled, status
+                    assert zoom['value'] == zoom_value and zoom['fault'] is None, status
+                    assert status['settingsPersistence'] == ('default' if zoom_value == 50 else 'loaded'), status
                     assert set(status['features']) == {'wheel_mouse', 'map', 'skip_startup_logos'}
                     for feature in status['features'].values():
                         if feature['status'] == 'active':
@@ -129,4 +136,4 @@ if __name__ == '__main__':
         run_case('independent Map=' + str(map_enabled) + ' wheel=' + str(wheel),
                  {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': wheel}, 'map': {'enabled': map_enabled}}},
                  'active' if wheel else 'disabled', delay=6000,
-                 synthetic=True, map_state='active' if map_enabled else 'disabled')
+                 synthetic=True, map_state='active' if map_enabled else 'disabled', zoom_value=75)

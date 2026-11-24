@@ -7,6 +7,7 @@
 #pragma comment(lib, "bcrypt.lib")
 
 #include "startup.h"
+#include "settings.h"
 
 static HMODULE self;
 static volatile LONG started;
@@ -17,6 +18,7 @@ static void WriteReport(const char *text) {
     char *enriched = NULL;
     if (json_parser_load_from_data(parser, text, -1, NULL)) {
         JsonObject *root = json_node_get_object(json_parser_get_root(parser));
+        json_object_set_string_member(root,"settingsPersistence",settings_state);
         JsonObject *features = json_object_get_object_member(root, "features");
         if (features) {
             JsonObject *startup = json_object_new();
@@ -47,7 +49,7 @@ static void WriteReport(const char *text) {
 static void SimpleStatus(const char *status, const char *reason) {
     char out[1024];
     SYSTEMTIME now; GetSystemTime(&now);
-    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.17\","
+    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.18\","
         "\"processId\":%lu,\"timeUtc\":\"%04u-%02u-%02uT%02u:%02u:%02uZ\","
         "\"features\":{\"wheel_mouse\":{\"status\":\"%s\",\"reason\":\"%s\"}}}",
         (unsigned long)GetCurrentProcessId(), now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, status, reason);
@@ -131,6 +133,8 @@ static void OnMessage(const gchar *message, GBytes *data, gpointer context) {
             if (payload && JSON_NODE_HOLDS_OBJECT(payload)) {
                 JsonNode *status = json_object_get_member(json_node_get_object(payload), "enhancedStatus");
                 if (status) { char *text = json_to_string(status, TRUE); WriteReport(text); g_free(text); }
+                JsonNode *settings = json_object_get_member(json_node_get_object(payload), "enhancedSettings");
+                if (settings) SettingsSave(settings);
             }
         } else if (!strcmp(type, "error")) SimpleStatus("error", "Embedded script error; see development tests");
     }
@@ -157,7 +161,8 @@ static void EnhancedStart(void) {
     char hash[65] = "unavailable"; HashGame(hash);
     GMainContext *context = g_main_context_new();
     g_main_context_push_thread_default(context);
-    char *source = g_strdup_printf("const ENHANCED_HOST={gameSha256:'%s',wheelMouse:%s,map:%s};\n%s", hash, (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", enhanced_bundle);
+    int zoomSensitivity=SettingsLoad(folder);
+    char *source = g_strdup_printf("const ENHANCED_HOST={gameSha256:'%s',wheelMouse:%s,map:%s,zoomSensitivity:%d};\n%s", hash, (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", zoomSensitivity, enhanced_bundle);
     GError *error = NULL;
     GumScript *script = gum_script_backend_create_sync(gum_script_backend_obtain_qjs(), "Enhanced", source, NULL, NULL, &error);
     g_free(source);

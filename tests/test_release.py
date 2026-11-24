@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.17'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.18'
 SETUP = PACKAGE / 'Sources/Installer/SnowRunnerEnhanced.Setup.exe'
 CONFIG = 'SnowRunnerEnhanced.json'
 RECEIPT = 'SnowRunnerEnhanced.install.json'
@@ -63,6 +63,18 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(result['wheelMouseEnabled'])
         self.assertFalse(result['skipStartupLogosEnabled'])
         self.run_setup('configure', '--skip-startup-logos', 'invalid', success=False)
+        self.run_setup('uninstall')
+
+    def test_zoom_preference_survives_configure_and_reinstall(self):
+        preference = self.folder/'SnowRunnerEnhanced.settings.json'
+        contents = b'{"schemaVersion":1,"zoomSensitivity":75}\n'
+        self.run_setup('install')
+        preference.write_bytes(contents)
+        self.run_setup('configure', '--map', 'false')
+        self.run_setup('uninstall')
+        self.assertEqual(preference.read_bytes(), contents)
+        self.run_setup('install')
+        self.assertEqual(preference.read_bytes(), contents)
         self.run_setup('uninstall')
 
     def test_map_option_is_independent(self):

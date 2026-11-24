@@ -1,4 +1,4 @@
-# SnowRunner Enhanced — 0.1.0-preview.17
+# SnowRunner Enhanced — 0.1.0-preview.18
 
 Preview.17 adds the always-on **ENHANCED** settings menu, independent of the optional enhancements.
 
@@ -137,4 +137,4 @@ Since preview.16, **Map** (`map`) is an independent option, enabled by default, 
 
 The **ENHANCED** tab follows **STEERING WHEEL** in the game settings. It belongs to the plugin itself and remains available with every optional enhancement disabled. It is not a fourth enhancement or an installer checkbox.
 
-The informational row **Pourquoi je vois ça?** displays contextual help without a value on the right. **MAP** contains a **Zoom sensitivity** demonstration slider (0–100, initially 50). Its temporary value has no effect on the camera and is not saved. The explanatory text is currently in French.
+The informational row **Pourquoi je vois ça?** displays contextual help without a value on the right. With enhancement #3 **Map** enabled, **Zoom sensitivity** controls map zoom immediately. Its numeric value appears on the right: **0 = ×0.25, 50 = the original game setting, 100 = ×4**. Restore defaults returns it to 50. The preference is saved in `SnowRunnerEnhanced.settings.json` next to the plugin and retained across upgrades and reinstalls. The explanatory text is currently in French.

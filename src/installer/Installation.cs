@@ -13,10 +13,11 @@ namespace SnowRunnerEnhanced;
 // or installed once, and always preserved on uninstall for other mods.
 internal sealed class Installation
 {
-    internal const string Version = "0.1.0-preview.17";
+    internal const string Version = "0.1.0-preview.18";
     internal const string ConfigName = "SnowRunnerEnhanced.json";
     internal const string ReceiptName = "SnowRunnerEnhanced.install.json";
     internal const string StatusName = "SnowRunnerEnhanced.status.json";
+    internal const string SettingsName = "SnowRunnerEnhanced.settings.json";
     internal const string LoaderName = "dinput8.dll";
     internal static readonly string[] Binaries = ["SnowRunnerEnhanced.asi"];
     static readonly string[] PayloadNames = [LoaderName, .. Binaries];
@@ -384,6 +385,7 @@ internal sealed class Installation
         }
         // Diagnostics are deliberately retained for troubleshooting after removal.
         if (File.Exists(At(StatusName))) preserved.Add(StatusName);
+        if (File.Exists(At(SettingsName))) preserved.Add(SettingsName);
         File.Delete(At(ReceiptName));
         return preserved.ToArray();
     }

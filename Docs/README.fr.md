@@ -1,4 +1,4 @@
-# SnowRunner Enhanced — 0.1.0-preview.17
+# SnowRunner Enhanced — 0.1.0-preview.18
 
 Preview.17 ajoute le menu **ENHANCED** aux paramètres du jeu. Il reste actif indépendamment des améliorations sélectionnées.
 
@@ -145,4 +145,4 @@ Depuis preview.16, **Map** (`map`) est une option indépendante, activée par d�
 
 L’onglet **ENHANCED** suit **VOLANT** dans les paramètres du jeu. Il appartient au plugin lui-même et reste disponible même si toutes les améliorations facultatives sont désactivées. Il ne constitue pas une quatrième amélioration à cocher dans l’installateur.
 
-La ligne **Pourquoi je vois ça?** affiche une explication dans le panneau de description, sans valeur à droite. La catégorie **MAP** contient le curseur fictif **Zoom sensitivity** (0–100, valeur initiale 50). Sa valeur est temporaire, sans effet sur la caméra et sans sauvegarde.
+La ligne **Pourquoi je vois ça?** affiche une explication dans le panneau de description, sans valeur à droite. Avec l’enhancement nº 3 **Map** activé, **Zoom sensitivity** règle immédiatement le zoom de la carte. Le nombre apparaît à droite : **0 = ×0,25, 50 = réglage d’origine du jeu, 100 = ×4**. La restauration des valeurs par défaut remet le curseur à 50. La préférence est sauvegardée dans `SnowRunnerEnhanced.settings.json`, à côté du plugin, et conservée lors des mises à jour et réinstallations.

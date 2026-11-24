@@ -24,8 +24,9 @@ rpc.exports.run=(scenario)=>{
  const props=a=>a.map(([n,id])=>[n,id,5]);
  const settingsClass=klass('UiSettingsController',[...props([['view',5],['deviceListener',8],['uiSystem',9],['localizationUpdateNotifier',11],['inputScreen',54],['settings',56],['tabBar',57],['activeTabs',63]]),['GetView',34,2],['InitContent',20,2]]);
  const gammaClass=klass('UiOneSettingSliderGammaController',[...props([['view',5],['uiSystem',9],['header',39],['desc',40],['shouldBeVisible',41],['minValue',50],['maxValue',51],['defaultValue',52],['stepInterval',53],['textfield',54]]),['Init',13,2]]);
- gammaClass.add(0x20).writePointer(klass('UiOneSettingSliderController'));
- const viewClass=klass('SliderView',[...props([['uiObjectDesc',5],['changeSound',31],['descriptionImage',32]]),['GetUiObject',25,2]]);
+ const sliderClass=klass('UiOneSettingSliderController',props([['header',39],['view',5],['hackCurrent',55],['textfield',54]]));
+ gammaClass.add(0x20).writePointer(sliderClass);
+ const viewClass=klass('SliderView',[...props([['uiObjectDesc',5],['changeSound',31],['descriptionImage',32],['textFormat',41]]),['GetUiObject',25,2]]);
  const barClass=klass('TabBar',[['items',65,5],['CreateItem',52,2],['UnsubscribeContent',29,2],['SubscribeContent',28,2],['Show',16,2]]);
  const presetClass=klass('Preset',[['name',6,5]]),arrayClass=klass('array');
  function array(n){const a=object(arrayClass);a.add(0x40).writePointer(alloc(128));a.add(0x48).writeU32(n);return a;}
@@ -52,8 +53,11 @@ rpc.exports.run=(scenario)=>{
   const expected=[22,23,24,25,26].includes(w&255)?(w+delta*256)>>>0:w;
   return replacement.add((delta+1+i)*4).readU32()===expected;
  });
- const strings=[];let title=null;
- for(let i=10;i<fn.add(0x58).readU32();i++){const v=newConstants.add(i*8).readPointer();if(v.shr(48).toUInt32()===16){const p=untag(v),s=p.add(16).readPointer().readUtf8String(p.add(8).readU32());strings.push(s);if(s==='ENHANCED')title=v;}}
+ const strings=[];let title=null,label=null;
+ for(let i=10;i<fn.add(0x58).readU32();i++){const v=newConstants.add(i*8).readPointer();if(v.shr(48).toUInt32()===16){const p=untag(v),s=p.add(16).readPointer().readUtf8String(p.add(8).readU32());strings.push(s);if(s==='ENHANCED')title=v;if(s==='Zoom sensitivity')label=v;}}
+ const slider=object(sliderClass),sliderView=object(viewClass);put(slider,39,label);put(slider,5,tag(sliderView));
+ callbacks['UiOneSettingSliderController.GetCurrentValue'](vm(slider));
+ const boundValue=slider.add(0x30+55*8).readFloat(),boundFormat=sliderView.add(0x30+41*8).readPointer().toString();
  if(scenario==='foreign'){
   replacement.writeU32(0);let rejected=false;try{menu.stop();}catch(_){rejected=true;}
   return {rejected,preserved:fn.add(0x60).readPointer().equals(replacement)};
@@ -63,7 +67,7 @@ rpc.exports.run=(scenario)=>{
  visit();const repeat=menu.status(),restored=fn.add(0x60).readPointer().equals(code)&&fn.add(0x50).readPointer().equals(constants);
  // Model a recreated Settings controller using the same class method.
  callbacks['UiSettingsController.InitContent']();tabs.add(0x48).writeU32(7);items.add(0x48).writeU32(7);visit();const resetWait=menu.status();capture();visit();const recreated=menu.status();
- menu.stop();return {waiting,installed,branches,strings,repeat,restored,resetWait,recreated,stopped:menu.status(),finalRestore:fn.add(0x60).readPointer().equals(code)};
+ menu.stop();return {waiting,installed,branches,strings,boundValue,boundFormat,repeat,restored,resetWait,recreated,stopped:menu.status(),finalRestore:fn.add(0x60).readPointer().equals(code)};
 };
 '''
 
@@ -73,6 +77,7 @@ class SettingsMenuTests(unittest.TestCase):
         self.device = NativeDevice()
         self.pid = self.device.spawn(None)
         source = 'const PROFILE=' + (ROOT/'src/settings-profile.json').read_text() + ';\n'
+        source += (ROOT/'src/map_zoom.js').read_text(encoding='utf-8')
         source += (ROOT/'src/settings_menu.js').read_text(encoding='utf-8') + FIXTURE
         self.script = self.device.create_script(source)
         self.script.load()
@@ -89,6 +94,9 @@ class SettingsMenuTests(unittest.TestCase):
         self.assertTrue(r['branches'])
         self.assertIn('Pourquoi je vois ça?', r['strings'])
         self.assertIn('MAP', r['strings'])
+        self.assertEqual(r['boundValue'], 50)
+        self.assertEqual(r['boundFormat'], '0x1000000000002')
+        self.assertTrue(any('réglage d’origine' in s and 'sauvegardés' in s for s in r['strings']))
         self.assertTrue(any('apparaît' in s and 'installé' in s for s in r['strings']))
         self.assertEqual(r['repeat']['installations'], 1)
         self.assertTrue(r['restored'])
