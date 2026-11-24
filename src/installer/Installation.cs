@@ -13,7 +13,7 @@ namespace SnowRunnerEnhanced;
 // or installed once, and always preserved on uninstall for other mods.
 internal sealed class Installation
 {
-    internal const string Version = "0.1.0-preview.15";
+    internal const string Version = "0.1.0-preview.16";
     internal const string ConfigName = "SnowRunnerEnhanced.json";
     internal const string ReceiptName = "SnowRunnerEnhanced.install.json";
     internal const string StatusName = "SnowRunnerEnhanced.status.json";
@@ -138,22 +138,25 @@ internal sealed class Installation
         if (root.Count != 2 || root["schemaVersion"]?.GetValue<int>() != 1 || root["features"] is not JsonObject features)
             throw new InvalidDataException("Invalid feature configuration.");
         foreach (var pair in features) {
-            if (pair.Key is not ("wheel_mouse" or "skip_startup_logos") || pair.Value is not JsonObject entry ||
+            if (pair.Key is not ("wheel_mouse" or "skip_startup_logos" or "map") || pair.Value is not JsonObject entry ||
                 entry.Count != 1 || entry["enabled"] is not JsonValue flag || !flag.TryGetValue<bool>(out _))
                 throw new InvalidDataException("Unknown feature or invalid enabled value.");
         }
         return features["wheel_mouse"]?["enabled"]?.GetValue<bool>() ?? false;
     }
 
+    internal bool MapEnabled {
+        get { var root=ReadJson(At(ConfigName)); ParseFeature(root); return root["features"]?["map"]?["enabled"]?.GetValue<bool>() ?? false; }
+    }
     internal bool Enabled => ParseFeature(ReadJson(At(ConfigName)));
     internal bool SkipStartupLogosEnabled {
         get { var root=ReadJson(At(ConfigName)); ParseFeature(root); return root["features"]?["skip_startup_logos"]?["enabled"]?.GetValue<bool>() ?? false; }
     }
 
     internal bool HasReceipt => File.Exists(At(ReceiptName));
-    static byte[] Configuration(bool enabled, bool skipStartupLogos) => JsonSerializer.SerializeToUtf8Bytes(new
+    static byte[] Configuration(bool enabled, bool skipStartupLogos, bool map) => JsonSerializer.SerializeToUtf8Bytes(new
     {
-        schemaVersion = 1, features = new { wheel_mouse = new { enabled }, skip_startup_logos = new { enabled = skipStartupLogos } }
+        schemaVersion = 1, features = new { wheel_mouse = new { enabled }, skip_startup_logos = new { enabled = skipStartupLogos }, map = new { enabled = map } }
     }, Pretty);
 
     JsonObject Receipt()
@@ -224,7 +227,7 @@ internal sealed class Installation
         }
         report["installedVersion"] = receipt["version"]?.DeepClone();
         report["files"] = files;
-        try { report["wheelMouseEnabled"] = Enabled; report["skipStartupLogosEnabled"] = SkipStartupLogosEnabled; }
+        try { report["mapEnabled"] = MapEnabled; report["wheelMouseEnabled"] = Enabled; report["skipStartupLogosEnabled"] = SkipStartupLogosEnabled; }
         catch (Exception error) when (error is IOException or InvalidDataException or JsonException or InvalidOperationException or FormatException)
         { report["configurationError"] = "Missing or invalid feature configuration."; }
         if (File.Exists(At(StatusName)))
@@ -276,7 +279,7 @@ internal sealed class Installation
     }
     static byte[] JsonBytes(JsonObject obj) => Encoding.UTF8.GetBytes(obj.ToJsonString(Pretty));
 
-    internal void Install(bool enabled, bool skipStartupLogos = false)
+    internal void Install(bool enabled, bool skipStartupLogos = false, bool map = true)
     {
         using var held = LockForChange();
         CheckExecutable();
@@ -289,7 +292,7 @@ internal sealed class Installation
         foreach (var name in Binaries.Concat([ConfigName, ReceiptName, "SnowRunnerEnhanced.dll"]))
             if (File.Exists(At(name)) || Directory.Exists(At(name)))
                 throw new IOException("Existing file preserved: " + name + ". Resolve this conflict before installing Enhanced.");
-        var config = Configuration(enabled, skipStartupLogos);
+        var config = Configuration(enabled, skipStartupLogos, map);
         var receipt = new JsonObject { ["product"] = "SnowRunnerEnhanced", ["schemaVersion"] = 1, ["version"] = Version,
             ["files"] = JsonSerializer.SerializeToNode(Binaries.ToDictionary(n => n, n => payload[n])),
             ["loader"] = new JsonObject { ["name"] = LoaderName, ["sha256"] = loaderHash ?? payload[LoaderName],
@@ -329,14 +332,14 @@ internal sealed class Installation
         }
     }
 
-    internal void Configure(bool enabled, bool? skipStartupLogos = null)
+    internal void Configure(bool enabled, bool? skipStartupLogos = null, bool? map = null)
     {
         using var held = LockForChange();
         var receipt = Receipt();
         VerifyBinaries(receipt, allowMissing: false);
         var old = File.ReadAllBytes(At(ConfigName));
         ParseFeature(ReadJson(At(ConfigName)));
-        var config = Configuration(enabled, skipStartupLogos ?? SkipStartupLogosEnabled);
+        var config = Configuration(enabled, skipStartupLogos ?? SkipStartupLogosEnabled, map ?? MapEnabled);
         AtomicWrite(At(ConfigName), config, true);
         try
         {

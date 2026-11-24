@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.15`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.16`. Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -166,8 +166,8 @@ et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
 
 Artefacts :
 
-- `dist/SnowRunnerEnhanced-0.1.0-preview.15.zip` : paquet utilisateur et aide.
-- `dist/SnowRunnerEnhanced-0.1.0-preview.15/Install.cmd` : paquet extrait.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.16.zip` : paquet utilisateur et aide.
+- `dist/SnowRunnerEnhanced-0.1.0-preview.16/Install.cmd` : paquet extrait.
 - `build/native/build.json` : empreintes des DLL et des sources V18 embarquées.
 - `vendor/manifest.json` : empreintes et provenance des dépendances natives.
 - `Licenses/sources.json` : versions sources et notices des bibliothèques.
@@ -316,3 +316,7 @@ lanceurs Python expérimentaux, installer Enhanced, puis lancer le jeu normaleme
 Vérifier le dernier diagnostic et les gestes V18 (carte, treuil, Fonctions,
 souris/volant simultanés, arrêt du moteur puis fermeture par B, démarrage volontaire).
 Retirer Enhanced via son installateur avant de revenir à un lanceur de test.
+
+### Enhancement #3 : Map (preview.16)
+
+Les deux réparations de zone cliquable sont contrôlées par `features.map.enabled`. Les hooks souris/volant ne sont pas installés lorsque `wheel_mouse` est désactivé. Map utilise encore la découverte et les vérifications de compatibilité communes au moteur natif.

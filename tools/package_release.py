@@ -7,7 +7,7 @@ import zipfile
 from asi_loaders import LOADERS, loader_path, verify
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0-preview.15'
+VERSION = '0.1.0-preview.16'
 PACKAGE = ROOT / 'dist' / ('SnowRunnerEnhanced-' + VERSION)
 
 
@@ -30,8 +30,8 @@ def main():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
     manifest = {'schemaVersion': 1, 'product': 'SnowRunnerEnhanced', 'version': VERSION,
-                'payload': payload, 'compatibleLoaders': LOADERS, 'features': ['wheel_mouse', 'skip_startup_logos'],
-                'validation': 'Preview; enhancement #1 map hover fix confirmed by live-memory on/off comparison and installed preview.15 user testing on 2026-11-23; both repairs active with zero reported faults; installer regression scenarios blocked while game remains open'}
+                'payload': payload, 'compatibleLoaders': LOADERS, 'features': ['wheel_mouse', 'skip_startup_logos', 'map'],
+                'validation': 'Preview; Map extracted as independent enhancement #3; original repairs validated in preview.15 on 2026-11-23; preview.16 requires in-game confirmation'}
     manifest_path = PACKAGE / 'Sources/package.json'
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     # Explicit archive allowlist excludes Reports, test hosts, personal paths and

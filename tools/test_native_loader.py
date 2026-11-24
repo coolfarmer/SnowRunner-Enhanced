@@ -12,13 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.15/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.16/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
 
 
-def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None):
+def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None, map_state=None):
     with tempfile.TemporaryDirectory(prefix='loader-', dir=ROOT / 'build/tests') as directory:
         folder = Path(directory)
         exe = folder / ('Other.exe' if wrong_name else 'SnowRunner.exe')
@@ -66,10 +66,13 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                 startup = bool(config and config.get('features', {}).get('skip_startup_logos', {}).get('enabled', False))
                 assert status['features']['skip_startup_logos']['enabled'] == startup
                 assert status['features']['skip_startup_logos']['status'] == ('incompatible' if startup else 'disabled')
+                if map_state is not None:
+                    assert status['features']['map']['status'] == map_state, status
                 if synthetic:
-                    assert status['features']['wheel_mouse']['compatibility']['relocatedGuards'] == GUARD_COUNT
-                    assert status['features']['wheel_mouse']['counters']['active']
-                    assert status['features']['wheel_mouse']['counters']['faults'] == 0
+                    feature = status['features']['wheel_mouse' if expected == 'active' else 'map']
+                    assert feature['compatibility']['relocatedGuards'] == GUARD_COUNT
+                    assert feature['counters']['active']
+                    assert feature['counters']['faults'] == 0
             for file, digest in original.items():
                 assert hashlib.sha256((folder / file).read_bytes()).hexdigest() == digest
         finally:
@@ -116,3 +119,9 @@ if __name__ == '__main__':
     run_case('both features independent', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}, 'skip_startup_logos': {'enabled': True}}}, 'active', delay=6000, synthetic=True)
     run_case('unrecognized signatures', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},
              'incompatible', delay=68000)
+
+    for wheel, map_enabled in ((False, False), (False, True), (True, False), (True, True)):
+        run_case('independent Map=' + str(map_enabled) + ' wheel=' + str(wheel),
+                 {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': wheel}, 'map': {'enabled': map_enabled}}},
+                 'active' if wheel else 'disabled', delay=6000,
+                 synthetic=wheel or map_enabled, map_state='active' if map_enabled else 'disabled')

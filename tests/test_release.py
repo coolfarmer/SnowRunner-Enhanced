@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.15'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.16'
 SETUP = PACKAGE / 'Sources/Installer/SnowRunnerEnhanced.Setup.exe'
 CONFIG = 'SnowRunnerEnhanced.json'
 RECEIPT = 'SnowRunnerEnhanced.install.json'
@@ -63,6 +63,22 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(result['wheelMouseEnabled'])
         self.assertFalse(result['skipStartupLogosEnabled'])
         self.run_setup('configure', '--skip-startup-logos', 'invalid', success=False)
+        self.run_setup('uninstall')
+
+    def test_map_option_is_independent(self):
+        result = self.run_setup('install', '--wheel-mouse', 'false')
+        self.assertTrue(result['mapEnabled'])
+        self.assertFalse(result['wheelMouseEnabled'])
+        result = self.run_setup('configure', '--map', 'false', '--wheel-mouse', 'true')
+        self.assertFalse(result['mapEnabled'])
+        self.assertTrue(result['wheelMouseEnabled'])
+        result = self.run_setup('configure', '--skip-startup-logos', 'true')
+        self.assertFalse(result['mapEnabled'])
+        result = self.run_setup('configure', '--map', 'true', '--wheel-mouse', 'false')
+        self.assertTrue(result['mapEnabled'])
+        self.assertFalse(result['wheelMouseEnabled'])
+        self.assertTrue(result['skipStartupLogosEnabled'])
+        self.run_setup('configure', '--map', 'invalid', success=False)
         self.run_setup('uninstall')
 
     def test_legacy_configuration_keeps_startup_disabled(self):
@@ -260,7 +276,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_navigation_changes_language_and_preserves_pending_fixes(self):
         result = subprocess.run([SETUP, '--plain', '--language', 'en', '--game-directory', self.folder],
-                                input='2\n1\n\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
+                                input='2\n1\n\n2\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
                                 text=True, encoding='utf-8', timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('MAIN MENU', result.stdout)
@@ -275,6 +291,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('\x1b', result.stdout)
         self.assertTrue((self.folder / RECEIPT).exists())
         self.assertFalse(self.run_setup('status')['wheelMouseEnabled'])
+        self.assertFalse(self.run_setup('status')['mapEnabled'])
 
     def test_linked_folder_refused(self):
         linked = self.folder / 'linked'

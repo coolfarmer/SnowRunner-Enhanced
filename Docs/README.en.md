@@ -1,6 +1,6 @@
-# SnowRunner Enhanced — 0.1.0-preview.15
+# SnowRunner Enhanced — 0.1.0-preview.16
 
-Preview.15 fixes the map icon’s upper-right hover and click area in enhancement #1.
+Preview.15 fixes the map icon’s upper-right hover and click area, now grouped under enhancement #3: Map.
 It hides an unused notification placeholder through the live UI method, while
 preserving both existing button actions. The preview.12 fix for the left
 navigation button is retained. Live memory testing on November 23, 2026 passed
@@ -64,8 +64,7 @@ The V18 physical validation used a G923. Other wheels and extended sessions
 still need physical testing.
 
 Disable this fix through **Customize enhancements** with the game closed. Changes take
-effect on the next launch. Future fixes will have independent options; this
-preview contains one feature.
+effect on the next launch. Map and Skip Startup Logos have their own independent options.
 
 ## Game updates
 
@@ -125,3 +124,9 @@ In **Advanced Options → Customize enhancements**, enable **Skip Startup Logos*
 The plugin changes only the read buffers of a recognized archive in memory; `gfx.pak` stays unchanged. This preview supports one exact archive hash. A game update or another mod changing that archive retains the original intro and reports `incompatible`. `armed` means the hook is waiting for reads; `active` confirms both changes for the sequence were read. Actual game loading is still required.
 
 CLI: `Install.cmd --action configure --game-directory "GAME_PATH" --skip-startup-logos true --json`. Omitted configuration options keep their current values.
+
+## Enhancement #3 : Map
+
+- Fixed a bug where the Map icon (next to Tasks and Contracts) wasn't responding correctly to hovering and clicking.
+
+Since preview.16, **Map** (`map`) is an independent option, enabled by default, in **Advanced Options → Customize enhancements**. It contains both the left and upper-right hit-area repairs previously included in enhancement #1. Changes take effect on the next launch.

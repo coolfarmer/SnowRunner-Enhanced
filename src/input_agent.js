@@ -198,7 +198,7 @@ function install(b) {
         }
     }
     try {
-        if (b.hudHintFramePush) {
+        if (b.hudHintFramePush && CONFIG.features?.map !== false) {
             navigationHitAreaFix = makeNavButtonHitAreaFix(b.stringPoolSlot);
             navigationHitAreaHook = hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (_vm, fn) => {
                 if (mode === 'ui-mouse-priority' && navigationHitAreaFix.apply(fn)) {
@@ -214,6 +214,9 @@ function install(b) {
                     emit({kind: 'map-notification-hit-area-repaired'});
                 }
             }, 'MinimapUiSidepanelView', 'HideContractBtn'));
+        }
+        if (CONFIG.features?.wheel_mouse !== false) {
+        if (b.hudHintFramePush) {
             hudHintHook = hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (vm, fn) => {
                 try {
                     if (mode !== 'ui-mouse-priority') return;
@@ -675,6 +678,7 @@ function install(b) {
                 this.lastError = savedError;
             }
         }));
+        } // wheel_mouse hooks
         active = true;
         setMode('observe');
         Interceptor.flush();

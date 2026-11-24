@@ -20,8 +20,10 @@ The main menu contains installation, advanced options, more options, help, and
 exit. Advanced Options contains status, feature selection, and uninstallation.
 More options contains folder selection, diagnostic export, and language selection.
 Automatically detected Steam installations still skip
-the folder question. All fixes are enabled by default; players can disable them
-in Advanced Options > Customize enhancements. Install Enhanced immediately installs the
+the folder question. Customize enhancements contains three independent options:
+Simultaneous Mouse & Wheel Input (enabled by default), Skip Startup Logos
+(disabled by default), and #3 : Map (enabled by default). Map owns the two
+hover/click repairs for the Map icon next to Tasks and Contracts. Install Enhanced immediately installs the
 current selection without a destination or fixes confirmation. A cyan dotted
 spinner and localized installation message appear while it runs, for at least
 one second even when installation finishes sooner. Longer installations keep

@@ -1,7 +1,7 @@
-# SnowRunner Enhanced — 0.1.0-preview.15
+# SnowRunner Enhanced — 0.1.0-preview.16
 
 Preview.15 corrige le survol et le clic dans le coin supérieur droit de l’icône
-de carte, dans l’enhancement nº 1. Le repère de notification inutilisé est
+de carte, désormais regroupé dans l’enhancement nº 3 : Map. Le repère de notification inutilisé est
 masqué par le code de l’interface, en conservant les deux actions existantes
 des boutons. Le correctif de preview.12 pour le bouton gauche est conservé.
 L’essai en mémoire du 23 novembre 2026 passe aux deux points auparavant bloqués,
@@ -69,8 +69,7 @@ identifiant USB. La validation physique de la V18 concerne un G923 ; les
 autres volants et une session prolongée restent à tester.
 
 Vous pouvez désactiver ce correctif dans **Personnaliser les améliorations**, jeu fermé.
-Le changement s’applique au prochain lancement. Les futurs correctifs auront
-leurs propres options ; cette préversion ne contient qu’une feature.
+Le changement s’applique au prochain lancement. Map et Skip Startup Logos disposent de leurs propres options indépendantes.
 
 ## Mises à jour du jeu
 
@@ -133,3 +132,9 @@ Dans **Options avancées → Personnaliser les améliorations**, activez **Skip 
 Le plugin intercepte uniquement les lectures de l’archive reconnue et adapte les données en mémoire. `gfx.pak` n’est pas modifié. La préversion reconnaît une empreinte précise de cette archive : une mise à jour ou un autre mod qui la modifie laisse l’introduction d’origine et produit l’état `incompatible`. `armed` signifie que l’interception attend les lectures ; `active` confirme la lecture des deux changements de la séquence. Le chargement réel du jeu reste nécessaire.
 
 Ligne de commande : `Install.cmd --action configure --game-directory "CHEMIN_DU_JEU" --skip-startup-logos true --json`. Une option omise lors de la configuration conserve sa valeur actuelle.
+
+## Enhancement #3 : Map
+
+- Correction du survol et du clic de l’icône de carte, à côté de Tâches et Contrats (zones gauche et supérieure droite).
+
+Depuis preview.16, **Map** (`map`) est une option indépendante, activée par défaut, dans **Options avancées → Personnaliser les améliorations**. Elle regroupe les deux correctifs auparavant inclus dans l’enhancement nº 1. Les changements prennent effet au prochain lancement.

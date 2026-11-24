@@ -2,13 +2,15 @@
 
 // Lives entirely in Enhanced's private GumJS runtime. No RPC listener/server,
 // external injection, filesystem scripts or shared ASI loader.
+CONFIG.features = {wheel_mouse: ENHANCED_HOST.wheelMouse !== false, map: ENHANCED_HOST.map !== false};
 let attempts = 0, lastFailure = null, timer = null, featureState = 'waiting';
 function reportNative(state, extra = {}) {
     featureState = state;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.15',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.16',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(),
         processId: Process.id,
-        features: {wheel_mouse: {enabled: true, status: state, ...extra}},
+        features: Object.fromEntries(Object.entries(CONFIG.features).map(([key, enabled]) =>
+            [key, enabled ? {enabled, status: state, ...extra} : {enabled, status: 'disabled'}])),
         validation: 'Preview: game and physical validation pending'}});
 }
 function attemptStart() {
