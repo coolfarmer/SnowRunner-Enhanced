@@ -1,10 +1,12 @@
 'use strict';
 
 function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options = {}) {
-    let hooks=[], pendingGamma=null, plan=null, patch=null, methodOwner=null;
+    let hooks=[], pendingGamma=null, pendingStepper=null, plan=null, patch=null, methodOwner=null;
     let poolSlot=null, running=false, state='waiting', fault=null, installations=0, visits=0;
     const zoom=makeMapZoomSensitivity(profile,{receiver,prop,get,owns:p=>!!plan&&className(p)==='UiOneSettingSliderController'&&prop(p,'header').readPointer().equals(plan.labelValue)},options,attach);
     const panning=makeMapPanningSensitivity(profile,{receiver,prop,get,owns:p=>!!plan&&className(p)==='UiOneSettingSliderController'&&prop(p,'header').readPointer().equals(plan.panningLabelValue)},options,attach);
+    const mapEnabled=options.mapEnabled!==false;
+    let northUp=options.keepNorthUp===true, cameraClass=null, northFault=null;
     function obj(v){if(v.shr(48).toUInt32()!==0x20)throw Error('Expected VM object');return v.and('0xffffffffffff');}
     function untag(v){return v.and('0xffffffffffff');}
     function cls(p){return p.add(0x18).readPointer();}
@@ -43,6 +45,69 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
         fn.add(0x50).writePointer(constants);fn.add(0x58).writeU32(count);patch=null;
     }
     function capture(vm){const p=receiver(vm);if(className(p)==='UiOneSettingSliderGammaController')pendingGamma=p;}
+    function captureStepper(vm){
+        if(pendingStepper)return;
+        const control=receiver(vm);
+        // The native on/off settings supply a view with the correct arrow clip.
+        for(let c=cls(control).add(0x20).readPointer();!c.isNull();c=c.add(0x20).readPointer()){
+            if(name(c.add(0x18).readU32())!=='UiOneSettingStepperOnOff')continue;
+            if(className(get(control,'view'))==='UiOneSettingStepperView')pendingStepper={control,base:c};
+            return;
+        }
+    }
+    function ownsNorth(control){
+        if(!plan?.northLabels || className(control)!=='UiOneSettingStepperOnOff')return false;
+        const header=prop(control,'header').readPointer();
+        return plan.northLabels.some(label=>label.equals(header));
+    }
+    function setNorthLocale(vm){
+        const control=receiver(vm);
+        if(!ownsNorth(control))return;
+        const value=vm.add(0x18).readPointer().add(8).readPointer();
+        if(value.shr(48).toUInt32()!==16)return;
+        const s=untag(value);
+        if(s.isNull())return;
+        const length=s.add(8).readU32();
+        if(!length||length>128)return;
+        const data=s.add(12).readU32()===1?s.add(16):s.add(16).readPointer();
+        const language=data.readUtf8String(length);
+        const index=/^(?:fr(?:$|[-_])|fra$|fre$|french$|français$)/i.test(language)?1:0;
+        // Both alternatives are permanent constants owned by this menu.
+        prop(control,'header').writePointer(plan.northLabels[index]);
+        prop(control,'desc').writePointer(plan.northDescriptions[index]);
+    }
+    function changeNorth(vm){
+        const control=receiver(vm);
+        if(!ownsNorth(control))return;
+        const arg=vm.add(0x18).readPointer().add(8);
+        if(arg.readPointer().shr(48).toUInt32()!==2)throw Error('Invalid on/off argument');
+        // VM comparisons write only the low byte of a tagged boolean.
+        const next=arg.readU8()!==0;
+        // The on/off base implements UpdateStatus as a no-op. Its inherited
+        // GetCurrentIndex reads hackCurrent on the ensuing native view refresh.
+        prop(control,'hackCurrent').writePointer(ptr(next?'0x1000000000001':'0x1000000000000'));
+        if(northUp!==next){northUp=next;options.onNorthChange?.(next);}
+    }
+    function orientCamera(vm,fn){
+        if(!northUp||northFault)return;
+        try{
+            const camera=receiver(vm),c=cls(camera);
+            if(!cameraClass||!cameraClass.equals(c)){
+                if(className(camera)!=='MinimapCameraController'||!fn.add(0x48).readPointer().equals(c)||
+                   !method(camera,'UpdateImpl').equals(fn))throw Error('Unexpected map camera');
+                const rotation=member(camera,'rotation',5);
+                const words=profile.mapUpdateWords,code=fn.add(0x60).readPointer();
+                if(rotation.id!==31||rotation.desc.add(0x50).readU32()!==26||
+                   fn.add(0x68).readU32()!==words.length||!words.every((w,i)=>code.add(i*4).readU32()===w))
+                    throw Error('Unsupported map camera layout');
+                cameraClass=c;
+            }
+            const rotation=camera.add(0x30+26*8);
+            if(rotation.readPointer().shr(48).toUInt32()!==3||!Number.isFinite(rotation.readFloat()))
+                throw Error('Invalid map rotation');
+            if(rotation.readFloat()!==0)rotation.writeFloat(0);
+        }catch(e){northFault=String(e);}
+    }
     function visit(vm,fn){
         restore();visits++;
         const self=receiver(vm);
@@ -55,7 +120,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
             state='active';return; // Native objects already own our tab.
         }
         if(n!==7||m!==7)throw Error('Unsupported settings tab layout');
-        if(!pendingGamma){state='waiting-for-controls';return;}
+        if(!pendingGamma||(mapEnabled&&!pendingStepper)){state='waiting-for-controls';return;}
         const gamma=pendingGamma;
         if(className(gamma)!=='UiOneSettingSliderGammaController'||!get(gamma,'uiSystem').equals(get(self,'uiSystem')))
             throw Error('Unexpected brightness template');
@@ -71,6 +136,11 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
         if(!plan){plan=build(self,gamma,fn,tabs,originalConstants,originalCount);methodOwner=fn;}
         if(!methodOwner.equals(fn))throw Error('Settings method owner changed');
         plan.gammaSlot.writePointer(gamma.or('0x20000000000000'));
+        if(mapEnabled){
+            if(!get(pendingStepper.control,'uiSystem').equals(get(self,'uiSystem')))throw Error('Unexpected on/off template');
+            plan.stepperSlot.writePointer(pendingStepper.control.or('0x20000000000000'));
+            plan.northIndexSlot.writePointer(ptr(northUp?'0x1000000000001':'0x1000000000000'));
+        }
         patch={fn,code:original,constants:originalConstants,count:originalCount,words:profile.createDataWords.length};
         fn.add(0x50).writePointer(plan.constants);fn.add(0x58).writeU32(plan.count);
         fn.add(0x60).writePointer(plan.code);fn.add(0x68).writeU32(plan.words.length);
@@ -85,7 +155,7 @@ const arena=va(ptr(0),65536,0x3000,4);if(arena.isNull())throw Error('Allocation 
 function alloc(n){n=(n+15)&~15;if(used+n>65536)throw Error('Arena full');const p=arena.add(used);used+=n;return p;}
 function textValue(s){const size=encodeURIComponent(s).replace(/%[A-F\d]{2}/gi,'x').length;const b=alloc(48+size+1);b.writeU32(0x10000000);b.add(8).writeU32(size);b.add(12).writeU32(0);b.add(16).writePointer(b.add(48));b.add(24).writeU32(size+1);b.add(48).writeUtf8String(s);return b.or('0x10000000000000');}
 const constants=alloc(64*8);Memory.copy(constants,originalConstants,originalCount*8);let nconst=originalCount;
-function add(v){const i=nconst++;constants.add(i*8).writePointer(v);return i;}
+function add(v){if(nconst>=64)throw Error('Too many menu constants');const i=nconst++;constants.add(i*8).writePointer(v);return i;}
 function typeValue(c){const template=untag(originalConstants.add(5*8).readPointer()),p=alloc(48);Memory.copy(p,template,48);p.writeU32(0x10000000);p.add(8).writeU32(c.add(0x18).readU32());p.add(32).writePointer(c.or('0x3000000000000'));return p.or('0x30000000000000');}
 function type(c){return add(typeValue(c));}
 const preset=obj(tabs.add(0x40).readPointer().readPointer());
@@ -112,6 +182,30 @@ function set(receiver,id,value){return [...value,...receiver,W(60,id),W(2)];}
 function assign(local,value){return [...value,W(59,local),W(2)];}
 function create(local,t){return assign(local,[W(1,1),W(57,t),W(4,0),W(58,t)]);}
 function append(array,value){return [...value,...array,W(66),W(2)];}
+let northRow=[],northData={};
+if(mapEnabled){
+    const template=pendingStepper.control;
+    expectMembers(template,[['view',5,5],['header',39,5],['desc',40,5],['shouldBeVisible',41,5],
+        ['defaultStepperIndex',50,5],['hackCurrent',51,5],['SetForLocale',33,2],['Init',13,2]]);
+    expectMembers(get(template,'view'),[['uiObjectDesc',5,5],['changeSound',31,5],['descriptionImage',32,5]]);
+    const getLocale=member(get(self,'uiSystem'),'GetCurrentLocale',2).id;
+    const stepper=type(pendingStepper.base),stepView=type(cls(get(template,'view')));
+    const stepSource=add(template.or('0x20000000000000')),northKey=add(textValue('EnhancedKeepNorthUp'));
+    const labels=['Keep North Up','Garder le nord en haut'].map(textValue);
+    const descriptions=['Keep north at the top of the map.','Garde le nord en haut de la carte.'].map(textValue);
+    const header=add(labels[0]),help=add(descriptions[0]),index=add(ptr('0x1000000000000'));
+    northData={stepperSlot:constants.add(stepSource*8),northIndexSlot:constants.add(index*8),northLabels:labels,northDescriptions:descriptions};
+    northRow=[
+        ...create(-11,5),...set(L(-11),4,C(northKey)),...set(L(-11),5,B(0)),...append(field(L(-9),4),L(-11)),
+        ...create(-12,stepper),...set(L(-12),39,C(header)),...set(L(-12),40,C(help)),
+        // Select the game's current locale before the view consumes its header.
+        ...stmt(call(L(-12),33,[call(S(9),getLocale)])),
+        ...create(-13,stepView),...set(L(-13),5,field(field(C(stepSource),5),5)),
+        ...set(L(-13),31,field(field(C(stepSource),5),31)),...set(L(-13),32,C(empty)),
+        ...set(L(-12),5,L(-13)),...set(L(-12),41,B(1)),...set(L(-12),50,I(0)),...set(L(-12),51,C(index)),
+        ...stmt(call(L(-12),13,[L(-14)])),...stmt(call(S(56),5,[C(northKey),L(-12)]))
+    ];
+}
 const prefix=[W(1,17),
  ...create(-9,presetType),...set(L(-9),6,C(title)),
  ...create(-10,5),...set(L(-10),4,C(infoKey)),...set(L(-10),5,B(0)),...append(field(L(-9),4),L(-10)),
@@ -141,6 +235,7 @@ const prefix=[W(1,17),
  ...set(L(-12),5,L(-13)),...set(L(-12),39,C(panningLabel)),...set(L(-12),40,C(panningDescription)),...set(L(-12),41,B(options.mapEnabled===false?0:1)),
  ...set(L(-12),50,C(zero)),...set(L(-12),51,C(hundred)),...set(L(-12),52,C(fifty)),...set(L(-12),53,C(one)),...set(L(-12),54,I(2)),
  ...stmt(call(L(-12),13,[L(-14)])),...stmt(call(S(56),5,[C(panningKey),L(-12)])),
+ ...northRow,
  ...append(S(63),L(-9)),
  ...assign(-15,call([W(8)],127,[C(title),C(title)])),
  ...set(L(-15),5,field(call(call(L(0),34),25),148)),
@@ -149,13 +244,19 @@ const prefix=[W(1,17),
 function relocated(words,delta){return words.map(w=>[0x16,0x17,0x18,0x19,0x1a].includes(w&255)?W(w&255,(w>>>8)-0x800000+delta):w);}
 function code(words){const p=alloc(words.length*4);words.forEach((w,i)=>p.add(i*4).writeU32(w));return {p,words};}
 const install=code([...prefix,...relocated(profile.createDataWords.slice(1),prefix.length-1)]);
-return {code:install.p,words:install.words,constants,count:nconst,gammaSlot:constants.add(gammaValue*8),titleValue:constants.add(title*8).readPointer(),labelValue:constants.add(label*8).readPointer(),panningLabelValue:constants.add(panningLabel*8).readPointer(),bytes:used};
+return {...northData,code:install.p,words:install.words,constants,count:nconst,gammaSlot:constants.add(gammaValue*8),titleValue:constants.add(title*8).readPointer(),labelValue:constants.add(label*8).readPointer(),panningLabelValue:constants.add(panningLabel*8).readPointer(),bytes:used};
     }
     return {
         start(framePush,stringPoolSlot){
             if(running)throw Error('Settings menu already started');poolSlot=stringPoolSlot;
             try{
-                hooks.push(attach(framePush,poolSlot,guarded(()=>{pendingGamma=null;}),'UiSettingsController','InitContent'));
+                hooks.push(attach(framePush,poolSlot,guarded(()=>{pendingGamma=null;pendingStepper=null;}),'UiSettingsController','InitContent'));
+                if(mapEnabled){
+                    hooks.push(attach(framePush,poolSlot,guarded(captureStepper),'UiOneSettingStepperController','InitContent'));
+                    hooks.push(attach(framePush,poolSlot,guarded(setNorthLocale),'ComponentUiControllerBase','SetForLocale'));
+                    hooks.push(attach(framePush,poolSlot,guarded(changeNorth),'UiOneSettingStepperOnOff','UpdateStatus'));
+                    hooks.push(attach(framePush,poolSlot,orientCamera,'MinimapCameraController','UpdateImpl'));
+                }
                 hooks.push(attach(framePush,poolSlot,guarded(capture),'UiOneSettingSliderController','InitContent'));
                 // Also supports attachment after the game has initialized its settings.
                 hooks.push(attach(framePush,poolSlot,guarded(capture),'UiOneSettingSliderGammaController','GetCurrentValue'));
@@ -164,7 +265,7 @@ return {code:install.p,words:install.words,constants,count:nconst,gammaSlot:cons
                 running=true;state='waiting-for-settings';
             }catch(e){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{panning.stop();}throw e;}
         },
-        status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0,zoomSensitivity:zoom.status(),panningSensitivity:panning.status()};},
+        status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0,zoomSensitivity:zoom.status(),panningSensitivity:panning.status(),keepNorthUp:{enabled:mapEnabled&&northUp,fault:northFault}};},
         stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{try{panning.stop();}finally{restore();running=false;state='stopped';}}}
     };
 }

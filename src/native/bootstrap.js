@@ -6,7 +6,7 @@ let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
 let menuFailure = null;
 function reportNative(state, extra = {}) {
     featureState = state;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.19',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.21',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
@@ -49,12 +49,13 @@ function attemptStart() {
     // attaches to the shared VM entry point. Its failure does not disable the UI.
     try {
         const validPreference = value => Number.isInteger(value) && value >= 0 && value <= 100 ? value : 50;
-        const preferences = {schemaVersion: 2, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
-            panningSensitivity: validPreference(ENHANCED_HOST.panningSensitivity)};
+        const preferences = {schemaVersion: 3, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
+            panningSensitivity: validPreference(ENHANCED_HOST.panningSensitivity), keepNorthUp: ENHANCED_HOST.keepNorthUp===true};
         const savePreference = (key, value) => { preferences[key] = value; send({enhancedSettings: {...preferences}}); };
         settingsMenu = makeEnhancedSettingsMenu(SETTINGS_PROFILE, hookHudHintUpdates, {
             mapEnabled: CONFIG.features.map, zoomSensitivity: preferences.zoomSensitivity,
-            panningSensitivity: preferences.panningSensitivity,
+            panningSensitivity: preferences.panningSensitivity, keepNorthUp: preferences.keepNorthUp,
+            onNorthChange: value => savePreference('keepNorthUp', value),
             onZoomChange: value => savePreference('zoomSensitivity', value),
             onPanningChange: value => savePreference('panningSensitivity', value)
         });

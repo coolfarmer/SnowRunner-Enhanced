@@ -30,7 +30,12 @@ rpc.exports.run=(scenario)=>{
  const barClass=klass('TabBar',[['items',65,5],['CreateItem',52,2],['UnsubscribeContent',29,2],['SubscribeContent',28,2],['Show',16,2]]);
  const presetClass=klass('Preset',[['name',6,5]]),arrayClass=klass('array');
  function array(n){const a=object(arrayClass);a.add(0x40).writePointer(alloc(128));a.add(0x48).writeU32(n);return a;}
- const self=object(settingsClass),gamma=object(gammaClass),bar=object(barClass),tabs=array(7),items=array(7),system=object(klass('System'));
+ const self=object(settingsClass),gamma=object(gammaClass),bar=object(barClass),tabs=array(7),items=array(7),system=object(klass('System',[['GetCurrentLocale',70,2]]));
+ const stepMembers=[...props([['view',5],['uiSystem',9],['header',39],['desc',40],['shouldBeVisible',41],['defaultStepperIndex',50],['hackCurrent',51]]),['SetForLocale',33,2],['Init',13,2]];
+ const onOff=klass('UiOneSettingStepperOnOff',stepMembers),derived=klass('NativeToggle',stepMembers),step=object(derived);
+ derived.add(0x20).writePointer(onOff);
+ const stepView=klass('UiOneSettingStepperView',props([['uiObjectDesc',5],['changeSound',31],['descriptionImage',32]]));
+ put(step,5,tag(object(stepView)));put(step,9,tag(system));
  put(self,63,tag(tabs));put(self,57,tag(bar));put(bar,65,tag(items));put(gamma,5,tag(object(viewClass)));put(gamma,9,tag(system));put(self,9,tag(system));
  tabs.add(0x40).readPointer().writePointer(tag(object(presetClass)));
  const constants=alloc(80),code=alloc(PROFILE.createDataWords.length*4),fn=alloc(128),sig=alloc(16);
@@ -38,11 +43,11 @@ rpc.exports.run=(scenario)=>{
  descriptor(settingsClass,20).add(0x50).writePointer(constants);
  PROFILE.createDataWords.forEach((w,i)=>code.add(i*4).writeU32(w));sig.writeU32(name('CreateData'));
  fn.add(0x40).writePointer(sig);fn.add(0x50).writePointer(constants);fn.add(0x58).writeU32(10);fn.add(0x60).writePointer(code);fn.add(0x68).writeU32(PROFILE.createDataWords.length);
- function vm(p){const v=alloc(32),args=alloc(8);args.writePointer(tag(p));v.add(0x18).writePointer(args);return v;}
+ function vm(p,arg=ptr(0)){const v=alloc(32),args=alloc(16);args.writePointer(tag(p));args.add(8).writePointer(arg);v.add(0x18).writePointer(args);return v;}
  const callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};});
  menu.start(ptr(0),slot);
  const visit=()=>callbacks['UiSettingsController.CreateData'](vm(self),fn);
- const capture=()=>callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);
+ const capture=()=>{callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);callbacks['UiOneSettingStepperController.InitContent'](vm(step),fn);};
  visit();const waiting=menu.status();capture();
  if(scenario==='body')code.add(8).writeU32(0);
  if(scenario==='tabs'){tabs.add(0x48).writeU32(8);items.add(0x48).writeU32(8);tabs.add(0x40).readPointer().add(56).writePointer(tag(object(presetClass)));}
@@ -53,8 +58,29 @@ rpc.exports.run=(scenario)=>{
   const expected=[22,23,24,25,26].includes(w&255)?(w+delta*256)>>>0:w;
   return replacement.add((delta+1+i)*4).readU32()===expected;
  });
- const strings=[];let title=null,label=null,panningLabel=null;
- for(let i=10;i<fn.add(0x58).readU32();i++){const v=newConstants.add(i*8).readPointer();if(v.shr(48).toUInt32()===16){const p=untag(v),s=p.add(16).readPointer().readUtf8String(p.add(8).readU32());strings.push(s);if(s==='ENHANCED')title=v;if(s==='Zoom sensitivity')label=v;if(s==='Panning sensitivity')panningLabel=v;}}
+ const strings=[];let title=null,label=null,panningLabel=null,northLabel=null;
+ for(let i=10;i<fn.add(0x58).readU32();i++){const v=newConstants.add(i*8).readPointer();if(v.shr(48).toUInt32()===16){const p=untag(v),s=p.add(16).readPointer().readUtf8String(p.add(8).readU32());strings.push(s);if(s==='ENHANCED')title=v;if(s==='Zoom sensitivity')label=v;if(s==='Panning sensitivity')panningLabel=v;if(s==='Keep North Up')northLabel=v;}}
+ if(scenario==='north'){
+   const row=object(onOff);put(row,39,northLabel);
+   function locale(value){
+     const s=alloc(48);s.add(8).writeU32(value.length);s.add(12).writeU32(1);s.add(16).writeUtf8String(value);
+     callbacks['ComponentUiControllerBase.SetForLocale'](vm(row,s.or('0x10000000000000')));
+     const header=untag(row.add(0x30+39*8).readPointer());return header.add(16).readPointer().readUtf8String();
+   }
+   const french=locale('fr-FR'),english=locale('en');
+   const cc=klass('MinimapCameraController',[['rotation',31,5],['UpdateImpl',91,2]]);
+   descriptor(cc,31).add(0x50).writeU32(26);
+   const camera=object(cc),rotation=camera.add(0x30+26*8),update=descriptor(cc,91),words=alloc(PROFILE.mapUpdateWords.length*4);
+   PROFILE.mapUpdateWords.forEach((w,i)=>words.add(i*4).writeU32(w));
+   update.add(0x48).writePointer(cc);update.add(0x60).writePointer(words);update.add(0x68).writeU32(PROFILE.mapUpdateWords.length);
+   rotation.writePointer(ptr('0x3000000000000'));rotation.writeFloat(-278.7);
+   const frame=()=>callbacks['MinimapCameraController.UpdateImpl'](vm(camera),update);
+   // The live stepper reuses the comparison slot; OFF has nonzero padding.
+   const change=(p,v)=>callbacks['UiOneSettingStepperOnOff.UpdateStatus'](vm(p,ptr(v?'0x20000d62d1c01':'0x20000d62d1c00')));
+   change(step,true);frame();const free=rotation.readFloat();change(row,true);frame();const aligned=rotation.readFloat();
+   rotation.writeFloat(12);frame();const locked=rotation.readFloat();change(row,false);rotation.writeFloat(27);frame();
+   menu.stop();return {french,english,free,aligned,locked,unlocked:rotation.readFloat(),state:menu.status()};
+ }
  const slider=object(sliderClass),sliderView=object(viewClass);put(slider,39,label);put(slider,5,tag(sliderView));
  callbacks['UiOneSettingSliderController.GetCurrentValue'](vm(slider));
  const boundValue=slider.add(0x30+55*8).readFloat(),boundFormat=sliderView.add(0x30+41*8).readPointer().toString();
@@ -95,6 +121,14 @@ class SettingsMenuTests(unittest.TestCase):
         self.script.unload()
         self.device.kill(self.pid)
 
+    def test_localized_north_toggle_locks_only_its_own_camera_setting(self):
+        result = self.script.exports_sync.run('north')
+        self.assertEqual(result['french'], 'Garder le nord en haut')
+        self.assertEqual(result['english'], 'Keep North Up')
+        self.assertAlmostEqual(result['free'], -278.7, places=3)
+        self.assertEqual((result['aligned'], result['locked'], result['unlocked']), (0, 0, 27))
+        self.assertIsNone(result['state']['keepNorthUp']['fault'])
+
     def test_lifecycle_branch_relocation_and_utf8(self):
         r = self.script.exports_sync.run('normal')
         self.assertEqual(r['waiting']['status'], 'waiting-for-controls')
@@ -104,6 +138,7 @@ class SettingsMenuTests(unittest.TestCase):
         self.assertIn('Pourquoi je vois ça?', r['strings'])
         self.assertIn('MAP', r['strings'])
         self.assertIn('Panning sensitivity', r['strings'])
+        self.assertIn('Keep North Up', r['strings'])
         self.assertTrue(any('cinquante fois plus lent' in s and 'sauvegardés' in s for s in r['strings']))
         self.assertEqual(r['panValue'], 50)
         self.assertTrue(r['separate'])

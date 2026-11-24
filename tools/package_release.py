@@ -7,7 +7,7 @@ import zipfile
 from asi_loaders import LOADERS, loader_path, verify
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0-preview.19'
+VERSION = '0.1.0-preview.21'
 PACKAGE = ROOT / 'dist' / ('SnowRunnerEnhanced-' + VERSION)
 
 
@@ -32,7 +32,7 @@ def main():
     manifest = {'schemaVersion': 1, 'product': 'SnowRunnerEnhanced', 'version': VERSION,
                 'payload': payload, 'compatibleLoaders': LOADERS, 'features': ['wheel_mouse', 'skip_startup_logos', 'map'],
                 'coreComponents': ['settings_menu'],
-                'validation': 'Preview; map zoom and mouse rotation sensitivity validated in memory; see packaged validation notes'}
+                'validation': 'Keep North Up tested in game. Preview.21 keeps OFF selected and restores free map rotation.'}
     manifest_path = PACKAGE / 'Sources/package.json'
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     # Explicit archive allowlist excludes Reports, test hosts, personal paths and

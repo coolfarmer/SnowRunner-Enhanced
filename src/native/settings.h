@@ -3,7 +3,7 @@
 static wchar_t settings_path[32768], settings_temp[32768];
 static const char *settings_state = "default";
 
-typedef struct { int zoom, panning; } SettingsPreferences;
+typedef struct { int zoom, panning; BOOL keep_north_up; } SettingsPreferences;
 
 static int SettingsNumber(JsonNode *node) {
     if (!node || json_node_get_value_type(node)!=G_TYPE_INT64) return -1;
@@ -17,12 +17,13 @@ static BOOL SettingsValue(JsonNode *node, SettingsPreferences *result) {
     JsonNode *schema=json_object_get_member(root,"schemaVersion");
     if (!schema || json_node_get_value_type(schema)!=G_TYPE_INT64) return FALSE;
     gint64 version=json_node_get_int(schema);
-    if ((version!=1 && version!=2) || json_object_get_size(root)!=(version==1?2:3)) return FALSE;
+    if (version<1 || version>3 || json_object_get_size(root)!=(guint)(version+1)) return FALSE;
     int zoom=SettingsNumber(json_object_get_member(root,"zoomSensitivity"));
     // Upgrade preview.18 preferences without changing the existing zoom value.
     int panning=version==1?50:SettingsNumber(json_object_get_member(root,"panningSensitivity"));
-    if (zoom<0 || panning<0) return FALSE;
-    result->zoom=zoom;result->panning=panning;
+    JsonNode *north=json_object_get_member(root,"keepNorthUp");
+    if (zoom<0 || panning<0 || (version==3 && (!north || json_node_get_value_type(north)!=G_TYPE_BOOLEAN))) return FALSE;
+    result->zoom=zoom;result->panning=panning;result->keep_north_up=version==3 && json_node_get_boolean(north);
     return TRUE;
 }
 
@@ -47,7 +48,7 @@ static SettingsPreferences SettingsLoad(const wchar_t *folder) {
 
 static BOOL SettingsSave(JsonNode *node) {
     SettingsPreferences values;if(!SettingsValue(node,&values))return FALSE;
-    char text[128];int count=snprintf(text,sizeof(text),"{\"schemaVersion\":2,\"zoomSensitivity\":%d,\"panningSensitivity\":%d}\n",values.zoom,values.panning);
+    char text[128];int count=snprintf(text,sizeof(text),"{\"schemaVersion\":3,\"zoomSensitivity\":%d,\"panningSensitivity\":%d,\"keepNorthUp\":%s}\n",values.zoom,values.panning,values.keep_north_up?"true":"false");
     HANDLE file=CreateFileW(settings_temp,GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_DELETE,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
     if(file==INVALID_HANDLE_VALUE){settings_state="write-error";return FALSE;}
     DWORD written=0;

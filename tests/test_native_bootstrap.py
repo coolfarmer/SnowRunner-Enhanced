@@ -32,7 +32,7 @@ rpc.exports={
  set:(key,value)=>{if(key==='menu')menuError=value;if(key==='features')CONFIG.features=value;if(key==='scan')scanError=value;if(key==='start')startError=value;if(key==='faults')faults=value;if(key==='ids')data.writeU32(value);},
  tick:()=>{if(queued.length)queued.shift()();},
  monitor:()=>{if(interval)interval();},
- change:(key,value)=>menuOptions[key==='zoom'?'onZoomChange':'onPanningChange'](value),
+ change:(key,value)=>menuOptions[{zoom:'onZoomChange',panning:'onPanningChange',north:'onNorthChange'}[key]](value),
  state:()=>({settingsSaves,states,starts,stops,active,menuStarts,order,mapEnabled:menuOptions?.mapEnabled,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
 '''
         self.script = self.device.create_script(source)
@@ -47,11 +47,13 @@ rpc.exports={
         self.api.tick()
         self.api.change('panning', 0)
         self.api.change('zoom', 75)
+        self.api.change('north', True)
         self.api.change('panning', 50)
         self.assertEqual(self.api.state()['settingsSaves'], [
-            dict(schemaVersion=2, zoomSensitivity=50, panningSensitivity=0),
-            dict(schemaVersion=2, zoomSensitivity=75, panningSensitivity=0),
-            dict(schemaVersion=2, zoomSensitivity=75, panningSensitivity=50)])
+            dict(schemaVersion=3, zoomSensitivity=50, panningSensitivity=0, keepNorthUp=False),
+            dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=False),
+            dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=True),
+            dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=50, keepNorthUp=True)])
 
     def test_discovery_retries_without_hooks_and_stops(self):
         self.api.set('scan', True)

@@ -30,11 +30,18 @@ class NativeSettingsTests(unittest.TestCase):
             for zoom, panning in [(75,0),(100,25),(0,100),(50,50)]:
                 self.assertEqual(run(dict(schemaVersion=2,zoomSensitivity=zoom,panningSensitivity=panning))['saved'], 1)
                 self.assertEqual((run()['value'], run()['panning']), (zoom, panning))
-                self.assertEqual(json.loads(path.read_text())['schemaVersion'], 2)
+                self.assertEqual(json.loads(path.read_text())['schemaVersion'], 3)
+                self.assertFalse(run()['keepNorthUp'])
+            for locked in [True, False]:
+                self.assertEqual(run(dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=25, keepNorthUp=locked))['saved'], 1)
+                self.assertEqual(run()['keepNorthUp'], locked)
             before = path.read_bytes()
             for value in [-1,101,1.5,'75',True,None]:
                 self.assertEqual(run(dict(schemaVersion=1,zoomSensitivity=value))['saved'], 0)
                 self.assertEqual(run(dict(schemaVersion=2,zoomSensitivity=75,panningSensitivity=value))['saved'], 0)
+                self.assertEqual(path.read_bytes(), before)
+            for invalid in [1,'true',None]:
+                self.assertEqual(run(dict(schemaVersion=3,zoomSensitivity=75,panningSensitivity=50,keepNorthUp=invalid))['saved'], 0)
                 self.assertEqual(path.read_bytes(), before)
             for data in ['broken', '{}', '[]', '{"schemaVersion":2,"zoomSensitivity":75}',
                          '{"schemaVersion":1,"zoomSensitivity":75,"extra":1}', 'x'*2048]:

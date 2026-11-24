@@ -1,5 +1,7 @@
 # SnowRunner Enhanced
 
+Preview.21 adds **Keep North Up** under **ENHANCED → MAP**. Turn it on to align a rotated map with north. Turn it off to rotate freely again. Both directions have been tested in game.
+
 Preview.17 adds the always-on **ENHANCED** settings menu, independent of the optional enhancements.
 
 Preview.15 fixes the map icon’s upper-right hover and click area, now grouped under enhancement #3: Map.
@@ -11,7 +13,7 @@ user confirmed the result. The installed preview.15 was then tested and
 confirmed in game on November 23, 2026; both repairs are active with no
 instrumentation faults reported.
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.19** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.21** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
 Opening Functions with the keyboard or wheel now releases mouse camera capture
@@ -102,3 +104,5 @@ The **ENHANCED** tab follows **STEERING WHEEL** in the game settings. It belongs
 The informational row **Pourquoi je vois ça?** displays contextual help without a value on the right. With enhancement #3 **Map** enabled, **Zoom sensitivity** controls map zoom immediately. Its numeric value appears on the right: **0 = ×0.25, 50 = the original game setting, 100 = ×4**. Restore defaults returns it to 50. The preference is saved in `SnowRunnerEnhanced.settings.json` next to the plugin and retained across upgrades and reinstalls. The explanatory text is currently in French.
 
 **Panning sensitivity**, below zoom in **ENHANCED → MAP**, controls rotation while holding the right mouse button: **0 = fifty times slower (×0.02), 50 = original speed, 100 = four times faster**. The initial and restored default is **50**. Changes take effect immediately; zoom and rotation are saved independently in the same preferences file. Existing zoom preferences are preserved, with rotation initially set to 50.
+
+**Keep North Up** locks the map with north at the top. Turn it off to rotate the map freely. It starts off and remembers your choice.
