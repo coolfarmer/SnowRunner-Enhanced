@@ -33,7 +33,7 @@ rpc.exports={
  tick:()=>{if(queued.length)queued.shift()();},
  monitor:()=>{if(interval)interval();},
  change:(key,value)=>menuOptions[{zoom:'onZoomChange',panning:'onPanningChange',north:'onNorthChange'}[key]](value),
- state:()=>({settingsSaves,states,starts,stops,active,menuStarts,order,mapEnabled:menuOptions?.mapEnabled,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
+ state:()=>({settingsSaves,states,starts,stops,active,menuStarts,order,mapEnabled:menuOptions?.modules.map,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
 '''
         self.script = self.device.create_script(source)
         self.script.load()

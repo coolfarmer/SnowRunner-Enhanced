@@ -1,4 +1,8 @@
-# SnowRunner Enhanced — 0.1.0-preview.26
+# SnowRunner Enhanced — 0.1.0-preview.28
+
+Les options grisées de CARTE et VÉHICULE correspondent à un module désactivé. Activez le module dans l’installateur pour accéder à ses options au prochain lancement du jeu.
+
+Sur les versions preview.27 et preview.28, le joueur a vérifié en jeu que les trois options de CARTE et l’option Marche arrière automatique de VÉHICULE étaient grisées lorsque leurs modules étaient désactivés. Après réactivation des modules dans l’installateur, il a confirmé que les quatre options étaient de nouveau accessibles.
 
 ## Enhancement #5 – Vehicle
 

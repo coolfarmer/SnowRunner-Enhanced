@@ -1,4 +1,8 @@
-# SnowRunner Enhanced — 0.1.0-preview.26
+# SnowRunner Enhanced — 0.1.0-preview.28
+
+Grayed-out MAP and VEHICLE options belong to a disabled module. Enable the module in the installer to use its options the next time you start the game.
+
+In both preview.27 and preview.28, the player verified in game that the three MAP options and the VEHICLE Automatic reverse option were grayed out when their modules were disabled and became accessible again after the modules were re-enabled.
 
 ## Enhancement #5 – Vehicle
 

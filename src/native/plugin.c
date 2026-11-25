@@ -60,7 +60,7 @@ static void WriteReport(const char *text) {
 static void SimpleStatus(const char *status, const char *reason) {
     char out[1024];
     SYSTEMTIME now; GetSystemTime(&now);
-    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.26\","
+    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.28\","
         "\"processId\":%lu,\"timeUtc\":\"%04u-%02u-%02uT%02u:%02u:%02uZ\","
         "\"features\":{\"wheel_mouse\":{\"status\":\"%s\",\"reason\":\"%s\"}}}",
         (unsigned long)GetCurrentProcessId(), now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, status, reason);
@@ -90,6 +90,21 @@ static BOOL HashGame(char hex[65]) {
     return ok;
 }
 
+// These installer keys also identify sections in the Enhanced settings menu.
+static const struct { const char *key; int bit; } modules[] = {
+    {"wheel_mouse", 1}, {"skip_startup_logos", 2}, {"map", 4},
+    {"general_improvements", 8}, {"vehicle", 16}
+};
+
+static char *MenuModuleFlags(int enabled) {
+    GString *flags = g_string_new("{");
+    for (size_t i = 0; i < G_N_ELEMENTS(modules); i++)
+        g_string_append_printf(flags, "%s\"%s\":%s", i ? "," : "", modules[i].key,
+            (enabled & modules[i].bit) ? "true" : "false");
+    g_string_append_c(flags, '}');
+    return g_string_free(flags, FALSE);
+}
+
 static int ReadConfiguration(const wchar_t *folder) {
     wchar_t path[32768]; swprintf_s(path, 32768, L"%lsSnowRunnerEnhanced.json", folder);
     HANDLE file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
@@ -116,8 +131,10 @@ static int ReadConfiguration(const wchar_t *folder) {
                 GList *members = json_object_get_members(entries);
                 for (GList *m = members; m; m = m->next) {
                     const char *key = m->data;
-                    int bit = !strcmp(key, "wheel_mouse") ? 1 : !strcmp(key, "skip_startup_logos") ? 2 :
-                        !strcmp(key, "map") ? 4 : !strcmp(key, "general_improvements") ? 8 : !strcmp(key, "vehicle") ? 16 : 0;
+                    int bit = 0;
+                    for (size_t i = 0; i < G_N_ELEMENTS(modules); i++) {
+                        if (!strcmp(key, modules[i].key)) { bit = modules[i].bit; break; }
+                    }
                     JsonNode *entryNode = json_object_get_member(entries, key);
                     if (!bit || !JSON_NODE_HOLDS_OBJECT(entryNode)) { enabled = -1; break; }
                     JsonObject *entry = json_node_get_object(entryNode);
@@ -174,8 +191,10 @@ static void EnhancedStart(void) {
     GMainContext *context = g_main_context_new();
     g_main_context_push_thread_default(context);
     SettingsPreferences preferences=SettingsLoad(folder);
-    char *source = g_strdup_printf("const ENHANCED_HOST={gameSha256:'%s',general:%s,wheelMouse:%s,map:%s,zoomSensitivity:%d,panningSensitivity:%d,keepNorthUp:%s,vehicle:%s,automaticReverse:%s};\n%s", hash, (enabled & 8) ? "true" : "false", (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", preferences.zoom, preferences.panning, preferences.keep_north_up?"true":"false", (enabled & 16)?"true":"false", preferences.automatic_reverse?"true":"false", enhanced_bundle);
+    char *module_flags = MenuModuleFlags(enabled);
+    char *source = g_strdup_printf("const ENHANCED_HOST={modules:%s,gameSha256:'%s',general:%s,wheelMouse:%s,map:%s,zoomSensitivity:%d,panningSensitivity:%d,keepNorthUp:%s,vehicle:%s,automaticReverse:%s};\n%s", module_flags, hash, (enabled & 8) ? "true" : "false", (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", preferences.zoom, preferences.panning, preferences.keep_north_up?"true":"false", (enabled & 16)?"true":"false", preferences.automatic_reverse?"true":"false", enhanced_bundle);
     GError *error = NULL;
+    g_free(module_flags);
     GumScript *script = gum_script_backend_create_sync(gum_script_backend_obtain_qjs(), "Enhanced", source, NULL, NULL, &error);
     g_free(source);
     if (!script) { SimpleStatus("error", "Embedded runtime initialization failed"); if (error) g_error_free(error); return; }

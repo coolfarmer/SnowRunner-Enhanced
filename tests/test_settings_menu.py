@@ -47,7 +47,13 @@ rpc.exports.run=(scenario)=>{
  PROFILE.createDataWords.forEach((w,i)=>code.add(i*4).writeU32(w));sig.writeU32(name('CreateData'));
  fn.add(0x40).writePointer(sig);fn.add(0x50).writePointer(constants);fn.add(0x58).writeU32(10);fn.add(0x60).writePointer(code);fn.add(0x68).writeU32(PROFILE.createDataWords.length);
  function vm(p,arg=ptr(0)){const v=alloc(32),args=alloc(16);args.writePointer(tag(p));args.add(8).writePointer(arg);v.add(0x18).writePointer(args);return v;}
- const reverseChanges=[],callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{mapEnabled:scenario!=='no-map',vehicleEnabled:true,onReverseChange:value=>reverseChanges.push(value)});
+ const future=scenario.startsWith('future-');
+ if(future){
+   enhancedMenuSections.push({module:'future',category:'category',rows:[
+     {key:'EnhancedFuture',kind:'slider',label:'zoomLabel',help:'zoomDesc'}
+   ]});
+ }
+ const reverseChanges=[],callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{modules:{map:!['no-map','both-off'].includes(scenario),vehicle:!['no-vehicle','both-off'].includes(scenario),future:scenario==='future-on'},onReverseChange:value=>reverseChanges.push(value)});
  menu.start(ptr(0),slot);
  const visit=()=>callbacks['UiSettingsController.CreateData'](vm(self),fn);
  const capture=()=>{callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);callbacks['UiOneSettingStepperController.InitContent']?.(vm(step),fn);};
@@ -87,7 +93,21 @@ rpc.exports.run=(scenario)=>{
    if(row.equals(self))callbacks['UiSettingsController.SetForLocale'](args,localeFn);
    else callbacks['ComponentUiControllerBase.SetForLocale'](args);
  }
- if(scenario==='locales'||scenario==='no-map'){
+ if(future || ['locales','no-map','no-vehicle','both-off'].includes(scenario)){
+   const skip={},dimmed=[],mouseBlocked=[];
+   let key;
+   for(let i=0;i<delta;i++){
+     const word=replacement.add(4*i).readU32(),op=word&255,arg=(word>>>8)-0x800000;
+     if(op===6){
+       const v=newConstants.add(arg*8).readPointer();
+       if(v.shr(48).toUInt32()===16 && /^Enhanced(About|Zoom|Panning|KeepNorthUp|AutomaticReverse|Future)$/.test(readText(v)))key=readText(v);
+     }
+     if(op===60 && arg===5 && (replacement.add((i-2)*4).readU32()&255)===5)
+       skip[key]=replacement.add((i-2)*4).readU32()===0x80000105;
+     if(op===60 && arg===25)dimmed.push(key);
+     if(op===60 && (arg===22 || arg===23))mouseBlocked.push([key,arg]);
+   }
+   if(future){menu.stop();enhancedMenuSections.pop();return {skip,dimmed,mouseBlocked};}
    function displayedStrings(){
      const words=fn.add(0x60).readPointer(),prefixLength=fn.add(0x68).readU32()-PROFILE.createDataWords.length+1;
      const result=new Set();
@@ -122,7 +142,7 @@ rpc.exports.run=(scenario)=>{
    const refreshed=!fn.add(0x60).readPointer().equals(replacement)&&!fn.add(0x60).readPointer().equals(code);
    const usedRefresh=displayedStrings();
    put(enhanced,6,title);visit();const restored=fn.add(0x60).readPointer().equals(code);
-   menu.stop();return {usedEn,usedFr,usedRefresh,en:Object.keys(en),fr:Object.keys(fr),explicitEnglish:Object.keys(explicitEnglish),fallback:Object.keys(fallback),refreshed,restored,redrawsScreen,localeRestored:localeFn.add(0x60).readPointer().equals(localeCode),
+   menu.stop();return {skip,dimmed,usedEn,usedFr,usedRefresh,en:Object.keys(en),fr:Object.keys(fr),explicitEnglish:Object.keys(explicitEnglish),fallback:Object.keys(fallback),refreshed,restored,redrawsScreen,localeRestored:localeFn.add(0x60).readPointer().equals(localeCode),
      zoom:slider.add(0x30+55*8).readFloat(),pan:pan.add(0x30+55*8).readFloat(),status:menu.status()};
  }
  if(scenario==='north'){
@@ -206,7 +226,7 @@ class SettingsMenuTests(unittest.TestCase):
         self.assertFalse(r['stopped']['running'])
 
     def test_every_visible_string_follows_the_game_locale(self):
-        for scenario in ('locales', 'no-map'):
+        for scenario in ('locales', 'no-map', 'no-vehicle', 'both-off'):
             with self.subTest(scenario=scenario):
                 result = self.script.exports_sync.run(scenario)
                 english, french = set(result['en']), set(result['fr'])
@@ -217,17 +237,20 @@ class SettingsMenuTests(unittest.TestCase):
                                  'Panning sensitivity', 'Keep North Up', 'Off', 'On'} <= english - french)
                 self.assertTrue({'CARTE', 'Pourquoi cet onglet ?', 'Sensibilité du zoom',
                                  'Sensibilité de rotation', 'Garder le nord en haut', 'Désactivé', 'Activé'} <= french - english)
-                unused_en, unused_fr = set(), set()
-                if scenario == 'no-map':
-                    unused_en = {s for s in english if s == 'Keep North Up' or s.startswith('Keeps north')}
-                    unused_fr = {s for s in french if s == 'Garder le nord en haut' or s.startswith('Garde le nord')}
-                self.assertEqual((english - french) - set(result['usedEn']), unused_en)
-                self.assertEqual((french - english) - set(result['usedFr']), unused_fr)
-                self.assertEqual((english - french) - set(result['usedRefresh']), unused_en)
+                for actual, expected in [('usedEn', english - french), ('usedFr', french - english),
+                                         ('usedRefresh', english - french)]:
+                    self.assertTrue(expected <= set(result[actual]))
+                disabled = set()
+                if scenario in ('no-map', 'both-off'):
+                    disabled.update(('EnhancedZoom', 'EnhancedPanning', 'EnhancedKeepNorthUp'))
+                if scenario in ('no-vehicle', 'both-off'):
+                    disabled.add('EnhancedAutomaticReverse')
+                self.assertEqual({key for key, skip in result['skip'].items() if skip}, disabled)
+                self.assertEqual(set(result['dimmed']), disabled)
                 self.assertEqual(len(english - french), 14)
                 self.assertEqual(len(french - english), 14)
-                for texts, extracts in [(english, ('four times slower', 'fifty times slower', 'freely', 'plugin')),
-                                        (french, ('quatre fois plus lent', 'cinquante fois plus lentement', 'librement', 'plugin'))]:
+                for texts, extracts in [(english, ('four times slower', 'fifty times slower', 'freely', 'in the installer')),
+                                        (french, ('quatre fois plus lent', 'cinquante fois plus lentement', 'librement', 'dans l’installateur'))]:
                     for extract in extracts:
                         self.assertTrue(any(extract in text for text in texts), extract)
                 self.assertIsNone(result['status']['fault'])
@@ -235,6 +258,14 @@ class SettingsMenuTests(unittest.TestCase):
                 self.assertTrue(result['redrawsScreen'] and result['localeRestored'])
                 if scenario == 'locales':
                     self.assertEqual((result['zoom'], result['pan']), (50, 50))
+
+    def test_new_module_inherits_row_access_from_its_installer_flag(self):
+        key = 'EnhancedFuture'
+        for enabled in (False, True):
+            state = self.script.exports_sync.run('future-on' if enabled else 'future-off')
+            self.assertEqual(state['skip'][key], not enabled)
+            self.assertEqual(state['dimmed'], [] if enabled else [key])
+            self.assertEqual(state['mouseBlocked'], [] if enabled else [[key, 22], [key, 23]])
 
     def test_vehicle_toggle_applies_each_transition_once(self):
         self.assertEqual(self.script.exports_sync.run('reverse')['reverseChanges'], [False, True])

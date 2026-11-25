@@ -1,5 +1,7 @@
 # SnowRunner Enhanced
 
+In both preview.27 and preview.28, the player verified in game that the three MAP options and the VEHICLE Automatic reverse option were grayed out when their modules were disabled and became accessible again after the modules were re-enabled.
+
 ## Enhancement #5 – Vehicle
 
 The player confirmed the preview.25 Vehicle option works in game.
@@ -27,7 +29,7 @@ user confirmed the result. The installed preview.15 was then tested and
 confirmed in game on November 23, 2026; both repairs are active with no
 instrumentation faults reported.
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.26** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.28** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
 Opening Functions with the keyboard or wheel now releases mouse camera capture

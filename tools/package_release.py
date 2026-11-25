@@ -7,7 +7,7 @@ import zipfile
 from asi_loaders import LOADERS, loader_path, verify
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0-preview.26'
+VERSION = '0.1.0-preview.28'
 PACKAGE = ROOT / 'dist' / ('SnowRunnerEnhanced-' + VERSION)
 
 
@@ -32,7 +32,7 @@ def main():
     manifest = {'schemaVersion': 1, 'product': 'SnowRunnerEnhanced', 'version': VERSION,
                 'payload': payload, 'compatibleLoaders': LOADERS, 'features': ['wheel_mouse', 'skip_startup_logos', 'map', 'general_improvements', 'vehicle'],
                 'coreComponents': ['settings_menu'],
-                'validation': 'Functions menu wraparound confirmed in game. Hold-to-scroll confirmed in installed preview.24 with keyboard and controller D-pad. Vehicle automatic reverse confirmed in a live memory trial. The player confirmed the preview.25 Vehicle option works in game.'}
+                'validation': 'Functions menu wraparound confirmed in game. Hold-to-scroll confirmed in installed preview.24 with keyboard and controller D-pad. Vehicle automatic reverse confirmed in a live memory trial. The player confirmed the preview.25 Vehicle option works in game. In both preview.27 and preview.28, the player verified in game that the three MAP options and the VEHICLE Automatic reverse option were grayed out when their modules were disabled and became accessible again after the modules were re-enabled.'}
     manifest_path = PACKAGE / 'Sources/package.json'
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     # Explicit archive allowlist excludes Reports, test hosts, personal paths and

@@ -7,7 +7,7 @@ let vehicle = null, vehicleError = null;
 let menuFailure = null, functionsRepeat = null, repeatState = "disabled";
 function reportNative(state, extra = {}) {
     featureState = state;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.26',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.28',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
@@ -62,9 +62,10 @@ function attemptStart() {
             panningSensitivity: validPreference(ENHANCED_HOST.panningSensitivity), keepNorthUp: ENHANCED_HOST.keepNorthUp===true};
         const savePreference = (key, value) => { preferences[key] = value; send({enhancedSettings: {...preferences}}); };
         settingsMenu = makeEnhancedSettingsMenu(SETTINGS_PROFILE, hookHudHintUpdates, {
-            vehicleEnabled: !!vehicle, automaticReverse: preferences.automaticReverse,
+            modules: {...ENHANCED_HOST.modules, map: CONFIG.features.map, vehicle: !!vehicle},
+            automaticReverse: preferences.automaticReverse,
             onReverseChange: value => { vehicle.set(value); savePreference('automaticReverse', value); },
-            mapEnabled: CONFIG.features.map, zoomSensitivity: preferences.zoomSensitivity,
+            zoomSensitivity: preferences.zoomSensitivity,
             panningSensitivity: preferences.panningSensitivity, keepNorthUp: preferences.keepNorthUp,
             onNorthChange: value => savePreference('keepNorthUp', value),
             onZoomChange: value => savePreference('zoomSensitivity', value),

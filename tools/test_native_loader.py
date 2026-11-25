@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.26/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.28/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
