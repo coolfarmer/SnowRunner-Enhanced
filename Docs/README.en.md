@@ -1,4 +1,15 @@
-# SnowRunner Enhanced — 0.1.0-preview.30
+# SnowRunner Enhanced — 0.1.0-preview.33
+
+Preview.33 marks MAP **Active** as soon as its components are initialized and ready, without opening the map or using zoom or rotation. A failure detected during use changes the state to **Error**. MAP stays **Pending** only while initialization is incomplete.
+
+Preview.32 fixes the invisible feature values reported in preview.31: value colors now include full opacity. States remain text on the right, without arrows. The regression test checks all 32 color bits, including alpha. In-game visual confirmation is pending.
+
+Preview.31 adds **FEATURES** above **MAP** in the ENHANCED settings. All six installer categories show their runtime health: **Inactive** (red), **Pending** (amber), **Active** (green), or **Error** (red). These rows are read-only; select a row for contextual help. Names, states and help follow the game's English/French language.
+
+Native diagnostics are delivered in memory every two seconds; values refresh with settings-screen updates. Some categories may wait for a relevant screen or load; MAP reports readiness without requiring first use. A component failure makes its category show Error. Active means initialized with no detected error, not a guarantee against every behavioral issue. Module selection remains in the installer, with the game closed.
+
+Preview.31 validation: automated tests; in-game layout, colors, scrolling and continuous refresh still require confirmation.
+
 
 ## Enhancement #6 – Steering Wheel Improvements
 
@@ -79,6 +90,10 @@ uninstalling, reinstalling and restarting the game.
 4. Choose **Install Enhanced** to install immediately with your selected fixes.
 5. Start the game normally. Return to **View status** to see activation from
    the last recorded game launch.
+
+After installing Enhanced, check or uncheck enhancements and choose **Save**. **Updating plugin…** stays visible for at least one second and until the plugin has been uninstalled and reinstalled. Your game preferences are preserved; the choices take effect on the next launch. Saving unchanged choices does not reinstall the plugin.
+
+**View status** lists each enhancement once, with separate **Configured** and **Last launch** columns. Recorded states use text and color: green for Active, gray for Disabled or Unknown, amber for Waiting, and red for Error. The launch timestamp uses local time. Changes since the last launch are explained below the table; narrow terminals show labeled rows instead.
 
 ## Fixes
 

@@ -20,15 +20,21 @@ let menuStarts=0,menuError=false,settingsSaves=[],reports=[],order=[],menuOption
 const hookHudHintUpdates=()=>{};
 const makeEnhancedSettingsMenu=(_profile,_attach,options)=>{menuOptions=options;return {start:()=>{order.push('menu');menuStarts++;if(menuError)throw Error('menu');},
 status:()=>({enabled:true,running:true,status:'waiting-for-settings'})};};
+let nativeReceiver=null;const fakeRecv=(_type,callback)=>{nativeReceiver=callback;};
+let clockNow=10000;class TestDate extends Date {static now(){return clockNow;}}
 let queued=[],interval=null,states=[],starts=0,stops=0,scanError=false,startError=false,faults=0,active=false;
 const nativeProbe={describe:()=>({name:'SnowRunner.exe',sections:[]}),scan:()=>{if(scanError)throw Error('scan');return {};}};
 const resolveNativeProfile=()=>({profile:CONFIG.profile,details:{relocatedGuards:30}});
 const nativeAgent={start:()=>{order.push('agent');starts++;if(startError)throw Error('install');active=true;},
 mode:()=>{},status:()=>({active,faults}),drain:()=>{},stop:()=>{stops++;active=false;}};
-(function(Process,setTimeout,setInterval,clearInterval,send){
-''' + (ROOT / 'src/native/bootstrap.js').read_text() + '''
-})({mainModule:{base:data},id:123},fn=>queued.push(fn),fn=>{interval=fn;return 1;},()=>{interval=null;},m=>{if(m.enhancedSettings){settingsSaves.push(m.enhancedSettings);return;}reports.push(m.enhancedStatus);states.push(m.enhancedStatus.features.wheel_mouse.status);});
+(function(Process,setTimeout,setInterval,clearInterval,send,Date,recv){
+''' + (ROOT / 'src/feature_status.js').read_text() + (ROOT / 'src/native/bootstrap.js').read_text() + '''
+})({mainModule:{base:data},id:123},fn=>queued.push(fn),fn=>{interval=fn;return 1;},()=>{interval=null;},m=>{if(m.enhancedSettings){settingsSaves.push(m.enhancedSettings);return;}reports.push(m.enhancedStatus);states.push(m.enhancedStatus.features.wheel_mouse.status);},TestDate,fakeRecv);
 rpc.exports={
+ health:()=>menuOptions.getFeatureStates(),
+ native:(payload)=>nativeReceiver({payload}),
+ select:modules=>{ENHANCED_HOST.modules=modules;},
+ elapse:ms=>{clockNow+=ms;},
  set:(key,value)=>{if(key==='menu')menuError=value;if(key==='features')CONFIG.features=value;if(key==='scan')scanError=value;if(key==='start')startError=value;if(key==='faults')faults=value;if(key==='ids')data.writeU32(value);},
  tick:()=>{if(queued.length)queued.shift()();},
  monitor:()=>{if(interval)interval();},
@@ -42,6 +48,19 @@ rpc.exports={
     def tearDown(self):
         self.script.unload()
         self.device.kill(self.pid)
+
+    def test_native_reply_drives_menu_and_ignores_other_processes(self):
+        self.api.tick()
+        self.api.select({'steering_wheel_improvements': True})
+        self.assertEqual(self.api.health()['steering_wheel_improvements'], 'pending')
+        self.api.native({'processId': 999, 'features': {'steering_wheel_improvements': {'status': 'active'}}})
+        self.assertEqual(self.api.health()['steering_wheel_improvements'], 'pending')
+        self.api.native({'processId': 123, 'features': {'steering_wheel_improvements': {'status': 'active'}}})
+        self.assertEqual(self.api.health()['steering_wheel_improvements'], 'active')
+        self.api.native({'processId': 123, 'features': {'steering_wheel_improvements': {'status': 'faulted'}}})
+        self.assertEqual(self.api.health()['steering_wheel_improvements'], 'error')
+        self.api.elapse(7000)
+        self.assertEqual(self.api.health()['steering_wheel_improvements'], 'pending')
 
     def test_slider_saves_preserve_the_other_preference(self):
         self.api.tick()

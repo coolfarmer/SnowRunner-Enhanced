@@ -53,7 +53,8 @@ rpc.exports.run=(scenario)=>{
      {key:'EnhancedFuture',kind:'slider',label:'zoomLabel',help:'zoomDesc'}
    ]});
  }
- const reverseChanges=[],callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{modules:{map:!['no-map','both-off'].includes(scenario),vehicle:!['no-vehicle','both-off'].includes(scenario),future:scenario==='future-on'},onReverseChange:value=>reverseChanges.push(value)});
+ let featureStates=scenario==='features'?{wheel_mouse:'active',skip_startup_logos:'inactive',map:'pending',general_improvements:'error',vehicle:'active',steering_wheel_improvements:'active'}:null;
+ const reverseChanges=[],callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{getFeatureStates:()=>featureStates,modules:{map:!['no-map','both-off'].includes(scenario),vehicle:!['no-vehicle','both-off'].includes(scenario),future:scenario==='future-on'},onReverseChange:value=>reverseChanges.push(value)});
  menu.start(ptr(0),slot);
  const visit=()=>callbacks['UiSettingsController.CreateData'](vm(self),fn);
  const capture=()=>{callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);callbacks['UiOneSettingStepperController.InitContent']?.(vm(step),fn);};
@@ -100,12 +101,12 @@ rpc.exports.run=(scenario)=>{
      const word=replacement.add(4*i).readU32(),op=word&255,arg=(word>>>8)-0x800000;
      if(op===6){
        const v=newConstants.add(arg*8).readPointer();
-       if(v.shr(48).toUInt32()===16 && /^Enhanced(About|Zoom|Panning|KeepNorthUp|AutomaticReverse|Future)$/.test(readText(v)))key=readText(v);
+       if(v.shr(48).toUInt32()===16 && /^Enhanced(About|Zoom|Panning|KeepNorthUp|AutomaticReverse|Future|Feature_[a-z_]+)$/.test(readText(v)))key=readText(v);
      }
      if(op===60 && arg===5 && (replacement.add((i-2)*4).readU32()&255)===5)
        skip[key]=replacement.add((i-2)*4).readU32()===0x80000105;
      if(op===60 && arg===25)dimmed.push(key);
-     if(op===60 && (arg===22 || arg===23))mouseBlocked.push([key,arg]);
+     if(op===60 && (arg===22 || arg===23)){if(!key?.startsWith('EnhancedFeature_'))mouseBlocked.push([key,arg]);};
    }
    if(future){menu.stop();enhancedMenuSections.pop();return {skip,dimmed,mouseBlocked};}
    function displayedStrings(){
@@ -144,6 +145,35 @@ rpc.exports.run=(scenario)=>{
    put(enhanced,6,title);visit();const restored=fn.add(0x60).readPointer().equals(code);
    menu.stop();return {skip,dimmed,usedEn,usedFr,usedRefresh,en:Object.keys(en),fr:Object.keys(fr),explicitEnglish:Object.keys(explicitEnglish),fallback:Object.keys(fallback),refreshed,restored,redrawsScreen,localeRestored:localeFn.add(0x60).readPointer().equals(localeCode),
      zoom:slider.add(0x30+55*8).readFloat(),pan:pan.add(0x30+55*8).readFloat(),status:menu.status()};
+ }
+ if(scenario==='features'){
+   function values(){
+     const words=fn.add(0x60).readPointer(),length=fn.add(0x68).readU32()-PROFILE.createDataWords.length+1,result=[],colors=[];
+     for(let i=1;i<length;i++){
+       if((words.add(i*4).readU32()&255)===66 && (words.add((i-2)*4).readU32()&255)===6){
+         const v=newConstants.add(((words.add((i-2)*4).readU32()>>>8)-0x800000)*8).readPointer();
+         if(v.shr(48).toUInt32()===16 && /^(Active|Inactive|Pending|Error|Actif|Inactif|En attente|Erreur)$/.test(readText(v)))result.push(readText(v));
+       }
+       if(words.add(i*4).readU32()===0x8000233c){
+         // SET color consumes an integer constant followed by the receiver expression.
+         for(let j=i-1;j>=Math.max(0,i-20);j--){const w=words.add(j*4).readU32();if((w&255)===6){colors.push(newConstants.add(((w>>>8)-0x800000)*8).readPointer().and('0xffffffff').toUInt32());break;}}
+       }
+     }
+     return {result,colors};
+   }
+   const first=values();
+   const enhanced=object(presetClass);put(enhanced,6,title);tabs.add(0x40).readPointer().add(56).writePointer(tag(enhanced));tabs.add(0x48).writeU32(8);items.add(0x48).writeU32(8);
+   visit();
+   const pulseFn=alloc(128),pulseCode=alloc(PROFILE.featurePulseWords.length*4);
+   PROFILE.featurePulseWords.forEach((w,i)=>pulseCode.add(i*4).writeU32(w));pulseFn.add(0x60).writePointer(pulseCode);pulseFn.add(0x68).writeU32(PROFILE.featurePulseWords.length);
+   featureStates.steering_wheel_improvements='error';
+   callbacks['UiSettingsController.HandleInputScreenUpdate'](vm(self),pulseFn);
+   const pulsed=!pulseFn.add(0x60).readPointer().equals(pulseCode);
+   visit();const changed=values();
+   callbacks['UiSettingsController.HandleInputScreenUpdate'](vm(self),pulseFn);
+   const pulseRestored=pulseFn.add(0x60).readPointer().equals(pulseCode);
+   locale(self,'fr');visit();const french=values();
+   menu.stop();return {first,changed,french,pulsed,pulseRestored,fault:menu.status().fault,arena:installed.arenaBytes,reverseChanges};
  }
  if(scenario==='north'){
    locale(self,'french');
@@ -201,6 +231,17 @@ class SettingsMenuTests(unittest.TestCase):
         self.script.unload()
         self.device.kill(self.pid)
 
+    def test_feature_states_refresh_localize_and_keep_read_only_controls(self):
+        result = self.script.exports_sync.run('features')
+        self.assertIsNone(result['fault'])
+        self.assertEqual(result['first']['result'], ['Active','Inactive','Pending','Error','Active','Active'])
+        self.assertEqual(result['changed']['result'][-1], 'Error')
+        self.assertEqual(result['french']['result'], ['Actif','Inactif','En attente','Erreur','Actif','Erreur'])
+        self.assertEqual(result['first']['colors'], [0xff66dd88,0xffff6666,0xffffcc66,0xffff6666,0xff66dd88,0xff66dd88])
+        self.assertTrue(result['pulsed'] and result['pulseRestored'])
+        self.assertLess(result['arena'], 65536)
+        self.assertEqual(result['reverseChanges'], [])
+
     def test_localized_north_toggle_locks_only_its_own_camera_setting(self):
         result = self.script.exports_sync.run('north')
         self.assertAlmostEqual(result['free'], -278.7, places=3)
@@ -239,7 +280,13 @@ class SettingsMenuTests(unittest.TestCase):
                                  'Sensibilité de rotation', 'Garder le nord en haut', 'Désactivé', 'Activé'} <= french - english)
                 for actual, expected in [('usedEn', english - french), ('usedFr', french - english),
                                          ('usedRefresh', english - french)]:
-                    self.assertTrue(expected <= set(result[actual]))
+                    # Status/help constants include all four states; only the selected states render.
+                    status_keys = {'Active','Inactive','Pending','Error','Actif','Inactif','En attente','Erreur'}
+                    conditional = {text for text in expected if text in status_keys or
+                                   text.startswith(('Disabled in the installer.', 'Selected in the installer.',
+                                   'Initialized successfully,', 'At least one correction', 'Désactivé dans l’installateur.',
+                                   'Sélectionné dans l’installateur.', 'Initialisé correctement,', 'Au moins un correctif'))}
+                    self.assertTrue(expected - conditional <= set(result[actual]))
                 disabled = set()
                 if scenario in ('no-map', 'both-off'):
                     disabled.update(('EnhancedZoom', 'EnhancedPanning', 'EnhancedKeepNorthUp'))
@@ -247,8 +294,8 @@ class SettingsMenuTests(unittest.TestCase):
                     disabled.add('EnhancedAutomaticReverse')
                 self.assertEqual({key for key, skip in result['skip'].items() if skip}, disabled)
                 self.assertEqual(set(result['dimmed']), disabled)
-                self.assertEqual(len(english - french), 14)
-                self.assertEqual(len(french - english), 14)
+                self.assertEqual(len(english - french), 29)
+                self.assertEqual(len(french - english), 29)
                 for texts, extracts in [(english, ('four times slower', 'fifty times slower', 'freely', 'in the installer')),
                                         (french, ('quatre fois plus lent', 'cinquante fois plus lentement', 'librement', 'dans l’installateur'))]:
                     for extract in extracts:

@@ -8,10 +8,11 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.30'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.33'
 SETUP = PACKAGE / 'Sources/Installer/SnowRunnerEnhanced.Setup.exe'
 CONFIG = 'SnowRunnerEnhanced.json'
 RECEIPT = 'SnowRunnerEnhanced.install.json'
@@ -65,6 +66,78 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(result['wheelMouseEnabled'])
         self.assertFalse(result['skipStartupLogosEnabled'])
         self.run_setup('configure', '--skip-startup-logos', 'invalid', success=False)
+        self.run_setup('uninstall')
+
+    def test_each_enhancement_change_reinstalls_plugin(self):
+        self.run_setup('install')
+        plugin = self.folder / BINARY
+        expected = plugin.read_bytes()
+        preference = self.folder / 'SnowRunnerEnhanced.settings.json'
+        preference.write_bytes(b'{"schemaVersion":2,"zoomSensitivity":75}')
+        options = (
+            ('wheel-mouse', 'wheelMouseEnabled'), ('skip-startup-logos', 'skipStartupLogosEnabled'),
+            ('map', 'mapEnabled'), ('general-improvements', 'generalImprovementsEnabled'),
+            ('vehicle', 'vehicleEnabled'), ('steering-wheel-improvements', 'steeringWheelImprovementsEnabled'))
+        for option, status in options:
+            for enabled in (False, True):
+                with self.subTest(option=option, enabled=enabled):
+                    previous_file_id = plugin.stat().st_ino
+                    result = self.run_setup('configure', '--' + option, str(enabled).lower())
+                    self.assertEqual(result[status], enabled)
+                    self.assertNotEqual(plugin.stat().st_ino, previous_file_id)
+                    self.assertEqual(plugin.read_bytes(), expected)
+                    for _, other in options:
+                        if other != status:
+                            self.assertTrue(result[other])
+                    self.assertEqual(preference.read_bytes(), b'{"schemaVersion":2,"zoomSensitivity":75}')
+        self.run_setup('uninstall')
+
+    def test_interactive_update_feedback_in_both_languages(self):
+        self.run_setup('install')
+        for language, message, saved in (
+                ('fr', 'Mise à jour du plugin en cours…', 'Choix enregistré.'),
+                ('en', 'Updating plugin…', 'Selection saved.')):
+            with self.subTest(language=language):
+                started = time.monotonic()
+                result = subprocess.run(
+                    [SETUP, '--plain', '--language', language, '--game-directory', self.folder],
+                    # Advanced > Customize: disable, enable, then save unchanged.
+                    input='2\n2\n' + '2\n' * 6 + '2\n2\n' + '1\n' * 6
+                          + '2\n2\n' + '1\n' * 6 + '5\n',
+                    capture_output=True, text=True, encoding='utf-8', timeout=30)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.count(message), 2)
+                self.assertGreaterEqual(time.monotonic() - started, 2)
+                self.assertEqual(result.stdout.count(saved), 3)
+                self.assertLess(result.stdout.index(message), result.stdout.index(saved))
+                self.assertTrue(self.run_setup('status')['wheelMouseEnabled'])
+        self.run_setup('uninstall')
+
+    def test_unchanged_choices_keep_plugin(self):
+        self.run_setup('install')
+        before = (self.folder / BINARY).stat().st_ino
+        self.run_setup('configure', '--map', 'true')
+        self.assertEqual((self.folder / BINARY).stat().st_ino, before)
+        self.run_setup('uninstall')
+
+    def test_failed_update_restores_plugin_and_choices(self):
+        self.run_setup('install')
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                      wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+        kernel.CreateFileW.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        for locked in (BINARY, CONFIG, RECEIPT):
+            with self.subTest(locked=locked):
+                before = {name: (self.folder / name).read_bytes() for name in (BINARY, CONFIG, RECEIPT)}
+                handle = kernel.CreateFileW(str(self.folder / locked), 0x80000000, 1, None, 3, 0, None)
+                self.assertNotEqual(handle, ctypes.c_void_p(-1).value)
+                try:
+                    self.run_setup('configure', '--map', 'false', success=False)
+                    for name, content in before.items():
+                        self.assertEqual((self.folder / name).read_bytes(), content)
+                finally:
+                    kernel.CloseHandle(handle)
         self.run_setup('uninstall')
 
     def test_map_preferences_survive_configure_and_reinstall(self):
@@ -353,11 +426,15 @@ class ReleaseTests(unittest.TestCase):
 
     def test_navigation_changes_language_and_preserves_pending_fixes(self):
         result = subprocess.run([SETUP, '--plain', '--language', 'en', '--game-directory', self.folder],
-                                input='2\n1\n\n2\n2\n2\n2\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
+                                input='2\n1\n1\n2\n2\n2\n2\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n1\n5\n', capture_output=True,
                                 text=True, encoding='utf-8', timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('MAIN MENU', result.stdout)
         self.assertIn('ADVANCED OPTIONS', result.stdout)
+        self.assertIn('1. Back', result.stdout)
+        self.assertIn('1. Retour', result.stdout)
+        self.assertNotIn('Enter  Back', result.stdout)
+        self.assertNotIn('Entrée  Retour', result.stdout)
         self.assertIn('Enhanced is not installed.', result.stdout)
         self.assertIn('Steering Wheel Improvements', result.stdout)
         self.assertIn('MENU PRINCIPAL', result.stdout)

@@ -5,11 +5,30 @@ CONFIG.features = {wheel_mouse: ENHANCED_HOST.wheelMouse !== false, map: ENHANCE
 let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
 let vehicle = null, vehicleError = null;
 let lastReportExtra = {};
-let menuFailure = null, functionsRepeat = null, repeatState = "disabled";
+let menuFailure = null, functionsRepeat = null, repeatState = ENHANCED_HOST.general ? 'pending' : 'disabled';
+let nativeRuntime = null, nativeRuntimeTime = 0;
+if (typeof recv === 'function') {
+    const receive = () => recv('enhanced-runtime', message => {
+        if (message.payload?.processId === Process.id) {
+            nativeRuntime = message.payload.features;
+            nativeRuntimeTime = Date.now();
+        }
+        receive();
+    });
+    receive();
+}
+function menuFeatureStates() {
+    return enhancedFeatureStates(ENHANCED_HOST.modules || CONFIG.features, {
+        inputState: featureState, input: nativeAgent.status(),
+        native: Date.now() - nativeRuntimeTime < 6500 ? nativeRuntime : null,
+        menu: settingsMenu?.status(), vehicle: vehicle?.status(), vehicleError,
+        repeat: functionsRepeat?.status() || repeatState
+    });
+}
 function reportNative(state, extra = {}) {
     featureState = state; lastReportExtra = extra;
     const {vehicle: vehicleEnabled, ...inputFeatures} = CONFIG.features;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.30',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.33',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
@@ -65,6 +84,7 @@ function attemptStart() {
         const savePreference = (key, value) => { preferences[key] = value; send({enhancedSettings: {...preferences}}); };
         settingsMenu = makeEnhancedSettingsMenu(SETTINGS_PROFILE, hookHudHintUpdates, {
             modules: {...ENHANCED_HOST.modules, map: CONFIG.features.map, vehicle: !!vehicle},
+            getFeatureStates: menuFeatureStates,
             automaticReverse: preferences.automaticReverse,
             onReverseChange: value => { vehicle.set(value); savePreference('automaticReverse', value); },
             zoomSensitivity: preferences.zoomSensitivity,
@@ -83,7 +103,6 @@ function attemptStart() {
     }
     function report() { reportNative(agentState, {compatibility: result.details, counters: nativeAgent.status(), reason: agentReason}); }
     report();
-    let previous = '';
     timer = setInterval(() => {
         // A fault in an optional correction does not stop the core settings UI.
         if (wantsAgent && agentState === 'active') {
@@ -97,8 +116,7 @@ function attemptStart() {
                 nativeAgent.stop(); agentState = 'faulted'; agentReason = 'Correction stopped after a runtime error';
             }
         }
-        const serialized = JSON.stringify([agentState, nativeAgent.status(), vehicle?.status(), settingsMenu ? settingsMenu.status() : menuFailure]);
-        if (serialized !== previous) { previous = serialized; report(); }
+        report(); // Also samples native-only failures and lazy archive patches.
     }, 2000);
 }
 reportNative('waiting');

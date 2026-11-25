@@ -14,7 +14,7 @@ static HMODULE self;
 static volatile LONG started;
 static wchar_t status_path[32768], temp_path[32768];
 
-static void WriteReport(const char *text) {
+static void WriteReport(const char *text, GumScript *script) {
     JsonParser *parser = json_parser_new();
     char *enriched = NULL;
     if (json_parser_load_from_data(parser, text, -1, NULL)) {
@@ -48,6 +48,13 @@ static void WriteReport(const char *text) {
         }
     }
     if (enriched) text=enriched;
+    // Return this session's live native diagnostics to the menu. Never read a
+    // status file left behind by a previous game process.
+    if (script && enriched) {
+        char *reply = g_strdup_printf("{\"type\":\"enhanced-runtime\",\"payload\":%s}", enriched);
+        gum_script_post(script, reply, NULL);
+        g_free(reply);
+    }
 
     HANDLE file = CreateFileW(temp_path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE,
                              NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -62,11 +69,11 @@ static void WriteReport(const char *text) {
 static void SimpleStatus(const char *status, const char *reason) {
     char out[1024];
     SYSTEMTIME now; GetSystemTime(&now);
-    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.30\","
+    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.33\","
         "\"processId\":%lu,\"timeUtc\":\"%04u-%02u-%02uT%02u:%02u:%02uZ\","
         "\"features\":{\"wheel_mouse\":{\"status\":\"%s\",\"reason\":\"%s\"}}}",
         (unsigned long)GetCurrentProcessId(), now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, status, reason);
-    WriteReport(out);
+    WriteReport(out, NULL);
 }
 
 static BOOL HashGame(char hex[65]) {
@@ -154,7 +161,7 @@ static int ReadConfiguration(const wchar_t *folder) {
 }
 
 static void OnMessage(const gchar *message, GBytes *data, gpointer context) {
-    (void)data; (void)context;
+    (void)data;
     JsonParser *parser = json_parser_new();
     if (json_parser_load_from_data(parser, message, -1, NULL)) {
         JsonObject *root = json_node_get_object(json_parser_get_root(parser));
@@ -163,7 +170,7 @@ static void OnMessage(const gchar *message, GBytes *data, gpointer context) {
             JsonNode *payload = json_object_get_member(root, "payload");
             if (payload && JSON_NODE_HOLDS_OBJECT(payload)) {
                 JsonNode *status = json_object_get_member(json_node_get_object(payload), "enhancedStatus");
-                if (status) { char *text = json_to_string(status, TRUE); WriteReport(text); g_free(text); }
+                if (status) { char *text = json_to_string(status, TRUE); WriteReport(text, (GumScript *)context); g_free(text); }
                 JsonNode *settings = json_object_get_member(json_node_get_object(payload), "enhancedSettings");
                 if (settings) SettingsSave(settings);
             }
@@ -200,7 +207,7 @@ static void EnhancedStart(void) {
     GumScript *script = gum_script_backend_create_sync(gum_script_backend_obtain_qjs(), "Enhanced", source, NULL, NULL, &error);
     g_free(source);
     if (!script) { SimpleStatus("error", "Embedded runtime initialization failed"); if (error) g_error_free(error); return; }
-    gum_script_set_message_handler(script, OnMessage, NULL, NULL);
+    gum_script_set_message_handler(script, OnMessage, script, NULL);
     gum_script_load_sync(script, NULL);
     // This is Enhanced's dedicated worker. The ASI loader never waits here.
     // Keep the context and script alive; uninstall only with the game closed.

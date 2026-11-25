@@ -5,6 +5,25 @@ const enhancedMenuText = {
     // The two VM strings have distinct identities to track the locale of an existing tab.
     title: ['ENHANCED', 'ENHANCED'],
     category: ['MAP', 'CARTE'],
+    featuresCategory: ['FEATURES', 'FONCTIONNALITÉS'],
+    featureWheel: ['Simultaneous Mouse & Wheel Input', 'Utilisation simultanée souris et volant'],
+    featureStartup: ['Skip Startup Logos', 'Passer les logos de démarrage'],
+    featureMap: ['Map Improvements/Options', 'Améliorations et options de la carte'],
+    featureGeneral: ['General Improvements', 'Améliorations générales'],
+    featureVehicle: ['Vehicle Improvement/Options', 'Améliorations et options du véhicule'],
+    featureSteering: ['Steering Wheel Improvements', 'Améliorations du volant'],
+    featureInactive: ['Inactive', 'Inactif'],
+    featurePending: ['Pending', 'En attente'],
+    featureActive: ['Active', 'Actif'],
+    featureError: ['Error', 'Erreur'],
+    featureInactiveHelp: ['Disabled in the installer. To enable this feature, close the game and use the installer.',
+        'Désactivé dans l’installateur. Pour activer cette fonctionnalité, fermez le jeu et utilisez l’installateur.'],
+    featurePendingHelp: ['Selected in the installer. Waiting for initialization or for the relevant game screen to load. This is not an error.',
+        'Sélectionné dans l’installateur. En attente de l’initialisation ou du chargement de l’écran concerné. Ce n’est pas une erreur.'],
+    featureActiveHelp: ['Initialized successfully, with no detected error. This status is checked during the current game session.',
+        'Initialisé correctement, sans erreur détectée. Cet état est vérifié pendant la session de jeu en cours.'],
+    featureErrorHelp: ['At least one correction could not start or encountered an error. Export a diagnostic from the installer for details.',
+        'Au moins un correctif n’a pas pu démarrer ou a rencontré une erreur. Exportez un diagnostic depuis l’installateur pour obtenir les détails.'],
     infoLabel: ['Why am I seeing this?', 'Pourquoi cet onglet ?'],
     infoDesc: ['SnowRunner Enhanced adds this tab so you can configure the plugin in the game settings. Grayed-out options belong to a disabled module. Enable that module in the installer to use its options.',
         'SnowRunner Enhanced ajoute cet onglet pour vous permettre de configurer le plugin dans les paramètres du jeu. Les options grisées appartiennent à un module désactivé. Activez ce module dans l’installateur pour accéder à ses options.'],
@@ -37,14 +56,44 @@ const enhancedMenuSections = [
         {key: 'EnhancedAutomaticReverse', kind: 'toggle', label: 'reverseLabel', help: 'reverseDesc', initial: 1}
     ]}
 ];
+const enhancedMenuFeatures = [
+    ['wheel_mouse', 'featureWheel'], ['skip_startup_logos', 'featureStartup'],
+    ['map', 'featureMap'], ['general_improvements', 'featureGeneral'],
+    ['vehicle', 'featureVehicle'], ['steering_wheel_improvements', 'featureSteering']
+];
 
 function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options = {}) {
     let hooks=[], pendingGamma=null, pendingStepper=null, plan=null, patch=null, methodOwner=null;
     let localePatch=null;
+    let pulsePatch=null;
     let poolSlot=null, running=false, state='waiting', fault=null, installations=0, visits=0;
     const modules=options.modules ?? {map: options.mapEnabled!==false, vehicle: options.vehicleEnabled===true};
     const mapEnabled=modules.map===true;
     const vehicleEnabled=modules.vehicle===true;
+    function featureSnapshot(){
+        const reported=options.getFeatureStates?.() || {};
+        return Object.fromEntries(enhancedMenuFeatures.map(([id])=>[id,
+            ['inactive','pending','active','error'].includes(reported[id]) ? reported[id] : modules[id]===true?'pending':'inactive']));
+    }
+    function restorePulse(){
+        if(!pulsePatch)return;
+        const {fn,original}=pulsePatch;
+        if(!fn.add(0x60).readPointer().equals(plan.pulse.p)||fn.add(0x68).readU32()!==plan.pulse.words.length||
+                !plan.pulse.words.every((w,i)=>plan.pulse.p.add(i*4).readU32()===w))throw Error('Foreign status refresh bytecode');
+        fn.add(0x60).writePointer(original);fn.add(0x68).writeU32(profile.featurePulseWords.length);pulsePatch=null;
+    }
+    function pulse(vm,fn){
+        restorePulse();
+        if(!plan)return;
+        const self=receiver(vm);
+        if(className(self)!=='UiSettingsController'||arrayCount(get(self,'activeTabs'))!==8)return;
+        plan.updateFeatures(featureSnapshot());
+        if(!plan.featuresDirty())return;
+        const original=fn.add(0x60).readPointer();
+        if(fn.add(0x68).readU32()!==profile.featurePulseWords.length||
+            !profile.featurePulseWords.every((w,i)=>original.add(i*4).readU32()===w))throw Error('Unsupported settings refresh');
+        pulsePatch={fn,original};fn.add(0x60).writePointer(plan.pulse.p);fn.add(0x68).writeU32(plan.pulse.words.length);
+    }
     const zoom=makeMapZoomSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','zoomLabel')},{...options,mapEnabled},attach);
     const panning=makeMapPanningSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','panningLabel')},{...options,mapEnabled},attach);
     let automaticReverse=options.automaticReverse!==false;
@@ -185,6 +234,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
     }
     function visit(vm,fn){
         restore();visits++;
+        if(plan)plan.updateFeatures(featureSnapshot());
         const self=receiver(vm);
         if(className(self)!=='UiSettingsController')throw Error('Unexpected settings receiver');
         const tabs=get(self,'activeTabs'),bar=get(self,'tabBar'),items=get(bar,'items');
@@ -193,7 +243,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
             const last=obj(tabs.add(0x40).readPointer().add(7*8).readPointer());
             const title=prop(last,'name').readPointer();
             if(!plan||!plan.matches('title',title))throw Error('Foreign eighth settings tab');
-            if(plan.current('title').equals(title)){state='active';return;}
+            if(plan.current('title').equals(title)&&!plan.featuresDirty()){state='active';return;}
             // The native view keeps its rendered label. Refresh it along with the
             // preset before CreateData lays out the selected tab in the new locale.
         }else if(n!==7||m!==7)throw Error('Unsupported settings tab layout');
@@ -212,6 +262,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
             expectMembers(get(gamma,'view'),[['uiObjectDesc',5,5],['changeSound',31,5],['descriptionImage',32,5],['GetUiObject',25,2]]);
             expectMembers(bar,[['CreateItem',52,2],['UnsubscribeContent',29,2],['SubscribeContent',28,2],['Show',16,2],['items',65,5],['UpdateTabsOffset',82,2]]);
             if(!plan){plan=build(self,gamma,fn,tabs,originalConstants,originalCount);methodOwner=fn;}
+            plan.updateFeatures(featureSnapshot());
             plan.gammaSlot.writePointer(gamma.or('0x20000000000000'));
             if(!get(pendingStepper.control,'uiSystem').equals(get(self,'uiSystem')))throw Error('Unexpected on/off template');
             plan.stepperSlot.writePointer(pendingStepper.control.or('0x20000000000000'));
@@ -223,6 +274,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
         patch={fn,program,code:original,constants:originalConstants,count:originalCount,words:profile.createDataWords.length};
         fn.add(0x50).writePointer(plan.constants);fn.add(0x58).writeU32(plan.count);
         fn.add(0x60).writePointer(program.p);fn.add(0x68).writeU32(program.words.length);
+        plan.featuresRendered();
         if(n===7)installations++;state='active';
     }
     function guarded(callback){
@@ -232,6 +284,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
                 fault=String(e);state='incompatible';
                 try{restore();}catch(_){}
                 try{restoreLocale();}catch(_){}
+                try{restorePulse();}catch(_){}
             }
         };
     }
@@ -242,7 +295,7 @@ const va=new NativeFunction(Process.getModuleByName('kernel32.dll').getExportByN
 const arena=va(ptr(0),65536,0x3000,4);if(arena.isNull())throw Error('Allocation failed');let used=0;
 function alloc(n){n=(n+15)&~15;if(used+n>65536)throw Error('Arena full');const p=arena.add(used);used+=n;return p;}
 function textValue(s){const size=encodeURIComponent(s).replace(/%[A-F\d]{2}/gi,'x').length;const b=alloc(48+size+1);b.writeU32(0x10000000);b.add(8).writeU32(size);b.add(12).writeU32(0);b.add(16).writePointer(b.add(48));b.add(24).writeU32(size+1);b.add(48).writeUtf8String(s);return b.or('0x10000000000000');}
-const capacity=originalCount+Object.keys(enhancedMenuText).length+24+enhancedMenuSections.reduce((n,section)=>n+section.rows.length*2,0);
+const capacity=originalCount+Object.keys(enhancedMenuText).length+32+enhancedMenuFeatures.length*6+enhancedMenuSections.reduce((n,section)=>n+section.rows.length*2,0);
 const constants=alloc(capacity*8);Memory.copy(constants,originalConstants,originalCount*8);let nconst=originalCount;
 function add(v){if(nconst>=capacity)throw Error('Too many menu constants');const i=nconst++;constants.add(i*8).writePointer(v);return i;}
 function typeValue(c){const template=untag(originalConstants.add(5*8).readPointer()),p=alloc(48);Memory.copy(p,template,48);p.writeU32(0x10000000);p.add(8).writeU32(c.add(0x18).readU32());p.add(32).writePointer(c.or('0x3000000000000'));return p.or('0x30000000000000');}
@@ -258,8 +311,29 @@ for(const [key,pair] of Object.entries(enhancedMenuText)){
 }
 const current=key=>constants.add(slots[key]*8).readPointer();
 const matches=(key,value)=>variants[key].some(v=>v.equals(value));
+let featureLocale=0,featureStates={},featureDirty=true;
+const featureSlots={};
+const stateNames={inactive:'Inactive',pending:'Pending',active:'Active',error:'Error'};
+// UiDisplayObjectBase.color uses packed ARGB, including opacity. RGB alone
+// sets alpha to zero and makes the entire value control transparent.
+const colorValues={inactive:0xffff6666,pending:0xffffcc66,active:0xff66dd88,error:0xffff6666};
+for(const [id] of enhancedMenuFeatures)featureSlots[id]={
+    value:add(variants.featurePending[0]),help:add(variants.featurePendingHelp[0]),color:add(ptr(colorValues.pending).or('0x1000000000000'))
+};
+function updateFeatures(states){
+    if(JSON.stringify(states)!==JSON.stringify(featureStates))featureDirty=true;
+    featureStates=states;
+    for(const [id] of enhancedMenuFeatures){
+        const state=states[id]||'pending',key='feature'+stateNames[state],row=featureSlots[id];
+        constants.add(row.value*8).writePointer(variants[key][featureLocale]);
+        constants.add(row.help*8).writePointer(variants[key+'Help'][featureLocale]);
+        constants.add(row.color*8).writePointer(ptr(colorValues[state]).or('0x1000000000000'));
+    }
+}
 function selectLocale(index){
+    featureLocale=index;
     for(const key of Object.keys(slots))constants.add(slots[key]*8).writePointer(variants[key][index]);
+    updateFeatures(featureStates);
 }
 const {title,infoLabel,infoDesc}=slots;
 const infoKey=add(textValue('EnhancedAbout'));
@@ -319,7 +393,7 @@ const sectionRows=[],sectionRefresh=[],stepperData={indexSlots:{}};
             ...stmt(call(L(-12),13,[L(-14)]))
         ];
     }
-    function toggle(row,label,help){
+    function toggle(row,label,help,values=choices){
         const index=add(ptr(row.initial?'0x1000000000001':'0x1000000000000'));
         stepperData.indexSlots[row.key]=constants.add(index*8);
         return [
@@ -327,10 +401,30 @@ const sectionRows=[],sectionRefresh=[],stepperData={indexSlots:{}};
             ...create(-13,stepView),...set(L(-13),5,field(field(C(stepSource),5),5)),
             ...set(L(-13),31,field(field(C(stepSource),5),31)),...set(L(-13),32,C(empty)),
             ...set(L(-12),5,L(-13)),...set(L(-12),41,B(1)),...set(L(-12),50,I(row.initial)),...set(L(-12),51,C(index)),
-            ...stmt(call(L(-12),13,[L(-14)])),...choices
+            ...stmt(call(L(-12),13,[L(-14)])),...values
         ];
     }
     let position=1; // The About row is first.
+    sectionRows.push(...create(-10,3),...set(L(-10),4,C(slots.featuresCategory)),...append(field(L(-9),4),L(-10)));
+    sectionRefresh.push(...set(at(field(L(-9),4),position),4,C(slots.featuresCategory)));
+    position+=1+enhancedMenuFeatures.length;
+    for(const [id,labelName] of enhancedMenuFeatures){
+        const row=featureSlots[id],key=add(textValue('EnhancedFeature_'+id)),label=slots[labelName];
+        const clip=call(L(-13),25),stepperClip=field(clip,144);
+        // A single choice cannot be toggled, even by keyboard/controller or
+        // Restore Defaults. Keep the row selectable for its contextual help.
+        const values=[...create(-10,stringsType),...append(L(-10),C(row.value)),
+            ...set(L(-13),41,B(1)),...stmt(call(stepperClip,96,[L(-10)])),
+            ...stmt(call(L(-13),43,[I(0)])),
+            ...set(stepperClip,35,C(row.color)),
+            ...set(stepperClip,22,B(0)),...set(stepperClip,23,B(0)),
+            ...set(field(stepperClip,105),24,B(0)),...set(field(stepperClip,106),24,B(0))];
+        sectionRows.push(...create(-11,5),...set(L(-11),4,C(key)),...set(L(-11),5,B(0)),
+            ...append(field(L(-9),4),L(-11)),
+            ...toggle({key:'EnhancedFeature_'+id,initial:0},label,row.help,values),
+            ...stmt(call(S(56),5,[C(key),L(-12)])));
+        sectionRefresh.push(...refreshRow(key,label,row.help),...values);
+    }
     for(const section of enhancedMenuSections){
         const enabled=modules[section.module]===true, category=C(slots[section.category]);
         sectionRows.push(...create(-10,3),...set(L(-10),4,category),...append(field(L(-9),4),L(-10)));
@@ -396,7 +490,8 @@ function program(prefix){return code([...prefix,...relocated(profile.createDataW
 const localeWords=[W(1,1),...L(1),...L(0),...I(1),...C(0),W(14,33),W(2),
     ...stmt(call(S(57),33,[L(1)])),W(19,2)];
 const redraw=code([...localeWords.slice(0,-1),...stmt(call(L(0),24)),W(19,2)]);
-return {...stepperData,redraw,localeWords,install:program(prefix),refresh:program(refreshPrefix),constants,count:nconst,
+const pulse=code([W(1,1),...stmt(call(L(0),24)),...profile.featurePulseWords.slice(1)]);
+return {...stepperData,redraw,localeWords,pulse,updateFeatures,featuresDirty:()=>featureDirty,featuresRendered:()=>{featureDirty=false;},install:program(prefix),refresh:program(refreshPrefix),constants,count:nconst,
     gammaSlot:constants.add(gammaValue*8),matches,current,selectLocale,bytes:used};
     }
     return {
@@ -406,6 +501,7 @@ return {...stepperData,redraw,localeWords,install:program(prefix),refresh:progra
                 hooks.push(attach(framePush,poolSlot,guarded(()=>{pendingGamma=null;pendingStepper=null;}),'UiSettingsController','InitContent'));
                 hooks.push(attach(framePush,poolSlot,guarded(setMenuLocale),'ComponentUiControllerBase','SetForLocale'));
                 hooks.push(attach(framePush,poolSlot,guarded(settingsLocale),'UiSettingsController','SetForLocale'));
+                hooks.push(attach(framePush,poolSlot,guarded(pulse),'UiSettingsController','HandleInputScreenUpdate'));
                 hooks.push(attach(framePush,poolSlot,guarded(captureStepper),'UiOneSettingStepperController','InitContent'));
                 hooks.push(attach(framePush,poolSlot,guarded(changeStepper),'UiOneSettingStepperOnOff','UpdateStatus'));
                 if(mapEnabled)hooks.push(attach(framePush,poolSlot,orientCamera,'MinimapCameraController','UpdateImpl'));
@@ -418,6 +514,6 @@ return {...stepperData,redraw,localeWords,install:program(prefix),refresh:progra
             }catch(e){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{panning.stop();}throw e;}
         },
         status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0,zoomSensitivity:zoom.status(),panningSensitivity:panning.status(),keepNorthUp:{enabled:mapEnabled&&northUp,fault:northFault}};},
-        stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{try{panning.stop();}finally{try{restore();}finally{restoreLocale();}running=false;state='stopped';}}}
+        stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{try{panning.stop();}finally{try{restore();}finally{try{restoreLocale();}finally{restorePulse();}}running=false;state='stopped';}}}
     };
 }

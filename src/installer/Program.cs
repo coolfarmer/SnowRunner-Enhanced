@@ -289,15 +289,34 @@ internal static class Program
                     case "language": SelectLanguage(); break;
                     case "help": InteractiveHelp(); Pause(); break;
                     case "folder": installation = Open(SelectGame()); pending = installation.HasReceipt ? ReadEnabled(installation) : true; pendingStartup = !installation.HasReceipt || installation.SkipStartupLogosEnabled; pendingMap = !installation.HasReceipt || installation.MapEnabled; pendingGeneral = !installation.HasReceipt || installation.GeneralImprovementsEnabled; pendingVehicle = !installation.HasReceipt || installation.VehicleEnabled; pendingSteering = !installation.HasReceipt || installation.SteeringEnabled; break;
-                    case "status": ShowStatus(installation.Inspect()); Pause(); break;
+                    case "status":
+                        ShowStatus(installation.Inspect());
+                        Choose("", [new("back", T("Retour", "Back"))], hint: "");
+                        break;
                     case "report": Say(T("Diagnostic enregistré : ", "Diagnostic saved: ") + SaveReport(installation));
                         Say(T("Joignez ce fichier à une issue dans le dépôt du projet. Aucun envoi automatique.",
                               "Attach this file to an issue in the project repository. Nothing is sent automatically.")); Pause(); break;
                     case "features":
-                        var selected = SelectEnhancements(enabled, (installed ? installation.SkipStartupLogosEnabled : pendingStartup),
-                            (installed ? installation.MapEnabled : pendingMap), (installed ? installation.GeneralImprovementsEnabled : pendingGeneral), (installed ? installation.VehicleEnabled : pendingVehicle), (installed ? installation.SteeringEnabled : pendingSteering));
+                        var current = (Wheel: enabled, Startup: installed ? installation.SkipStartupLogosEnabled : pendingStartup,
+                            Map: installed ? installation.MapEnabled : pendingMap, General: installed ? installation.GeneralImprovementsEnabled : pendingGeneral,
+                            Vehicle: installed ? installation.VehicleEnabled : pendingVehicle, Steering: installed ? installation.SteeringEnabled : pendingSteering);
+                        var selected = SelectEnhancements(current.Wheel, current.Startup, current.Map, current.General, current.Vehicle, current.Steering);
                         if (selected == null) break;
-                        if (installed) installation.Configure(selected.Value.Wheel, selected.Value.Startup, selected.Value.Map, selected.Value.General, selected.Value.Vehicle, selected.Value.Steering);
+                        if (installed)
+                        {
+                            if (selected.Value != current || migrate)
+                            {
+                                Screen();
+                                var message = T("Mise à jour du plugin en cours…", "Updating plugin…");
+                                Action update = () => installation.Configure(selected.Value.Wheel, selected.Value.Startup, selected.Value.Map, selected.Value.General, selected.Value.Vehicle, selected.Value.Steering);
+                                if (ui != null) ui.RunWithSpinner(message, update);
+                                else
+                                {
+                                    Say(message);
+                                    TerminalUi.RunWithSpinner(update, _ => { });
+                                }
+                            }
+                        }
                         else { pending = selected.Value.Wheel; pendingStartup = selected.Value.Startup; pendingMap = selected.Value.Map; pendingGeneral = selected.Value.General; pendingVehicle = selected.Value.Vehicle; pendingSteering = selected.Value.Steering; }
                         notice = T("Choix enregistré.", "Selection saved."); break;
                     case "install":
@@ -424,11 +443,12 @@ internal static class Program
         }
     }
     static bool Confirm(string title) => Choose(title, [new("no", T("Annuler", "Cancel")), new("yes", T("Continuer", "Continue"))]) == "yes";
-    static void Pause()
+    static void Pause(string? prompt = null)
     {
-        if (ui != null) { ui.Wait(T("Entrée pour continuer…", "Press Enter to continue…")); return; }
+        prompt ??= T("Entrée pour continuer…", "Press Enter to continue…");
+        if (ui != null) { ui.Wait(prompt); return; }
         Blank();
-        Say(T("Entrée pour continuer…", "Press Enter to continue…"));
+        Say(prompt);
         if (Console.ReadLine() == null) throw new OperationCanceledException();
     }
     static void FeatureSummary(bool enabled)
@@ -443,45 +463,18 @@ internal static class Program
 
     static void ShowStatus(JsonObject status)
     {
-        bool installed = status["installed"]?.GetValue<bool>() == true;
-        Say(installed ? T("Enhanced est installé.", "Enhanced is installed.") : T("Enhanced n’est pas installé.", "Enhanced is not installed."));
-        if (status["conflicts"] is JsonArray conflicts && conflicts.Count > 0)
-            Say(T("Fichiers déjà présents : ", "Existing files: ") + string.Join(", ", conflicts.Select(x => x!.GetValue<string>())), true);
-        if (installed)
+        var lines = StatusView.Build(status, french, ui?.AvailableWidth ?? 74);
+        if (ui != null) ui.AddLines(lines);
+        else foreach (var line in lines)
         {
-            if (status["wheelMouseEnabled"] != null) FeatureSummary(status["wheelMouseEnabled"]!.GetValue<bool>());
-            if (status["skipStartupLogosEnabled"] != null) Say("Skip Startup Logos — " + (status["skipStartupLogosEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
-            if (status["mapEnabled"] != null) Say("Map — " + (status["mapEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
-            if (status["generalImprovementsEnabled"] != null) Say("General Improvements — " + (status["generalImprovementsEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
-            if (status["steeringWheelImprovementsEnabled"] != null) Say("Steering Wheel Improvements — " + (status["steeringWheelImprovementsEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
-            if (status["vehicleEnabled"] != null) Say("Vehicle — " + (status["vehicleEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
-            if (status["configurationError"] != null) Say(status["configurationError"]!.GetValue<string>(), true);
-            foreach (var entry in (JsonObject)status["files"]!)
-                if (entry.Value?.GetValue<string>() != "owned") Say(entry.Key + ": " + entry.Value, true);
-            var runtime = status["lastRun"];
-            if (runtime != null)
+            if (plain) Console.WriteLine(line.Text);
+            else
             {
-                var state = runtime["features"]?["wheel_mouse"]?["status"]?.GetValue<string>() ?? "unknown";
-                var label = state switch
-                {
-                    "active" => T("Correctif actif", "Fix active"), "disabled" => T("Correctif désactivé", "Fix disabled"),
-                    "waiting" => T("Vérification des signatures en cours", "Checking signatures"),
-                    "incompatible" => T("Version du jeu non reconnue : correctif non appliqué", "Game version not recognized: fix not applied"),
-                    _ => T("Correctif interrompu : consultez le diagnostic", "Fix stopped: check the diagnostic")
-                };
-                Say(T("Dernier lancement enregistré : ", "Last recorded launch: ") + label);
-                Say("Skip Startup Logos : " + (runtime["features"]?["skip_startup_logos"]?["status"]?.GetValue<string>() ?? "unknown"));
-                Say("Map : " + (runtime["features"]?["map"]?["status"]?.GetValue<string>() ?? "unknown"));
-                Say("General Improvements — " + (runtime["features"]?["general_improvements"]?["status"]?.GetValue<string>() ?? "unknown"));
-                Say("Steering Wheel Improvements — " + (runtime["features"]?["steering_wheel_improvements"]?["status"]?.GetValue<string>() ?? "unknown"));
-                Say("Vehicle — " + (runtime["features"]?["vehicle"]?["status"]?.GetValue<string>() ?? "unknown"));
-                Say(runtime["timeUtc"]?.GetValue<string>() ?? "");
+                foreach (var run in line.Runs ?? [new TerminalUi.Run(line.Text, line.Color)])
+                    Console.Write(run.Color + run.Text);
+                Console.WriteLine("\x1b[0m");
             }
-            else Say(T("Lancez le jeu une fois, puis revenez vérifier l’activation.", "Start the game once, then return to check activation."));
         }
-        if (status["loaderSupported"]?.GetValue<bool>() == false) Say(status["loaderReason"]!.GetValue<string>(), true);
-        Say(T("La compatibilité du correctif est vérifiée dans le jeu à chaque lancement.",
-              "Fix compatibility is checked in memory on every game launch."));
     }
 
     static string SaveReport(Installation installation)

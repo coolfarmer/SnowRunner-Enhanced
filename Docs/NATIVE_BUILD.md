@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.30`.
+Version : `0.1.0-preview.33`.
 
 L’[Enhancement #6 – Steering Wheel Improvements](STEERING_WHEEL.md) intègre le
 correctif FFB dans le plugin, avec recherche native par signatures au démarrage.
@@ -376,3 +376,13 @@ La liste du panneau Fonctions correspond à la classe `optionPanelList` de `hud_
 ### Défilement continu (preview.24)
 
 Après relancement avec la preview.24 installée, le joueur a confirmé le défilement continu au clavier et avec la croix directionnelle de la manette. Le volant reste à tester séparément.
+
+## Feature health indicators (preview.31)
+
+`feature_status.js` aggregates installer selections and runtime components into inactive, pending, active and error. Since preview.33, Map requires ready input, zoom and rotation components, without requiring repair or call counters to be nonzero; errors still win over pending. Lazy method guards remain unchanged and can report an error on first use. General combines archive patching and hold-repeat. Vehicle records failed transitions and unexpected transmission layouts. Native steering reports incompatible discovery, failed attachment and a disarmed correction after initialization faults.
+
+The native message handler posts the current enriched report back to the embedded script (`enhanced-runtime`). Only the current process is accepted; snapshots older than 6.5 seconds become pending. The menu never reads a previous session’s status file. Single-choice steppers display bounded bilingual constants, hide arrows, block child mouse input and tint the value through the native integer color property. The settings input-screen callback triggers a guarded VM refresh only when health changes; existing locale refresh also updates labels and values. Allocations remain bounded for the process lifetime.
+
+The status section has no write path to installer flags or user preferences. The game must be running far enough to load the core settings UI for any status to be visible. Offline tests do not establish visual layout or continuous input-screen updates; these require in-game confirmation.
+
+Preview.32: the player reported blank right-hand feature values in preview.31. The native display color is packed ARGB (the game defines opaque RED as 0xffff0000 and transparent RED as 0x20ff0000). RGB-only values had zero alpha. Feature colors now include 0xff alpha; the menu regression assertion checks the full 32-bit value instead of masking alpha away. The corrected assertion fails on preview.31 and passes with the fix.

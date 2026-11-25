@@ -33,18 +33,24 @@ function makeVehicleReverse(profile) {
         }
         return original(vehicle, gear);
     }, 'uint8', ['pointer','int']);
-    let enabled = true;
+    let enabled = true, fault = null;
     return {
         set(value) {
+            if (fault) throw Error(fault);
             if (enabled === value) return;
-            if (value) Interceptor.revert(shift);
-            else {
-                verify();
-                Interceptor.replace(shift, filter);
+            try {
+                if (value) Interceptor.revert(shift);
+                else {
+                    verify();
+                    Interceptor.replace(shift, filter);
+                }
+                Interceptor.flush();
+                enabled = value;
+            } catch (error) {
+                fault = String(error);
+                throw error;
             }
-            Interceptor.flush();
-            enabled = value;
         },
-        status() { return {automaticReverse:enabled, ...counts}; }
+        status() { return {automaticReverse:enabled, ...counts, fault}; }
     };
 }

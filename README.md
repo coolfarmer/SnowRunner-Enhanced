@@ -1,5 +1,16 @@
 # SnowRunner Enhanced
 
+Preview.33 marks MAP **Active** as soon as its components are initialized and ready. Opening the map, zooming and rotating are no longer prerequisites. Errors discovered on first or subsequent use still change the state to **Error**.
+
+Preview.32 fixes the invisible feature values reported in preview.31 by supplying opaque ARGB colors. States remain read-only text on the right, without arrows. The regression test now checks alpha as well as RGB; in-game visual confirmation is pending.
+
+Preview.31 adds **FEATURES** above **MAP** in the ENHANCED settings. All six installer categories show their runtime health: **Inactive** (red), **Pending** (amber), **Active** (green), or **Error** (red). These rows are read-only; select a row for contextual help. Names, states and help follow the game's English/French language.
+
+Native diagnostics are delivered in memory every two seconds; values refresh with settings-screen updates. Some categories may wait for a relevant screen or load; MAP reports readiness without requiring first use. A component failure makes its category show Error. Active means initialized with no detected error, not a guarantee against every behavioral issue. Module selection remains in the installer, with the game closed.
+
+Preview.31 validation: automated tests; in-game layout, colors, scrolling and continuous refresh still require confirmation.
+
+
 ## Enhancement #6 – Steering Wheel Improvements
 
 Preview.30 integrates the former FFB Fix into Enhanced to correct abnormal oscillations during map transitions. **Steering Wheel Improvements** is an independent installer option, enabled when first added, with changes taking effect at the next game launch. Updates preserve existing enhancement choices.
@@ -38,7 +49,7 @@ user confirmed the result. The installed preview.15 was then tested and
 confirmed in game on November 23, 2026; both repairs are active with no
 instrumentation faults reported.
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.30** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.33** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 and targeted flicker fixes. The Vehicle module filters tiny wheel inputs at rest
 so closing Functions keeps the engine off after you stop it with the wheel.

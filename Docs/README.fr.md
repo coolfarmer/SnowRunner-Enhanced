@@ -1,4 +1,15 @@
-# SnowRunner Enhanced — 0.1.0-preview.30
+# SnowRunner Enhanced — 0.1.0-preview.33
+
+La preview.33 affiche CARTE comme **Actif** dès que ses composants sont initialisés et prêts, sans devoir ouvrir la carte ni utiliser le zoom ou la rotation. Un échec détecté lors de leur utilisation fait passer l’état à **Erreur**. **En attente** reste réservé à une initialisation incomplète pour CARTE.
+
+La preview.32 corrige les états invisibles signalés en preview.31 : les couleurs des valeurs utilisent désormais une opacité complète. Les états restent en texte à droite, sans flèches. Le test de régression vérifie les 32 bits de la couleur, y compris l’opacité. Confirmation visuelle en jeu en attente.
+
+La preview.31 ajoute **FONCTIONNALITÉS** au-dessus de **CARTE** dans les paramètres ENHANCED. Les six catégories de l’installateur affichent leur état réel : **Inactif** (rouge), **En attente** (ambre), **Actif** (vert) ou **Erreur** (rouge). Ces lignes sont en lecture seule ; sélectionnez-les pour consulter leur description. Les noms, états et descriptions suivent la langue française/anglaise du jeu.
+
+Les diagnostics natifs sont transmis en mémoire toutes les deux secondes ; les valeurs sont rafraîchies lors des mises à jour de l’écran des paramètres. Certaines catégories peuvent attendre un écran ou un chargement ; CARTE affiche sa disponibilité sans attendre sa première utilisation. Une erreur dans un composant fait passer sa catégorie en erreur. « Actif » signifie initialisé sans erreur détectée, et non une garantie contre tout problème de comportement. La sélection des modules reste dans l’installateur, jeu fermé.
+
+Validation de la preview.31 : tests automatisés ; affichage, couleurs, défilement et rafraîchissement continu en jeu restent à confirmer.
+
 
 ## Enhancement #6 – Steering Wheel Improvements
 
@@ -84,6 +95,10 @@ clavier et au volant après désinstallation, réinstallation et relancement du 
 4. Choisissez **Installer Enhanced** pour installer immédiatement les correctifs sélectionnés.
 5. Lancez le jeu normalement. Revenez dans **Voir l’état** pour consulter
    l’activation enregistrée lors du dernier lancement.
+
+Une fois Enhanced installé, cochez ou décochez les améliorations puis choisissez **Enregistrer**. Le message **Mise à jour du plugin en cours…** reste affiché pendant au moins une seconde et jusqu’à la fin de la désinstallation puis réinstallation du plugin. Les préférences du jeu sont conservées ; les choix prennent effet au prochain lancement. Enregistrer sans changer les choix ne déclenche pas de réinstallation.
+
+**Voir l’état** présente chaque amélioration une seule fois, dans les colonnes **Configuration** et **Dernier lancement**. Les états enregistrés utilisent du texte et une couleur : vert pour Actif, gris pour Désactivé ou Inconnu, ambre pour En attente et rouge pour Erreur. La date du lancement est affichée en heure locale. Les choix modifiés depuis le dernier lancement sont expliqués sous le tableau ; dans un terminal étroit, les informations sont présentées sur des lignes libellées.
 
 ## Correctifs
 

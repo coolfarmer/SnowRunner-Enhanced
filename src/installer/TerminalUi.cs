@@ -14,13 +14,17 @@ internal sealed class TerminalUi : IDisposable
     internal const string Muted = "\x1b[38;2;160;160;160m";
     internal const string Border = "\x1b[38;2;105;105;105m";
     internal const string Warning = "\x1b[38;2;245;195;100m";
+    internal const string Success = "\x1b[38;2;120;215;150m";
+    internal const string Error = "\x1b[38;2;255;130;130m";
     const int ContentWidth = 74;
     readonly List<Line> content = [];
     readonly nint output;
     readonly uint originalMode;
     bool disposed;
 
-    internal sealed record Line(string Text, string Color = Foreground, bool Optional = false);
+    internal sealed record Run(string Text, string Color = Foreground);
+    internal sealed record Line(string Text, string Color = Foreground, bool Optional = false, Run[]? Runs = null);
+    internal static Line Colored(params Run[] runs) => new(string.Concat(runs.Select(run => run.Text)), Runs: runs);
     internal sealed record Item(string Text, bool Enabled = true, bool BreakAfter = false);
 
     internal TerminalUi()
@@ -36,15 +40,20 @@ internal sealed class TerminalUi : IDisposable
     internal void Header()
     {
         content.Clear();
-        content.Add(new("", Optional: true));
-        content.Add(new("╭" + new string('─', ContentWidth - 2) + "╮", Border));
-        content.Add(new("│  S N O W R U N N E R".PadRight(ContentWidth - 1) + "│", Accent));
-        content.Add(new("│  SnowRunner Enhanced".PadRight(ContentWidth - 1) + "│", Muted));
-        content.Add(new("╰" + new string('─', ContentWidth - 2) + "╯", Border));
-        Blank();
+        content.AddRange(HeaderLines());
     }
 
+    internal static List<Line> HeaderLines() => [
+        new("", Optional: true),
+        new("╭" + new string('─', ContentWidth - 2) + "╮", Border),
+        new("│  S N O W R U N N E R".PadRight(ContentWidth - 1) + "│", Accent),
+        new("│  SnowRunner Enhanced".PadRight(ContentWidth - 1) + "│", Muted),
+        new("╰" + new string('─', ContentWidth - 2) + "╯", Border),
+        new("", Optional: true)];
+
     internal void Text(string text, string color = Foreground) => content.Add(new(text, color));
+    internal void AddLines(IEnumerable<Line> lines) => content.AddRange(lines);
+    internal int AvailableWidth => Math.Min(ContentWidth, Size().Width - (Size().Width >= 40 ? 6 : 2));
     internal void Blank() => content.Add(new("", Optional: true));
     internal void Detail(string label, string value) => Text(label.PadRight(20) + value, Muted);
 
@@ -60,7 +69,8 @@ internal sealed class TerminalUi : IDisposable
             if (redraw || currentSize != size)
             {
                 size = currentSize;
-                var lines = new List<Line>(content) { new(title, Accent) };
+                var lines = new List<Line>(content);
+                if (!string.IsNullOrEmpty(title)) lines.Add(new(title, Accent));
                 if (separator) lines.Add(new(new string('─', ContentWidth), Border));
                 lines.Add(new("", Optional: true));
                 int focus = lines.Count;
@@ -211,6 +221,8 @@ internal sealed class TerminalUi : IDisposable
                 result.Append(line.Color).Append(' ', margin);
                 if (line.Text.StartsWith('│') && line.Text.EndsWith('│'))
                     result.Append(Border).Append('│').Append(line.Color).Append(line.Text[1..^1]).Append(Border).Append('│');
+                else if (line.Runs != null)
+                    foreach (var run in line.Runs) result.Append(run.Color).Append(run.Text);
                 else result.Append(line.Text);
                 result.Append(' ', Math.Max(0, width - margin - line.Text.Length));
             }
@@ -224,6 +236,35 @@ internal sealed class TerminalUi : IDisposable
         var result = new List<Line>();
         foreach (var line in lines)
         {
+            if (line.Runs != null)
+            {
+                // Keep cell colors through wrapping without accepting ANSI from data.
+                var chars = line.Runs.SelectMany(run => run.Text.Replace('\t', ' ')
+                    .Where(c => !char.IsControl(c)).Select(c => (Character: c, run.Color))).ToArray();
+                string text = new(chars.Select(c => c.Character).ToArray());
+                int start = 0;
+                while (start < text.Length)
+                {
+                    int length = Math.Min(width, text.Length - start);
+                    if (start + length < text.Length)
+                    {
+                        int split = text.LastIndexOf(' ', start + length - 1, length) - start;
+                        if (split > 2) length = split;
+                    }
+                    var runs = new List<Run>();
+                    for (int index = start; index < start + length;)
+                    {
+                        int end = index + 1;
+                        while (end < start + length && chars[end].Color == chars[index].Color) end++;
+                        runs.Add(new(text[index..end], chars[index].Color));
+                        index = end;
+                    }
+                    result.Add(Colored(runs.ToArray()));
+                    start += length;
+                    while (start < text.Length && text[start] == ' ') start++;
+                }
+                continue;
+            }
             foreach (var part in line.Text.Replace("\r", "").Split('\n'))
             {
                 string remaining = part.Replace('\t', ' ');

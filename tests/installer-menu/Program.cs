@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using SnowRunnerEnhanced;
 
@@ -94,6 +95,90 @@ try
     }
     var sanitized = TerminalUi.RenderFrame([new("Bad path \x1b]0;not-a-title\a")], 0, null, 80, 24);
     Check(!sanitized.Text.Contains("\x1b]"), "User-supplied control characters must not alter the terminal.");
+
+    var status = JsonNode.Parse("""
+        {"installed":true,"installedVersion":"0.1.0-preview.33",
+         "wheelMouseEnabled":true,"skipStartupLogosEnabled":true,"mapEnabled":true,
+         "generalImprovementsEnabled":true,"vehicleEnabled":true,"steeringWheelImprovementsEnabled":true,
+         "files":{"SnowRunnerEnhanced.asi":"owned"},"loaderSupported":true,
+         "lastRun":{"timeUtc":"2026-11-25T18:23:01.581Z","features":{
+           "wheel_mouse":{"status":"active"},"skip_startup_logos":{"status":"active"},
+           "map":{"status":"disabled"},"general_improvements":{"status":"active"},
+           "vehicle":{"status":"active"},"steering_wheel_improvements":{"status":"active"}}}}
+        """)!.AsObject();
+    var localZone = TimeZoneInfo.CreateCustomTimeZone("Test local", TimeSpan.FromHours(-5), "Test local", "Test local");
+    foreach (bool french in new[] { false, true })
+    {
+        var statusLines = StatusView.Build(status, french, timeZone: localZone);
+        string text = string.Join('\n', statusLines.Select(line => line.Text));
+        Check(text.Contains(french ? "CONFIGURATION" : "CONFIGURED") && text.Contains(french ? "DERNIER LANCEMENT" : "LAST LAUNCH"),
+            "The table must distinguish configured choices from the last launch in both languages.");
+        var featureRows = statusLines.Where(line => line.Runs != null).ToArray();
+        Check(featureRows.Length == 6, "Each enhancement must have exactly one table row.");
+        Check(featureRows.All(line => line.Runs![0].Color == TerminalUi.Foreground && line.Runs[0].Text.Length == 35 && line.Runs[1].Text.Length == 15),
+            "Feature names must be neutral and both state columns must align.");
+        Check(featureRows[2].Runs![1].Text.Trim() == (french ? "Activé" : "Enabled") && featureRows[2].Runs![2].Text == (french ? "Désactivé" : "Disabled"),
+            "Map must preserve the difference between its saved choice and last recorded result.");
+        Check(text.Contains(french ? "Choix modifiés" : "Choices changed") && text.Contains(french ? "prochain lancement" : "next launch"),
+            "Changed choices must explain when they take effect.");
+        Check(text.Contains(french ? "25 nov. 2026, 13:23" : "Nov 25, 2026, 1:23 PM") && !text.Contains("T18:23"),
+            "Launch times must use the selected language and the player's local time zone.");
+        Check(!text.Contains("[x]") && !text.Contains("— Enabled"), "Status rows must not look selectable or repeat the previous list.");
+        var completeStatus = TerminalUi.HeaderLines();
+        completeStatus.AddRange(statusLines);
+        completeStatus.Add(new("", Optional: true));
+        completeStatus.Add(new(french ? "› Retour" : "› Back", TerminalUi.Accent));
+        var statusFrame = TerminalUi.RenderFrame(completeStatus, completeStatus.Count - 1, "", 80, 24);
+        Check(statusFrame.Text.Contains("S N O W R U N N E R") && statusFrame.Text.Contains("SnowRunner Enhanced"),
+            "The standard SnowRunner header must remain visible on the status screen.");
+        Check(statusFrame.Text.Contains(TerminalUi.Accent + "   " + (french ? "› Retour" : "› Back")),
+            "Back must be the selected menu action.");
+        Check(!statusFrame.Text.Contains("Enter") && !statusFrame.Text.Contains("Entrée"), "Status must not show the old Enter Back prompt.");
+        foreach (var key in new[] { ConsoleKey.UpArrow, ConsoleKey.DownArrow, ConsoleKey.Home, ConsoleKey.End })
+            Check(TerminalUi.MoveSelection([new(french ? "Retour" : "Back")], 0, key) == 0,
+                "Keyboard navigation must keep the sole Back action selected.");
+        Check(statusFrame.Text.Contains(french ? "ÉTAT D’ENHANCED" : "VIEW STATUS") && statusFrame.Text.Contains(french ? "Améliorations du volant" : "Steering Wheel Improvements"),
+            "The status title and last enhancement must fit together in a standard terminal.");
+        Check(statusFrame.Text.Contains(TerminalUi.Success + (french ? "Actif" : "Active")), "Only runtime active states should receive the success color.");
+        string? previewDir = Environment.GetEnvironmentVariable("ENHANCED_STATUS_PREVIEW_DIR");
+        if (previewDir != null)
+        {
+            Directory.CreateDirectory(previewDir);
+            File.WriteAllText(Path.Combine(previewDir, french ? "status-fr.ansi" : "status-en.ansi"), statusFrame.Text);
+        }
+        var compact = StatusView.Build(status, french, width: 34, timeZone: localZone);
+        Check(compact.Count(line => line.Runs != null) == 12 && compact.Any(line => line.Text.Contains(french ? "DERNIER LANCEMENT" : "LAST LAUNCH")),
+            "Narrow terminals must stack labeled states below each feature.");
+        foreach (var line in compact)
+        {
+            var frame = TerminalUi.RenderFrame([line], 0, null, 40, 10);
+            var rows = Regex.Split(frame.Text, @"\x1b\[\d+;1H").Skip(1).Select(row => Regex.Replace(row, @"\x1b\[[0-9;?]*[A-Za-z]", ""));
+            Check(rows.All(row => row.Length == 40), "Colored status cells must wrap without overflowing narrow terminals.");
+        }
+        var missing = status.DeepClone().AsObject();
+        missing.Remove("lastRun");
+        var missingLines = StatusView.Build(missing, french);
+        Check(missingLines.Where(line => line.Runs != null).All(line => line.Runs![2].Text == "—"), "No launch record must never imply a feature is active.");
+        Check(missingLines.Any(line => line.Text.Contains(french ? "Aucun lancement" : "No recorded launch")), "Explain how to obtain missing launch information.");
+        var healthy = status.DeepClone().AsObject();
+        healthy["lastRun"]!["features"]!["map"]!["status"] = "active";
+        Check(!StatusView.Build(healthy, french).Any(line => line.Color == TerminalUi.Warning), "Matching healthy states need no extra warning.");
+        healthy["lastRun"]!["timeUtc"] = "invalid";
+        healthy["lastRun"]!["features"]!["map"]!["status"] = "incompatible";
+        healthy["files"]!["SnowRunnerEnhanced.asi"] = "missing";
+        healthy["configurationError"] = "Missing or invalid feature configuration.";
+        healthy.Remove("mapEnabled");
+        var errors = StatusView.Build(healthy, french);
+        Check(errors.Any(line => line.Text.Contains(french ? "Date inconnue" : "Unknown date")), "An invalid timestamp must not break the status screen.");
+        Check(errors.Any(line => line.Color == TerminalUi.Error && line.Text.Contains(french ? "Fichier manquant" : "Missing file")), "File problems must remain visible.");
+        Check(errors.Any(line => line.Text.Contains(french ? "Configuration absente" : "Missing or invalid configuration")), "Configuration failures must remain visible and localized.");
+        foreach (var (state, expectedColor) in new[] { ("active", TerminalUi.Success), ("disabled", TerminalUi.Muted),
+            ("armed", TerminalUi.Warning), ("waiting", TerminalUi.Warning), ("pending", TerminalUi.Warning),
+            ("incompatible", TerminalUi.Error), ("faulted", TerminalUi.Error), ("error", TerminalUi.Error), ("unknown", TerminalUi.Muted) })
+            Check(StatusView.State(state, true, french).Color == expectedColor, "Runtime states must retain their health severity.");
+    }
+    var coloredSanitized = TerminalUi.RenderFrame([TerminalUi.Colored(new TerminalUi.Run("Bad \x1b]0;title\a", TerminalUi.Error))], 0, null, 40, 10);
+    Check(!coloredSanitized.Text.Contains("\x1b]"), "Colored status data must not inject terminal commands.");
 
     var frames = new List<string>();
     var elapsed = Stopwatch.StartNew();

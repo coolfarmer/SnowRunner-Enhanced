@@ -13,7 +13,7 @@ namespace SnowRunnerEnhanced;
 // or installed once, and always preserved on uninstall for other mods.
 internal sealed class Installation
 {
-    internal const string Version = "0.1.0-preview.30";
+    internal const string Version = "0.1.0-preview.33";
     internal const string ConfigName = "SnowRunnerEnhanced.json";
     internal const string ReceiptName = "SnowRunnerEnhanced.install.json";
     internal const string StatusName = "SnowRunnerEnhanced.status.json";
@@ -366,24 +366,43 @@ internal sealed class Installation
         ParseFeature(ReadJson(At(ConfigName)));
         var config = Configuration(enabled ?? Enabled, skipStartupLogos ?? SkipStartupLogosEnabled, map ?? MapEnabled, general ?? GeneralImprovementsEnabled, vehicle ?? VehicleEnabled, steering ?? SteeringEnabled);
         byte[]? previousPlugin = null;
-        if (migrate && Hash(pluginPath) != payload[plugin])
+        byte[]? replacement = null;
+        bool pluginRemoved = false;
+        bool configWritten = false;
+        if (migrate || !JsonNode.DeepEquals(JsonNode.Parse(old), JsonNode.Parse(config)))
         {
             CheckExecutable();
             if (CheckLoader() == null) throw new IOException("Missing shared loader.");
-            var replacement = File.ReadAllBytes(Path.Combine(sources, "Payload", plugin));
+            replacement = File.ReadAllBytes(Path.Combine(sources, "Payload", plugin));
             if (Convert.ToHexStringLower(SHA256.HashData(replacement)) != payload[plugin]) throw new IOException("Payload changed during update.");
             previousPlugin = File.ReadAllBytes(pluginPath);
-            AtomicWrite(pluginPath, replacement, true);
         }
         try
         {
+            if (replacement != null)
+            {
+                // Reinstall the plugin even within the same version when choices
+                // change. Keep the shared loader, preferences and diagnostics.
+                using (var pluginLock = new FileStream(pluginPath, FileMode.Open, FileAccess.Read, FileShare.Delete))
+                {
+                    File.Delete(pluginPath);
+                    pluginRemoved = true;
+                }
+                AtomicWrite(pluginPath, replacement, false);
+            }
             AtomicWrite(At(ConfigName), config, true);
+            configWritten = true;
             receipt["allEnabledDefaults"] = true;
             if (migrate) { receipt["version"] = Version; receipt["files"]![plugin] = payload[plugin]; }
             receipt["configurationSha256"] = Convert.ToHexStringLower(SHA256.HashData(config));
             AtomicWrite(At(ReceiptName), JsonBytes(receipt), true);
         }
-        catch { if (previousPlugin != null) AtomicWrite(pluginPath, previousPlugin, true); AtomicWrite(At(ConfigName), old, true); throw; }
+        catch
+        {
+            if (pluginRemoved) AtomicWrite(pluginPath, previousPlugin!, true);
+            if (configWritten) AtomicWrite(At(ConfigName), old, true);
+            throw;
+        }
     }
 
     void VerifyBinaries(JsonObject receipt, bool allowMissing)
