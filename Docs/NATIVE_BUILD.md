@@ -1,6 +1,11 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.25`. Cette intégration reprend la logique V18 avec une
+Version : `0.1.0-preview.30`.
+
+L’[Enhancement #6 – Steering Wheel Improvements](STEERING_WHEEL.md) intègre le
+correctif FFB dans le plugin, avec recherche native par signatures au démarrage.
+Ses tests et sa notice MIT sont inclus ; aucun projet voisin n’est requis.
+ Cette intégration reprend la logique V18 avec une
 correction ciblée de la lecture du périphérique par `GameStateIngame.HandleOnDeviceChanged`
 dans un hôte Windows natif qui embarque **GumJS 17.26.3 / QuickJS**. Ce n’est
 pas une réécriture de tous les hooks en C++. L’utilisateur final ne lance aucun
@@ -14,7 +19,6 @@ Install.cmd → SnowRunnerEnhanced.Setup.exe (Spectre.Console)
 SnowRunner.exe → dinput8.dll (Ultimate ASI Loader) → DirectInput système
                       ├→ SnowRunnerEnhanced.asi → InitializeASI → thread privé
                       │                            └→ config → signatures → V18
-                      ├→ SnowRunnerFFBFix.asi (installé séparément)
                       └→ SMT.asi (installé séparément)
 ```
 
@@ -112,7 +116,7 @@ restent propres à Enhanced. Le seul composant partagé dans le dossier du jeu
 est Ultimate ASI Loader (`dinput8.dll`). L’installateur réutilise les copies x64
 vérifiées 10.0.2 et 8.5.0 de SMT v1.5, ou installe sa propre copie téléchargée
 chez l’éditeur. Les empreintes et URL sont dans `tools/asi_loaders.py`.
-Il ne modifie ni les plugins ni les réglages de FFB Fix ou SMT.
+Il préserve les autres plugins et leurs réglages.
 
 Un chargeur inconnu, ses fichiers de configuration ou un proxy chaîné provoquent
 un refus sans écrasement. Le chargeur reste toujours à la désinstallation, car
@@ -120,7 +124,7 @@ d’autres mods peuvent en dépendre. Enhanced possède uniquement son ASI, sa
 configuration et son reçu. Une installation preview.1 doit être retirée avec
 son ancien installateur ; aucun `version.dll` n’est supprimé par le nouvel outil.
 
-Le paquet natif contient une seule feature. Ajouter une feature native
+Le paquet natif contient six enhancements. Ajouter une feature native
 nécessitera d’ajouter son implémentation, son entrée de configuration et son option
 dans l’installateur. Les options restent indépendantes ; les sous-correctifs V18
 de `wheel_mouse` restent regroupés parce qu’ils partagent l’état de focus.

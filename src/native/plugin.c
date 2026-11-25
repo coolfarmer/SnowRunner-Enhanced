@@ -8,6 +8,7 @@
 
 #include "startup.h"
 #include "settings.h"
+#include "steering.h"
 
 static HMODULE self;
 static volatile LONG started;
@@ -21,6 +22,7 @@ static void WriteReport(const char *text) {
         json_object_set_string_member(root,"settingsPersistence",settings_state);
         JsonObject *features = json_object_get_object_member(root, "features");
         if (features) {
+            json_object_set_object_member(features,"steering_wheel_improvements",SteeringStatus(configured_features >= 0 && (configured_features & 32) != 0));
             JsonObject *startup = json_object_new();
             json_object_set_boolean_member(startup,"enabled",configured_features >= 0 && (configured_features & 2) != 0);
             json_object_set_string_member(startup,"status",StartupState());
@@ -60,7 +62,7 @@ static void WriteReport(const char *text) {
 static void SimpleStatus(const char *status, const char *reason) {
     char out[1024];
     SYSTEMTIME now; GetSystemTime(&now);
-    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.29\","
+    snprintf(out, sizeof(out), "{\"schemaVersion\":1,\"version\":\"0.1.0-preview.30\","
         "\"processId\":%lu,\"timeUtc\":\"%04u-%02u-%02uT%02u:%02u:%02uZ\","
         "\"features\":{\"wheel_mouse\":{\"status\":\"%s\",\"reason\":\"%s\"}}}",
         (unsigned long)GetCurrentProcessId(), now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, status, reason);
@@ -93,7 +95,7 @@ static BOOL HashGame(char hex[65]) {
 // These installer keys also identify sections in the Enhanced settings menu.
 static const struct { const char *key; int bit; } modules[] = {
     {"wheel_mouse", 1}, {"skip_startup_logos", 2}, {"map", 4},
-    {"general_improvements", 8}, {"vehicle", 16}
+    {"general_improvements", 8}, {"vehicle", 16}, {"steering_wheel_improvements", 32}
 };
 
 static char *MenuModuleFlags(int enabled) {
@@ -232,7 +234,10 @@ __declspec(dllexport) void InitializeASI(void) {
             if (slash) {
                 slash[1] = 0;
                 configured_features = ReadConfiguration(folder);
-                if (configured_features >= 0) StartupInstall(folder);
+                if (configured_features >= 0) {
+                    if (configured_features & 32) SteeringInstall();
+                    StartupInstall(folder);
+                }
             }
             HANDLE thread = CreateThread(NULL, 0, EnhancedWorker, NULL, 0, NULL);
             if (thread) CloseHandle(thread);

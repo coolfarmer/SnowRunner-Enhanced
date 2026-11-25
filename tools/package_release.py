@@ -7,7 +7,7 @@ import zipfile
 from asi_loaders import LOADERS, loader_path, verify
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0-preview.29'
+VERSION = '0.1.0-preview.30'
 PACKAGE = ROOT / 'dist' / ('SnowRunnerEnhanced-' + VERSION)
 
 
@@ -20,7 +20,7 @@ def main():
         source = loader_path(LOADERS[0]) if name == 'dinput8.dll' else ROOT / 'build/native' / name
         files['Sources/Payload/' + name] = source
         payload[name] = hashlib.sha256(source.read_bytes()).hexdigest()
-    for name in ('README.en.md', 'README.fr.md'):
+    for name in ('README.en.md', 'README.fr.md', 'STEERING_WHEEL.md'):
         files['Sources/Docs/' + name] = ROOT / 'Docs' / name
     for source in (ROOT / 'Licenses').rglob('*'):
         if source.is_file():
@@ -30,9 +30,9 @@ def main():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
     manifest = {'schemaVersion': 1, 'product': 'SnowRunnerEnhanced', 'version': VERSION,
-                'payload': payload, 'compatibleLoaders': LOADERS, 'features': ['wheel_mouse', 'skip_startup_logos', 'map', 'general_improvements', 'vehicle'],
+                'payload': payload, 'compatibleLoaders': LOADERS, 'features': ['wheel_mouse', 'skip_startup_logos', 'map', 'general_improvements', 'vehicle', 'steering_wheel_improvements'],
                 'coreComponents': ['settings_menu'],
-                'validation': 'Functions menu wraparound confirmed in game. Hold-to-scroll confirmed in installed preview.24 with keyboard and controller D-pad. Vehicle automatic reverse confirmed in a live memory trial. The player confirmed the preview.25 Vehicle option works in game. In both preview.27 and preview.28, the player verified in game that the three MAP options and the VEHICLE Automatic reverse option were grayed out when their modules were disabled and became accessible again after the modules were re-enabled.'}
+                'validation': 'Enhancement #6 Steering Wheel Improvements: integrated native initialization and relocatable discovery; the player confirmed the integrated preview.30 works in game on November 25, 2026. Functions menu wraparound confirmed in game. Hold-to-scroll confirmed in installed preview.24 with keyboard and controller D-pad. Vehicle automatic reverse confirmed in a live memory trial. The player confirmed the preview.25 Vehicle option works in game. In both preview.27 and preview.28, the player verified in game that the three MAP options and the VEHICLE Automatic reverse option were grayed out when their modules were disabled and became accessible again after the modules were re-enabled.'}
     manifest_path = PACKAGE / 'Sources/package.json'
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     # Explicit archive allowlist excludes Reports, test hosts, personal paths and

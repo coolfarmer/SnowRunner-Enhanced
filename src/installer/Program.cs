@@ -59,7 +59,7 @@ internal static class Program
     {
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         var flags = new[] { "plain", "json", "help", "preview" };
-        var values = new[] { "action", "game-directory", "wheel-mouse", "skip-startup-logos", "map", "general-improvements", "vehicle", "language" };
+        var values = new[] { "action", "game-directory", "wheel-mouse", "skip-startup-logos", "map", "general-improvements", "vehicle", "steering-wheel-improvements", "language" };
         for (int i = 0; i < args.Length; i++)
         {
             if (!args[i].StartsWith("--")) throw new ArgumentException("Unknown argument: " + args[i]);
@@ -101,10 +101,10 @@ internal static class Program
         switch (action)
         {
             case "check": case "status": result = installation.Inspect(); break;
-            case "install": installation.Install(BooleanOption(options, true), StartupOption(options, true)!.Value,
-                FeatureOption(options, "map", true)!.Value, FeatureOption(options, "general-improvements", true)!.Value, FeatureOption(options, "vehicle", true)!.Value); result = installation.Inspect(); break;
+            case "install": installation.Install(FeatureOption(options, "wheel-mouse", null), StartupOption(options, null),
+                FeatureOption(options, "map", null), FeatureOption(options, "general-improvements", null), FeatureOption(options, "vehicle", null), FeatureOption(options, "steering-wheel-improvements", null)); result = installation.Inspect(); break;
             case "configure": installation.Configure(FeatureOption(options, "wheel-mouse", null), StartupOption(options, null),
-                FeatureOption(options, "map", null), FeatureOption(options, "general-improvements", null), FeatureOption(options, "vehicle", null)); result = installation.Inspect(); break;
+                FeatureOption(options, "map", null), FeatureOption(options, "general-improvements", null), FeatureOption(options, "vehicle", null), FeatureOption(options, "steering-wheel-improvements", null)); result = installation.Inspect(); break;
             case "uninstall":
                 result = new JsonObject { ["installed"] = false,
                     ["preserved"] = JsonSerializer.SerializeToNode(installation.Uninstall()) }; break;
@@ -253,6 +253,7 @@ internal static class Program
         bool pending = installation.HasReceipt ? ReadEnabled(installation) : true;
         bool pendingStartup = !installation.HasReceipt || installation.SkipStartupLogosEnabled;
         bool pendingMap = !installation.HasReceipt || installation.MapEnabled;
+        bool pendingSteering = !installation.HasReceipt || installation.SteeringEnabled;
         bool pendingVehicle = !installation.HasReceipt || installation.VehicleEnabled;
         bool pendingGeneral = !installation.HasReceipt || installation.GeneralImprovementsEnabled;
         string? notice = null;
@@ -287,25 +288,25 @@ internal static class Program
                     case "back": break;
                     case "language": SelectLanguage(); break;
                     case "help": InteractiveHelp(); Pause(); break;
-                    case "folder": installation = Open(SelectGame()); pending = installation.HasReceipt ? ReadEnabled(installation) : true; pendingStartup = !installation.HasReceipt || installation.SkipStartupLogosEnabled; pendingMap = !installation.HasReceipt || installation.MapEnabled; pendingGeneral = !installation.HasReceipt || installation.GeneralImprovementsEnabled; pendingVehicle = !installation.HasReceipt || installation.VehicleEnabled; break;
+                    case "folder": installation = Open(SelectGame()); pending = installation.HasReceipt ? ReadEnabled(installation) : true; pendingStartup = !installation.HasReceipt || installation.SkipStartupLogosEnabled; pendingMap = !installation.HasReceipt || installation.MapEnabled; pendingGeneral = !installation.HasReceipt || installation.GeneralImprovementsEnabled; pendingVehicle = !installation.HasReceipt || installation.VehicleEnabled; pendingSteering = !installation.HasReceipt || installation.SteeringEnabled; break;
                     case "status": ShowStatus(installation.Inspect()); Pause(); break;
                     case "report": Say(T("Diagnostic enregistré : ", "Diagnostic saved: ") + SaveReport(installation));
                         Say(T("Joignez ce fichier à une issue dans le dépôt du projet. Aucun envoi automatique.",
                               "Attach this file to an issue in the project repository. Nothing is sent automatically.")); Pause(); break;
                     case "features":
-                        var selected = SelectEnhancements(migrate || enabled, migrate || (installed ? installation.SkipStartupLogosEnabled : pendingStartup),
-                            migrate || (installed ? installation.MapEnabled : pendingMap), migrate || (installed ? installation.GeneralImprovementsEnabled : pendingGeneral), migrate || (installed ? installation.VehicleEnabled : pendingVehicle));
+                        var selected = SelectEnhancements(enabled, (installed ? installation.SkipStartupLogosEnabled : pendingStartup),
+                            (installed ? installation.MapEnabled : pendingMap), (installed ? installation.GeneralImprovementsEnabled : pendingGeneral), (installed ? installation.VehicleEnabled : pendingVehicle), (installed ? installation.SteeringEnabled : pendingSteering));
                         if (selected == null) break;
-                        if (installed) installation.Configure(selected.Value.Wheel, selected.Value.Startup, selected.Value.Map, selected.Value.General, selected.Value.Vehicle);
-                        else { pending = selected.Value.Wheel; pendingStartup = selected.Value.Startup; pendingMap = selected.Value.Map; pendingGeneral = selected.Value.General; pendingVehicle = selected.Value.Vehicle; }
+                        if (installed) installation.Configure(selected.Value.Wheel, selected.Value.Startup, selected.Value.Map, selected.Value.General, selected.Value.Vehicle, selected.Value.Steering);
+                        else { pending = selected.Value.Wheel; pendingStartup = selected.Value.Startup; pendingMap = selected.Value.Map; pendingGeneral = selected.Value.General; pendingVehicle = selected.Value.Vehicle; pendingSteering = selected.Value.Steering; }
                         notice = T("Choix enregistré.", "Selection saved."); break;
                     case "install":
                         if (ui != null)
-                            ui.RunWithSpinner(T("Installation en cours…", "Installing Enhanced…"), () => installation.Install(migrate || pending, migrate || pendingStartup, migrate || pendingMap, migrate || pendingGeneral, migrate || pendingVehicle));
+                            ui.RunWithSpinner(T("Installation en cours…", "Installing Enhanced…"), () => installation.Install(pending, pendingStartup, pendingMap, pendingGeneral, pendingVehicle, pendingSteering));
                         else
                         {
                             Say(T("Installation en cours…", "Installing Enhanced…"));
-                            installation.Install(migrate || pending, migrate || pendingStartup, migrate || pendingMap, migrate || pendingGeneral, migrate || pendingVehicle);
+                            installation.Install(pending, pendingStartup, pendingMap, pendingGeneral, pendingVehicle, pendingSteering);
                         }
                         Say(T("Installation terminée. Lancez le jeu normalement.", "Installed. Start the game normally."));
                         Pause();
@@ -339,7 +340,7 @@ internal static class Program
         }
     }
 
-    static (bool Wheel, bool Startup, bool Map, bool General, bool Vehicle)? SelectEnhancements(bool wheel, bool startup, bool map, bool general, bool vehicle)
+    static (bool Wheel, bool Startup, bool Map, bool General, bool Vehicle, bool Steering)? SelectEnhancements(bool wheel, bool startup, bool map, bool general, bool vehicle, bool steering)
     {
         if (ui == null) {
             bool w = Choose(FeatureName, [new("on", T("Activé", "Enabled")), new("off", T("Désactivé", "Disabled"))]) == "on";
@@ -347,26 +348,30 @@ internal static class Program
             bool m = Choose("Map Improvements/Options", [new("on", T("Activé", "Enabled")), new("off", T("Désactivé", "Disabled"))]) == "on";
             bool g = Choose("General Improvements", [new("on", T("Activé", "Enabled")), new("off", T("Désactivé", "Disabled"))]) == "on";
             bool v = Choose("Vehicle Improvement/Options", [new("on", T("Activé", "Enabled")), new("off", T("Désactivé", "Disabled"))]) == "on";
-            return (w,l,m,g,v);
+            bool s = Choose("Steering Wheel Improvements", [new("on", T("Activé", "Enabled")), new("off", T("Désactivé", "Disabled"))]) == "on";
+            return (w,l,m,g,v,s);
         }
-        bool selectedWheel=wheel, selectedStartup=startup, selectedMap=map, selectedGeneral=general, selectedVehicle=vehicle;
+        bool selectedWheel=wheel, selectedStartup=startup, selectedMap=map, selectedGeneral=general, selectedVehicle=vehicle, selectedSteering=steering;
         while (true) {
             Screen();
             Say(T("Chaque amélioration peut être activée ou désactivée indépendamment.", "Each enhancement can be enabled or disabled independently."));
             Say(T("Skip Startup Logos saute l’avertissement de photosensibilité et les logos au prochain lancement.", "Skip Startup Logos skips the photosensitivity warning and logos at the next launch."));
             Say(T("Map corrige le survol et le clic de l’icône de carte, et permet de régler la sensibilité du zoom et de la rotation dans Paramètres → ENHANCED.", "Map fixes hovering and clicking the Map icon, and adds zoom and mouse rotation sensitivity in Settings → ENHANCED."));
             Say(T("General Improvements permet de parcourir le menu Fonctions en boucle.", "General Improvements adds wraparound navigation to the Functions menu."));
+            Say(T("Steering Wheel Improvements corrige les oscillations anormales lors des changements de carte.", "Steering Wheel Improvements fixes abnormal oscillations during map transitions."));
             Blank();
             int choice = ui.Choose(T("PERSONNALISER LES AMÉLIORATIONS", "CUSTOMIZE ENHANCEMENTS"), [
                 new($"[{(selectedWheel ? "x" : " ")}] {FeatureName}"),
                 new($"[{(selectedStartup ? "x" : " ")}] Skip Startup Logos"),
                 new($"[{(selectedMap ? "x" : " ")}] Map Improvements/Options"),
                 new($"[{(selectedGeneral ? "x" : " ")}] General Improvements"),
-                new($"[{(selectedVehicle ? "x" : " ")}] Vehicle Improvement/Options", BreakAfter: true),
+                new($"[{(selectedVehicle ? "x" : " ")}] Vehicle Improvement/Options"),
+                new($"[{(selectedSteering ? "x" : " ")}] Steering Wheel Improvements", BreakAfter: true),
                 new(T("Enregistrer", "Save")), new(T("Annuler", "Cancel"))],
                 T("↑ ↓ Naviguer    Espace Basculer    Entrée Sélectionner", "↑ ↓ Navigate    Space Toggle    Enter Select"), separator: true, spaceSelects: true);
-            if (choice is -1 or 6) return null;
-            if (choice==5) return (selectedWheel,selectedStartup,selectedMap,selectedGeneral,selectedVehicle);
+            if (choice is -1 or 7) return null;
+            if (choice==6) return (selectedWheel,selectedStartup,selectedMap,selectedGeneral,selectedVehicle,selectedSteering);
+            if (choice==5) selectedSteering=!selectedSteering;
             if (choice==4) selectedVehicle=!selectedVehicle;
             if (choice==3) selectedGeneral=!selectedGeneral;
             if (choice==2) selectedMap=!selectedMap;
@@ -448,6 +453,7 @@ internal static class Program
             if (status["skipStartupLogosEnabled"] != null) Say("Skip Startup Logos — " + (status["skipStartupLogosEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
             if (status["mapEnabled"] != null) Say("Map — " + (status["mapEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
             if (status["generalImprovementsEnabled"] != null) Say("General Improvements — " + (status["generalImprovementsEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
+            if (status["steeringWheelImprovementsEnabled"] != null) Say("Steering Wheel Improvements — " + (status["steeringWheelImprovementsEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
             if (status["vehicleEnabled"] != null) Say("Vehicle — " + (status["vehicleEnabled"]!.GetValue<bool>() ? T("Activé", "Enabled") : T("Désactivé", "Disabled")));
             if (status["configurationError"] != null) Say(status["configurationError"]!.GetValue<string>(), true);
             foreach (var entry in (JsonObject)status["files"]!)
@@ -467,6 +473,7 @@ internal static class Program
                 Say("Skip Startup Logos : " + (runtime["features"]?["skip_startup_logos"]?["status"]?.GetValue<string>() ?? "unknown"));
                 Say("Map : " + (runtime["features"]?["map"]?["status"]?.GetValue<string>() ?? "unknown"));
                 Say("General Improvements — " + (runtime["features"]?["general_improvements"]?["status"]?.GetValue<string>() ?? "unknown"));
+                Say("Steering Wheel Improvements — " + (runtime["features"]?["steering_wheel_improvements"]?["status"]?.GetValue<string>() ?? "unknown"));
                 Say("Vehicle — " + (runtime["features"]?["vehicle"]?["status"]?.GetValue<string>() ?? "unknown"));
                 Say(runtime["timeUtc"]?.GetValue<string>() ?? "");
             }
@@ -498,5 +505,5 @@ internal static class Program
     static void Help() => Console.WriteLine("SnowRunner Enhanced " + Installation.Version + "\n" +
         "Install.cmd [--language fr|en] [--plain] [--game-directory PATH]\n" +
         "--action check|status|install|configure|uninstall|report --game-directory PATH [--json]\n" +
-        "--wheel-mouse true|false (install: true; configure: preserve current)\n--skip-startup-logos true|false (install: true; configure: preserve current)\n--map true|false (install: true; configure: preserve current)\n--general-improvements true|false (install: true; configure: preserve current)\n--vehicle true|false (install: true; configure: preserve current)\n--preview\n");
+        "--wheel-mouse true|false (install: true; configure: preserve current)\n--skip-startup-logos true|false (install: true; configure: preserve current)\n--map true|false (install: true; configure: preserve current)\n--general-improvements true|false (install: true; configure: preserve current)\n--vehicle true|false (new install: true; update/configure: preserve current)\n--steering-wheel-improvements true|false (new feature: true; update/configure: preserve current)\n--preview\n");
 }

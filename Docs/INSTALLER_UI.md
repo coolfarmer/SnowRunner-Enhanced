@@ -2,7 +2,7 @@
 
 The interactive installer follows the two user-supplied terminal references.
 It uses the terminal's monospace font and native window chrome; it does not
-change Windows Terminal settings or share components with SnowRunner FFB Fix.
+change Windows Terminal settings.
 
 Palette: background `#262626`, text `#e6e6e6`, cyan `#00d7ff`, secondary text
 `#a0a0a0`, borders `#696969`, warnings `#f5c364`. All tokens live in
@@ -20,11 +20,15 @@ The main menu contains installation, advanced options, more options, help, and
 exit. Advanced Options contains status, feature selection, and uninstallation.
 More options contains folder selection, diagnostic export, and language selection.
 Automatically detected Steam installations still skip
-the folder question. Customize enhancements contains three independent options:
-Simultaneous Mouse & Wheel Input (enabled by default), Skip Startup Logos
-(disabled by default), and #3 : Map (enabled by default). Map owns the two
-hover/click repairs for the Map icon next to Tasks and Contracts, and the zoom
-sensitivity slider in Settings → ENHANCED. Install Enhanced immediately installs the
+the folder question. Customize enhancements contains six independent options:
+Simultaneous Mouse & Wheel Input, Skip Startup Logos, Map Improvements/Options,
+General Improvements, Vehicle Improvement/Options, and **Steering Wheel Improvements**
+(Enhancement #6). New installations enable all six. Updates preserve existing
+choices and enable the sixth option when it is first added. Space toggles the
+selected option; Save applies the selection and Cancel discards it. Steering Wheel
+Improvements takes effect at the next game launch, without an in-game control.
+Map owns the two hover/click repairs and the map settings under ENHANCED.
+Install Enhanced immediately installs the
 current selection without a destination or fixes confirmation. A cyan dotted
 spinner and localized installation message appear while it runs, for at least
 one second even when installation finishes sooner. Longer installations keep

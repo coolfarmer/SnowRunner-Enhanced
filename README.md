@@ -1,5 +1,12 @@
 # SnowRunner Enhanced
 
+## Enhancement #6 – Steering Wheel Improvements
+
+Preview.30 integrates the former FFB Fix into Enhanced to correct abnormal oscillations during map transitions. **Steering Wheel Improvements** is an independent installer option, enabled when first added, with changes taking effect at the next game launch. Updates preserve existing enhancement choices.
+
+Signatures and cross-references now locate the constructor, so moving code or changing the executable hash alone no longer disables the correction. Changed object layouts or ambiguous discovery leave only this enhancement inactive. The separate FFB plugin is no longer required. On November 25, 2026, the player confirmed that the integrated preview.30 works in game. See [implementation and limits](Docs/STEERING_WHEEL.md).
+
+
 In both preview.27 and preview.28, the player verified in game that the three MAP options and the VEHICLE Automatic reverse option were grayed out when their modules were disabled and became accessible again after the modules were re-enabled.
 
 ## Enhancement #5 – Vehicle
@@ -31,7 +38,7 @@ user confirmed the result. The installed preview.15 was then tested and
 confirmed in game on November 23, 2026; both repairs are active with no
 instrumentation faults reported.
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.29** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.30** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 and targeted flicker fixes. The Vehicle module filters tiny wheel inputs at rest
 so closing Functions keeps the engine off after you stop it with the wheel.
@@ -58,7 +65,7 @@ See [implementation and validation limits](Docs/STARTUP_LOGOS.md).
 The standalone package includes a bilingual installer. Players do not need to
 install Python, Frida, or .NET. Extract the complete release ZIP and run
 `Install.cmd`. Enhanced is an ASI plugin: a single Ultimate ASI Loader
-(`dinput8.dll`) can load it alongside FFB Fix and SMT. A recognized existing
+(`dinput8.dll`) can load it alongside SMT. A recognized existing
 loader is reused and always retained on uninstall. The source checkout must
 be built before it can be installed.
 

@@ -9,6 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from compatibility import compile_signatures
+from steering_profile import generate as generate_steering_profile
 
 BUILD = ROOT / 'build/native'
 VC = ROOT / '.toolchain/msvc/VC/Tools/MSVC/14.52.37025'
@@ -30,6 +31,7 @@ def environment():
 def generate():
     BUILD.mkdir(parents=True, exist_ok=True)
     (ROOT / 'build/tmp').mkdir(parents=True, exist_ok=True)
+    generate_steering_profile(BUILD / 'steering_profile.h')
     startup = json.loads((ROOT / 'src/startup-profile.json').read_text())
     movies = list(startup['movies'])
     def initializer(raw):
@@ -86,12 +88,14 @@ def main():
     libs = ['user32.lib', 'shell32.lib', 'ole32.lib', 'advapi32.lib']
     invoke([*common, '/LD', str(ROOT / 'src/native/plugin.c'), '/link', *libs, '/OUT:SnowRunnerEnhanced.asi', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/harness.c'), '/link', *libs, '/OUT:native-harness.exe', '/DYNAMICBASE', '/NXCOMPAT'])
+    invoke([str(VC / 'bin/Hostx64/x64/ml64.exe'), '/nologo', '/c', '/Fosteering_fixture.obj', str(ROOT / 'tests/native/steering_fixture.asm')])
+    invoke([*common, str(ROOT / 'tests/native/steering_host.c'), 'steering_fixture.obj', '/link', *libs, '/OUT:steering-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/settings_host.c'), '/link', *libs, '/OUT:settings-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/startup_host.c'), '/link', *libs, '/OUT:startup-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/game_host.c'), '/link', '/OUT:game-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, '/LD', str(ROOT / 'tests/native/companion.c'), '/link', '/OUT:companion.asi'])
     (BUILD / 'build.json').write_text(json.dumps({
-        'version': '0.1.0-preview.29', 'engine': 'GumJS 17.26.3 embedded',
+        'version': '0.1.0-preview.30', 'engine': 'GumJS 17.26.3 embedded',
         'artifacts': {n: hashlib.sha256((BUILD / n).read_bytes()).hexdigest()
                       for n in ('SnowRunnerEnhanced.asi', 'native-harness.exe')},
         'v18Sources': {n: hashlib.sha256((ROOT / 'src' / n).read_bytes()).hexdigest()

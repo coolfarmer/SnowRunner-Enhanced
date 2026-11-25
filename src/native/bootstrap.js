@@ -4,11 +4,12 @@
 CONFIG.features = {wheel_mouse: ENHANCED_HOST.wheelMouse !== false, map: ENHANCED_HOST.map !== false, vehicle: ENHANCED_HOST.vehicle === true};
 let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
 let vehicle = null, vehicleError = null;
+let lastReportExtra = {};
 let menuFailure = null, functionsRepeat = null, repeatState = "disabled";
 function reportNative(state, extra = {}) {
-    featureState = state;
+    featureState = state; lastReportExtra = extra;
     const {vehicle: vehicleEnabled, ...inputFeatures} = CONFIG.features;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.29',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.30',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
@@ -101,4 +102,7 @@ function attemptStart() {
     }, 2000);
 }
 reportNative('waiting');
+// Native FFB remains independent when discovery of the other modules fails.
+if (ENHANCED_HOST.modules?.steering_wheel_improvements)
+    setInterval(() => reportNative(featureState, lastReportExtra), 2000);
 setTimeout(attemptStart, 1000);

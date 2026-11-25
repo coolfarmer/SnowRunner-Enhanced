@@ -6,12 +6,25 @@ import pefile
 from test_compatibility import PROFILE, synthetic_image
 
 
-def create_image(source, target):
+def create_image(source, target, steering=False, input_compatible=True):
     matches, sections, segments, labels, move = synthetic_image(0x100000, 0x400000)
+    if not input_compatible:
+        rva, raw = segments[0]
+        segments[0] = (rva, bytes([raw[0] ^ 1]) + raw[1:])
     vehicle = json.loads((Path(__file__).resolve().parents[1] / 'src/vehicle-profile.json').read_text())
     shift = vehicle['guards'][0]
     segments.append((move(shift['rva']), bytes.fromhex(shift['hex'])))
     segments.append((move(PROFILE['functionsTargetRva']), bytes.fromhex('48895c2408574883ec7048634208488bda488bf9')))
+    if steering:
+        from compatibility import compile_signatures
+        profile = json.loads((Path(__file__).resolve().parents[1] / 'src/steering-profile.json').read_text())
+        for sig in compile_signatures(profile):
+            raw = bytearray.fromhex(sig['hex'])
+            rva = move(sig['rva'])
+            for ref in sig['refs']:
+                delta = move(ref['target']) - rva - ref['next']
+                raw[ref['offset']:ref['offset']+ref['size']] = delta.to_bytes(ref['size'], 'little', signed=True)
+            segments.append((rva, raw))
     data = bytearray(Path(source).read_bytes())
     pe = pefile.PE(data=bytes(data))
     align = lambda value, multiple: (value + multiple - 1) // multiple * multiple

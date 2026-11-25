@@ -1,4 +1,11 @@
-# SnowRunner Enhanced — 0.1.0-preview.29
+# SnowRunner Enhanced — 0.1.0-preview.30
+
+## Enhancement #6 – Steering Wheel Improvements
+
+La preview.30 intègre l’ancien FFB Fix dans Enhanced pour corriger les oscillations anormales lors des changements de carte. L’option **Steering Wheel Improvements** est indépendante dans l’installateur et prend effet au prochain lancement. Elle est activée lors de sa première installation ; les choix existants sont préservés lors des mises à jour.
+
+Le constructeur est désormais retrouvé par signatures et références : un déplacement du code ou un changement d’empreinte du jeu ne suffit plus à désactiver le correctif. Un changement de structure ou une détection ambiguë laisse uniquement cette amélioration inactive. Le plugin FFB séparé n’est plus requis. Le 25 novembre 2026, le joueur confirme que la preview.30 intégrée fonctionne en jeu. Voir [les détails techniques et les limites](STEERING_WHEEL.md).
+
 
 Les options grisées de CARTE et VÉHICULE correspondent à un module désactivé. Activez le module dans l’installateur pour accéder à ses options au prochain lancement du jeu.
 
@@ -120,7 +127,7 @@ sont affichés. Si une configuration conservée empêche une réinstallation,
 déplacez ce fichier dans un dossier de sauvegarde après l’avoir vérifié.
 
 Enhanced s’installe sous le nom `SnowRunnerEnhanced.asi`. Un seul `dinput8.dll`
-(Ultimate ASI Loader) peut charger Enhanced, `SnowRunnerFFBFix.asi` et `SMT.asi`.
+(Ultimate ASI Loader) peut charger Enhanced et les autres plugins ASI, comme `SMT.asi`.
 L’installateur réutilise les copies x64 vérifiées 10.0.2 ou 8.5.0 de SMT v1.5,
 ou ajoute la 10.0.2 si aucun chargeur n’existe. Un chargeur inconnu, une configuration
 du chargeur ou un proxy chaîné bloque l’installation pour examen manuel, sans
@@ -128,7 +135,7 @@ du chargeur ou un proxy chaîné bloque l’installation pour examen manuel, san
 
 Le chargeur partagé est toujours conservé à la désinstallation d’Enhanced,
 même si Enhanced l’avait installé. Les deux versions sont testées avec des
-programmes synthétiques ; les trois vrais mods ensemble restent à valider en jeu.
+programmes synthétiques ; la coexistence avec les autres mods reste à valider en jeu.
 
 Pour remplacer preview.1, désinstallez-la d’abord avec son ancien installateur.
 Celui-ci retire son `version.dll` et `SnowRunnerEnhanced.dll` après vérification

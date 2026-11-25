@@ -12,17 +12,17 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.29/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.30/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
 
 
-def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None, map_state=None, zoom_value=50):
+def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None, map_state=None, zoom_value=50, steering=False, input_compatible=True):
     with tempfile.TemporaryDirectory(prefix='loader-', dir=ROOT / 'build/tests') as directory:
         folder = Path(directory)
         exe = folder / ('Other.exe' if wrong_name else 'SnowRunner.exe')
-        if synthetic: create_image(ROOT / 'build/native/game-host.exe', exe)
+        if synthetic: create_image(ROOT / 'build/native/game-host.exe', exe, steering=steering, input_compatible=input_compatible)
         else: shutil.copyfile(ROOT / 'build/native/game-host.exe', exe)
         for binary in ('dinput8.dll', 'SnowRunnerEnhanced.asi'):
             shutil.copyfile(PACKAGE / 'Payload' / binary, folder / binary)
@@ -75,9 +75,17 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                 general = bool(config and config.get('features', {}).get('general_improvements', {}).get('enabled', False))
                 general_state = 'configuration-error' if expected == 'configuration-error' else 'incompatible' if general else 'disabled'
                 assert status['features']['general_improvements'] == {'enabled': general, 'status': general_state}
+                wheel_fix = status['features']['steering_wheel_improvements']
+                selected = bool(config and config.get('features', {}).get('steering_wheel_improvements', {}).get('enabled', False))
+                assert wheel_fix['enabled'] == selected
+                expected_steering = ('active' if steering else 'incompatible') if selected else 'disabled'
+                assert wheel_fix['status'] == expected_steering, wheel_fix
+                assert wheel_fix['failed'] == 0
+                if selected and steering:
+                    assert wheel_fix['armed'] and wheel_fix['relocatedGuards'] == 12, wheel_fix
                 if map_state is not None:
                     assert status['features']['map']['status'] == map_state, status
-                if synthetic:
+                if synthetic and input_compatible:
                     core = status['components']['settings_menu']
                     assert core['enabled'] and core['running'], status
                     assert core['status'] == 'waiting-for-settings' and core['fault'] is None, status
@@ -89,7 +97,7 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                     assert zoom['enabled'] == map_enabled and zoom['running'] == map_enabled, status
                     assert zoom['value'] == zoom_value and zoom['fault'] is None, status
                     assert status['settingsPersistence'] == ('loaded' if zoom_value != 50 or config['features'].get('vehicle', {}).get('enabled') else 'default'), status
-                    assert set(status['features']) == {'wheel_mouse', 'map', 'skip_startup_logos', 'general_improvements', 'vehicle'}
+                    assert set(status['features']) == {'wheel_mouse', 'map', 'skip_startup_logos', 'general_improvements', 'vehicle', 'steering_wheel_improvements'}
                     if config['features'].get('vehicle', {}).get('enabled'):
                         assert status['features']['vehicle']['status'] == 'active', status
                         assert status['features']['vehicle']['automaticReverse'] is False, status

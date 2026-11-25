@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.29'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.30'
 SETUP = PACKAGE / 'Sources/Installer/SnowRunnerEnhanced.Setup.exe'
 CONFIG = 'SnowRunnerEnhanced.json'
 RECEIPT = 'SnowRunnerEnhanced.install.json'
@@ -103,7 +103,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(result['generalImprovementsEnabled'])
         self.run_setup('uninstall')
 
-    def test_existing_preview_updates_with_all_features_on_once(self):
+    def test_existing_preview_updates_preserving_feature_choices(self):
         self.run_setup('install', '--wheel-mouse', 'false', '--map', 'false',
                        '--skip-startup-logos', 'false', '--general-improvements', 'false')
         receipt_path = self.folder / RECEIPT
@@ -117,9 +117,29 @@ class ReleaseTests(unittest.TestCase):
         result = self.run_setup('install')
         self.assertEqual(plugin.read_bytes(), original)
         for flag in ('wheelMouseEnabled', 'mapEnabled', 'skipStartupLogosEnabled', 'generalImprovementsEnabled'):
-            self.assertTrue(result[flag])
+            self.assertFalse(result[flag])
         self.run_setup('configure', '--map', 'false')
         self.assertFalse(self.run_setup('configure')['mapEnabled'])
+        self.run_setup('uninstall')
+
+    def test_steering_option_and_update_preserve_choices(self):
+        result = self.run_setup('install', '--map', 'false', '--steering-wheel-improvements', 'false')
+        self.assertFalse(result['steeringWheelImprovementsEnabled'])
+        self.assertTrue(self.run_setup('configure', '--steering-wheel-improvements', 'true')['steeringWheelImprovementsEnabled'])
+        self.assertFalse(self.run_setup('configure')['mapEnabled'])
+        self.run_setup('configure', '--steering-wheel-improvements', 'invalid', success=False)
+        # Model an older configuration with no sixth enhancement.
+        config = json.loads((self.folder / CONFIG).read_text())
+        del config['features']['steering_wheel_improvements']
+        (self.folder / CONFIG).write_text(json.dumps(config))
+        receipt = json.loads((self.folder / RECEIPT).read_text())
+        receipt['version'] = '0.1.0-preview.29'
+        (self.folder / RECEIPT).write_text(json.dumps(receipt))
+        result = self.run_setup('install')
+        self.assertTrue(result['steeringWheelImprovementsEnabled'])
+        self.assertFalse(result['mapEnabled'])
+        self.run_setup('configure', '--steering-wheel-improvements', 'false')
+        self.assertFalse(self.run_setup('configure', '--vehicle', 'false')['steeringWheelImprovementsEnabled'])
         self.run_setup('uninstall')
 
     def test_independent_vehicle_configuration(self):
@@ -333,12 +353,13 @@ class ReleaseTests(unittest.TestCase):
 
     def test_navigation_changes_language_and_preserves_pending_fixes(self):
         result = subprocess.run([SETUP, '--plain', '--language', 'en', '--game-directory', self.folder],
-                                input='2\n1\n\n2\n2\n2\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
+                                input='2\n1\n\n2\n2\n2\n2\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
                                 text=True, encoding='utf-8', timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('MAIN MENU', result.stdout)
         self.assertIn('ADVANCED OPTIONS', result.stdout)
         self.assertIn('Enhanced is not installed.', result.stdout)
+        self.assertIn('Steering Wheel Improvements', result.stdout)
         self.assertIn('MENU PRINCIPAL', result.stdout)
         self.assertIn('PLUS D’OPTIONS', result.stdout)
         self.assertIn('Désactivé', result.stdout)
@@ -350,6 +371,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(self.run_setup('status')['wheelMouseEnabled'])
         self.assertFalse(self.run_setup('status')['mapEnabled'])
         self.assertFalse(self.run_setup('status')['generalImprovementsEnabled'])
+        self.assertFalse(self.run_setup('status')['steeringWheelImprovementsEnabled'])
 
     def test_linked_folder_refused(self):
         linked = self.folder / 'linked'

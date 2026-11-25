@@ -1,4 +1,11 @@
-# SnowRunner Enhanced — 0.1.0-preview.29
+# SnowRunner Enhanced — 0.1.0-preview.30
+
+## Enhancement #6 – Steering Wheel Improvements
+
+Preview.30 integrates the former FFB Fix into Enhanced to correct abnormal oscillations during map transitions. **Steering Wheel Improvements** is an independent installer option, enabled when first added, with changes taking effect at the next game launch. Updates preserve existing enhancement choices.
+
+Signatures and cross-references now locate the constructor, so moving code or changing the executable hash alone no longer disables the correction. Changed object layouts or ambiguous discovery leave only this enhancement inactive. The separate FFB plugin is no longer required. On November 25, 2026, the player confirmed that the integrated preview.30 works in game. See [implementation and limits](STEERING_WHEEL.md).
+
 
 Grayed-out MAP and VEHICLE options belong to a disabled module. Enable the module in the installer to use its options the next time you start the game.
 
@@ -112,7 +119,7 @@ diagnostic are retained and listed. If a retained configuration blocks a later
 installation, review it and move it to a backup folder first.
 
 Enhanced is installed as `SnowRunnerEnhanced.asi`. One shared `dinput8.dll`
-(Ultimate ASI Loader) can load Enhanced, `SnowRunnerFFBFix.asi` and `SMT.asi`.
+(Ultimate ASI Loader) can load Enhanced and other ASI plugins, such as `SMT.asi`.
 The installer reuses the verified x64 loaders 10.0.2 or 8.5.0 from SMT v1.5,
 or adds 10.0.2 when no loader exists. Unknown loaders, loader configuration
 files and chained proxies require manual review and block installation without
@@ -120,7 +127,7 @@ overwriting them. Other mods and their settings are preserved.
 
 The shared loader is always retained when Enhanced is uninstalled, even when
 Enhanced originally installed it. Both loader versions are tested with synthetic
-programs; running all three actual mods together still needs in-game validation.
+programs; coexistence with other mods still needs in-game validation.
 
 To upgrade from preview.1, first uninstall it using its original installer.
 This removes the old Enhanced `version.dll` and `SnowRunnerEnhanced.dll` after
