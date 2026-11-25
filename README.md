@@ -44,6 +44,7 @@ keyboard, controller or steering wheel.
 
 - **Optional automatic reverse.** Choose whether holding the brake in AUTO engages reverse. Disable it to select R yourself.
 - **Your engine stays off.** Fixed small wheel inputs restarting the engine after turning it off with the wheel and closing the Functions menu.
+- **Winch fix:** Fixed missing vehicle winch points when using long trailers, allowing nearby targets to be selected and connected. Included in Vehicle improvements; winch range remains unchanged.
 
 📍 Automatic reverse is available under **Settings → ENHANCED → VEHICLE**.
 

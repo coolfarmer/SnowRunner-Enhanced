@@ -44,6 +44,7 @@ au clavier, à la manette ou au volant.
 
 - **Marche arrière automatique facultative.** Choisissez si maintenir le frein en AUTO engage la marche arrière. Désactivez cette option pour sélectionner R vous-même.
 - **Votre moteur reste arrêté.** Correction des petits signaux du volant qui redémarraient le moteur après l’avoir arrêté au volant puis avoir fermé le menu Fonctions.
+- **Correction du treuil :** Correction des points de treuil manquants avec les longues remorques, permettant de sélectionner et d’accrocher les véhicules proches. Inclus dans les améliorations Vehicle; la portée du treuil reste inchangée.
 
 📍 La marche arrière automatique se règle dans **Paramètres → ENHANCED → VÉHICULE**.
 
