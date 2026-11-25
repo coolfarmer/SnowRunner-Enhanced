@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.33/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.34/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
@@ -101,6 +101,12 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                     if config['features'].get('vehicle', {}).get('enabled'):
                         assert status['features']['vehicle']['status'] == 'active', status
                         assert status['features']['vehicle']['automaticReverse'] is False, status
+                        assert status['features']['vehicle']['winch']['status'] == 'active', status
+                        assert status['features']['vehicle']['winch']['fault'] is None, status
+                    # Older configs omit Vehicle; its existing migration default
+                    # is enabled. Only an explicit false disables its hooks.
+                    winch_selected = config['features'].get('vehicle', {}).get('enabled', True)
+                    assert status['features']['vehicle']['winch']['status'] == ('active' if winch_selected else 'disabled'), status
                     if general:
                         assert status['components']['functions_repeat']['status'] == 'ready', status
                     for key in ('wheel_mouse', 'map'):
@@ -153,6 +159,9 @@ if __name__ == '__main__':
     run_case('wrong executable', None, None, wrong_name=True)
     run_case('relocated key repeat and automatic reverse',
              {'schemaVersion': 1, 'features': {'vehicle': {'enabled': True}, 'general_improvements': {'enabled': True}}},
+             'disabled', delay=6000, synthetic=True)
+    run_case('Vehicle explicitly disabled with valid winch signatures',
+             {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': False}, 'map': {'enabled': False}, 'vehicle': {'enabled': False}}},
              'disabled', delay=6000, synthetic=True)
     run_case('active relocated image', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},
              'active', delay=6000, synthetic=True)

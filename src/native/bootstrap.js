@@ -4,6 +4,7 @@
 CONFIG.features = {wheel_mouse: ENHANCED_HOST.wheelMouse !== false, map: ENHANCED_HOST.map !== false, vehicle: ENHANCED_HOST.vehicle === true};
 let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
 let vehicle = null, vehicleError = null;
+let vehicleWinch = null, vehicleWinchError = null;
 let lastReportExtra = {};
 let menuFailure = null, functionsRepeat = null, repeatState = ENHANCED_HOST.general ? 'pending' : 'disabled';
 let nativeRuntime = null, nativeRuntimeTime = 0;
@@ -22,17 +23,19 @@ function menuFeatureStates() {
         inputState: featureState, input: nativeAgent.status(),
         native: Date.now() - nativeRuntimeTime < 6500 ? nativeRuntime : null,
         menu: settingsMenu?.status(), vehicle: vehicle?.status(), vehicleError,
+        vehicleWinch: vehicleWinch?.status(), vehicleWinchError,
         repeat: functionsRepeat?.status() || repeatState
     });
 }
 function reportNative(state, extra = {}) {
     featureState = state; lastReportExtra = extra;
     const {vehicle: vehicleEnabled, ...inputFeatures} = CONFIG.features;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.33',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.34',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
-        features: {vehicle: {enabled: vehicleEnabled, status: vehicleError || (vehicleEnabled ? state : 'disabled'), ...vehicle?.status()}, ...Object.fromEntries(Object.entries(inputFeatures).map(([key, enabled]) =>
+        features: {vehicle: {enabled: vehicleEnabled, status: vehicleEnabled ? menuFeatureStates().vehicle : 'disabled', ...vehicle?.status(),
+            reverseError: vehicleError, winch: vehicleWinch?.status() || {status: vehicleWinchError ? 'error' : vehicleEnabled ? 'waiting' : 'disabled', fault: vehicleWinchError}}, ...Object.fromEntries(Object.entries(inputFeatures).map(([key, enabled]) =>
             [key, enabled ? {enabled, status: state, ...extra} : {enabled, status: 'disabled'}]))},
         validation: 'Preview: see packaged validation notes'}});
 }
@@ -74,6 +77,11 @@ function attemptStart() {
             vehicle = makeVehicleReverse(resolved.profile);
             vehicle.set(ENHANCED_HOST.automaticReverse !== false);
         } catch (error) { vehicleError = String(error); vehicle = null; }
+        try {
+            const matches = nativeProbe.scan(WINCH_SIGNATURES, info.sections);
+            const resolved = resolveNativeProfile(WINCH_PROFILE, WINCH_SIGNATURES, matches, info.sections);
+            vehicleWinch = makeVehicleWinchRange(resolved.profile);
+        } catch (error) { vehicleWinchError = String(error); vehicleWinch = null; }
     }
     // The optional agent validates original entry bytes before either component
     // attaches to the shared VM entry point. Its failure does not disable the UI.

@@ -14,6 +14,14 @@ def create_image(source, target, steering=False, input_compatible=True):
     vehicle = json.loads((Path(__file__).resolve().parents[1] / 'src/vehicle-profile.json').read_text())
     shift = vehicle['guards'][0]
     segments.append((move(shift['rva']), bytes.fromhex(shift['hex'])))
+    from compatibility import compile_signatures
+    winch = json.loads((Path(__file__).resolve().parents[1] / 'src/winch-profile.json').read_text())
+    for sig in compile_signatures(winch):
+        raw = bytearray.fromhex(sig['hex'])
+        rva = move(sig['rva'])
+        for ref in sig['refs']:
+            raw[ref['offset']:ref['offset']+ref['size']] = (move(ref['target'])-rva-ref['next']).to_bytes(ref['size'], 'little', signed=True)
+        segments.append((rva, raw))
     segments.append((move(PROFILE['functionsTargetRva']), bytes.fromhex('48895c2408574883ec7048634208488bda488bf9')))
     if steering:
         from compatibility import compile_signatures

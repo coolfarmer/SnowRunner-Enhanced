@@ -12,7 +12,7 @@ import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.33'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.34'
 SETUP = PACKAGE / 'Sources/Installer/SnowRunnerEnhanced.Setup.exe'
 CONFIG = 'SnowRunnerEnhanced.json'
 RECEIPT = 'SnowRunnerEnhanced.install.json'

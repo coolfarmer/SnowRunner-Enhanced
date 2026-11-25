@@ -16,6 +16,10 @@ const data=Memory.alloc(16);
 for(let i=0;i<4;i++) data.add(4*i).writeU32(11*(i+1));
 const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12},guards:[{name:'vm_frame_push_entry',rva:0}],stringPoolSlotRva:8}};
 const SETTINGS_PROFILE={},NATIVE_SIGNATURES=[],ENHANCED_HOST={gameSha256:'test'};
+const VEHICLE_PROFILE={},VEHICLE_SIGNATURES=[],WINCH_PROFILE={},WINCH_SIGNATURES=[];
+let reverseStarts=0,winchStarts=0,reverseFailure=false,winchFailure=false,winchFault=null;
+const makeVehicleReverse=()=>{reverseStarts++;if(reverseFailure)throw Error('reverse failed');return {set:()=>{},status:()=>({unknown:0,automaticReverse:true})};};
+const makeVehicleWinchRange=()=>{winchStarts++;if(winchFailure)throw Error('winch failed');return {status:()=>({status:winchFault?'error':'active',fault:winchFault})};};
 let menuStarts=0,menuError=false,settingsSaves=[],reports=[],order=[],menuOptions;
 const hookHudHintUpdates=()=>{};
 const makeEnhancedSettingsMenu=(_profile,_attach,options)=>{menuOptions=options;return {start:()=>{order.push('menu');menuStarts++;if(menuError)throw Error('menu');},
@@ -31,6 +35,9 @@ mode:()=>{},status:()=>({active,faults}),drain:()=>{},stop:()=>{stops++;active=f
 ''' + (ROOT / 'src/feature_status.js').read_text() + (ROOT / 'src/native/bootstrap.js').read_text() + '''
 })({mainModule:{base:data},id:123},fn=>queued.push(fn),fn=>{interval=fn;return 1;},()=>{interval=null;},m=>{if(m.enhancedSettings){settingsSaves.push(m.enhancedSettings);return;}reports.push(m.enhancedStatus);states.push(m.enhancedStatus.features.wheel_mouse.status);},TestDate,fakeRecv);
 rpc.exports={
+ vehicle:(enabled,reverseFail=false,winchFail=false)=>{ENHANCED_HOST.vehicle=enabled;CONFIG.features.vehicle=enabled;reverseFailure=reverseFail;winchFailure=winchFail;},
+ winchfault:()=>{winchFault='Invalid registry';},
+ vehiclecounts:()=>({reverseStarts,winchStarts}),
  health:()=>menuOptions.getFeatureStates(),
  native:(payload)=>nativeReceiver({payload}),
  select:modules=>{ENHANCED_HOST.modules=modules;},
@@ -130,6 +137,36 @@ rpc.exports={
     def test_optional_install_failure_does_not_stop_menu(self):
         self.api.set('start', True); self.api.tick()
         self.assertTrue(self.api.state()['report']['components']['settings_menu']['running'])
+
+    def test_vehicle_winch_is_owned_by_vehicle_and_ready_without_use(self):
+        self.api.vehicle(True)
+        self.api.tick()
+        self.assertEqual(self.api.vehiclecounts(), dict(reverseStarts=1, winchStarts=1))
+        self.assertEqual(self.api.health()['vehicle'], 'active')
+        self.api.winchfault()
+        self.api.monitor()
+        self.assertEqual(self.api.health()['vehicle'], 'error')
+        self.assertEqual(self.api.state()['report']['features']['vehicle']['status'], 'error')
+
+    def test_vehicle_off_installs_neither_component(self):
+        self.api.vehicle(False)
+        self.api.tick()
+        self.assertEqual(self.api.vehiclecounts(), dict(reverseStarts=0, winchStarts=0))
+
+    def test_winch_install_failure_preserves_reverse_and_menu(self):
+        self.api.vehicle(True, False, True)
+        self.api.tick()
+        report = self.api.state()['report']
+        self.assertTrue(report['features']['vehicle']['automaticReverse'])
+        self.assertEqual(report['features']['vehicle']['winch']['status'], 'error')
+        self.assertTrue(report['components']['settings_menu']['running'])
+
+    def test_reverse_failure_does_not_disable_winch(self):
+        self.api.vehicle(True, True, False)
+        self.api.tick()
+        feature = self.api.state()['report']['features']['vehicle']
+        self.assertEqual(feature['status'], 'error')
+        self.assertEqual(feature['winch']['status'], 'active')
 
 
 if __name__ == '__main__': unittest.main(verbosity=2)

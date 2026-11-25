@@ -52,15 +52,19 @@ def generate():
         + 'static StartupEdit startup_edits[STARTUP_EDIT_COUNT]={'  + ','.join(rows) + '};\n')
     profile = json.loads((ROOT / 'src/input-profile.json').read_text())
     vehicle = json.loads((ROOT / 'src/vehicle-profile.json').read_text())
+    winch = json.loads((ROOT / 'src/winch-profile.json').read_text())
     parts = ["const CONFIG={test:false,gamePath:Process.mainModule.path,profile:" + json.dumps(profile) + '};',
              'const VEHICLE_PROFILE=' + json.dumps(vehicle) + ';',
              'const VEHICLE_SIGNATURES=' + json.dumps(compile_signatures(vehicle)) + ';',
+             'const WINCH_PROFILE=' + json.dumps(winch) + ';',
+             'const WINCH_SIGNATURES=' + json.dumps(compile_signatures(winch)) + ';',
              'const NATIVE_SIGNATURES=' + json.dumps(compile_signatures(profile)) + ';',
              (ROOT / 'src/compatibility_probe.js').read_text(), 'const nativeProbe=rpc.exports;',
              (ROOT / 'src/vm_scope.js').read_text(), (ROOT / 'src/input_agent.js').read_text(),
              'const nativeAgent=rpc.exports;',
              'const SETTINGS_PROFILE=' + (ROOT / 'src/settings-profile.json').read_text(encoding='utf-8') + ';',
              (ROOT / 'src/vehicle.js').read_text(encoding='utf-8'),
+             (ROOT / 'src/vehicle_winch.js').read_text(encoding='utf-8'),
              (ROOT / 'src/functions_repeat.js').read_text(encoding='utf-8'),
              (ROOT / 'src/map_zoom.js').read_text(encoding='utf-8'),
              (ROOT / 'src/map_panning.js').read_text(encoding='utf-8'),
@@ -96,11 +100,11 @@ def main():
     invoke([*common, str(ROOT / 'tests/native/game_host.c'), '/link', '/OUT:game-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, '/LD', str(ROOT / 'tests/native/companion.c'), '/link', '/OUT:companion.asi'])
     (BUILD / 'build.json').write_text(json.dumps({
-        'version': '0.1.0-preview.33', 'engine': 'GumJS 17.26.3 embedded',
+        'version': '0.1.0-preview.34', 'engine': 'GumJS 17.26.3 embedded',
         'artifacts': {n: hashlib.sha256((BUILD / n).read_bytes()).hexdigest()
                       for n in ('SnowRunnerEnhanced.asi', 'native-harness.exe')},
         'v18Sources': {n: hashlib.sha256((ROOT / 'src' / n).read_bytes()).hexdigest()
-                       for n in ('input_agent.js', 'vm_scope.js', 'input-profile.json', 'map_zoom.js', 'map_panning.js', 'settings_menu.js', 'settings-profile.json')}
+                       for n in ('input_agent.js', 'vm_scope.js', 'input-profile.json', 'map_zoom.js', 'map_panning.js', 'settings_menu.js', 'settings-profile.json', 'vehicle_winch.js', 'winch-profile.json')}
     }, indent=2))
 
 

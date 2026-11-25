@@ -1,6 +1,11 @@
 # Paquet natif autonome
 
-Version : `0.1.0-preview.33`.
+Version : `0.1.0-preview.34`.
+
+Preview.34 ajoute à **Vehicle** la correction de recherche et d’attachement du
+treuil depuis les longues remorques. Le joueur a confirmé le prototype en mémoire
+puis le paquet installé le 25 novembre 2026. Signatures, limites et tests :
+[Vehicle](VEHICLE.md).
 
 L’[Enhancement #6 – Steering Wheel Improvements](STEERING_WHEEL.md) intègre le
 correctif FFB dans le plugin, avec recherche native par signatures au démarrage.

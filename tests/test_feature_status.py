@@ -18,7 +18,7 @@ class FeatureStatusTests(unittest.TestCase):
         self.selected = dict.fromkeys(('wheel_mouse', 'skip_startup_logos', 'map',
                                       'general_improvements', 'vehicle', 'steering_wheel_improvements'), True)
         self.runtime = dict(inputState='active', input=dict(faults=0, navigationHitAreaRepairs=1,
-                            mapNotificationHitAreaRepairs=1), repeat='ready', vehicle=dict(unknown=0),
+                            mapNotificationHitAreaRepairs=1), repeat='ready', vehicle=dict(unknown=0), vehicleWinch=dict(status='active'),
                             native={key: dict(status='active') for key in
                                     ('skip_startup_logos', 'general_improvements', 'steering_wheel_improvements')},
                             menu=dict(zoomSensitivity=dict(status='active', zoomCalls=1),
@@ -96,6 +96,17 @@ class FeatureStatusTests(unittest.TestCase):
         self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'active')
         self.runtime['vehicle']['unknown'] = 1
         self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'error')
+
+    def test_vehicle_includes_winch_readiness_and_faults(self):
+        self.runtime['vehicleWinch'] = None
+        self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'pending')
+        self.runtime['vehicleWinchError'] = 'Unsupported signature'
+        self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'error')
+        self.runtime['vehicleWinchError'] = None
+        self.runtime['vehicleWinch'] = dict(status='error', fault='Invalid registry')
+        self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'error')
+        self.selected['vehicle'] = False
+        self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'inactive')
 
 
 if __name__ == '__main__':
