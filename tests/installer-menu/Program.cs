@@ -97,7 +97,7 @@ try
     Check(!sanitized.Text.Contains("\x1b]"), "User-supplied control characters must not alter the terminal.");
 
     var status = JsonNode.Parse("""
-        {"installed":true,"installedVersion":"0.1.0-preview.34",
+        {"installed":true,"installedVersion":"1.0.0",
          "wheelMouseEnabled":true,"skipStartupLogosEnabled":true,"mapEnabled":true,
          "generalImprovementsEnabled":true,"vehicleEnabled":true,"steeringWheelImprovementsEnabled":true,
          "files":{"SnowRunnerEnhanced.asi":"owned"},"loaderSupported":true,

@@ -374,10 +374,6 @@ internal static class Program
         while (true) {
             Screen();
             Say(T("Chaque amélioration peut être activée ou désactivée indépendamment.", "Each enhancement can be enabled or disabled independently."));
-            Say(T("Skip Startup Logos saute l’avertissement de photosensibilité et les logos au prochain lancement.", "Skip Startup Logos skips the photosensitivity warning and logos at the next launch."));
-            Say(T("Map corrige le survol et le clic de l’icône de carte, et permet de régler la sensibilité du zoom et de la rotation dans Paramètres → ENHANCED.", "Map fixes hovering and clicking the Map icon, and adds zoom and mouse rotation sensitivity in Settings → ENHANCED."));
-            Say(T("General Improvements permet de parcourir le menu Fonctions en boucle.", "General Improvements adds wraparound navigation to the Functions menu."));
-            Say(T("Steering Wheel Improvements corrige les oscillations anormales lors des changements de carte.", "Steering Wheel Improvements fixes abnormal oscillations during map transitions."));
             Blank();
             int choice = ui.Choose(T("PERSONNALISER LES AMÉLIORATIONS", "CUSTOMIZE ENHANCEMENTS"), [
                 new($"[{(selectedWheel ? "x" : " ")}] {FeatureName}"),
