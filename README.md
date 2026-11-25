@@ -29,7 +29,7 @@ keyboard, controller or steering wheel.
 - **Adjustable sensitivity.** Separate sliders let you adjust map zoom and rotation sensitivity.
 - **Keep North Up.** An optional setting keeps the map facing north and prevents it from rotating.
 
-📍 Available under **Settings → ENHANCED → MAP**.
+Available under **Settings → ENHANCED → MAP**.
 
 ---
 
@@ -46,7 +46,7 @@ keyboard, controller or steering wheel.
 - **Your engine stays off.** Fixed small wheel inputs restarting the engine after turning it off with the wheel and closing the Functions menu.
 - **Winch fix:** Fixed missing vehicle winch points when using long trailers, allowing nearby targets to be selected and connected. Included in Vehicle improvements; winch range remains unchanged.
 
-📍 Automatic reverse is available under **Settings → ENHANCED → VEHICLE**.
+Automatic reverse is available under **Settings → ENHANCED → VEHICLE**.
 
 ---
 

@@ -29,7 +29,7 @@ au clavier, à la manette ou au volant.
 - **Sensibilité réglable.** Des curseurs séparés permettent d’ajuster la sensibilité du zoom et de la rotation de la carte.
 - **Garder le nord en haut.** Une option maintient la carte orientée vers le nord et empêche sa rotation.
 
-📍 Disponible dans **Paramètres → ENHANCED → CARTE**.
+Disponible dans **Paramètres → ENHANCED → CARTE**.
 
 ---
 
@@ -46,7 +46,7 @@ au clavier, à la manette ou au volant.
 - **Votre moteur reste arrêté.** Correction des petits signaux du volant qui redémarraient le moteur après l’avoir arrêté au volant puis avoir fermé le menu Fonctions.
 - **Correction du treuil :** Correction des points de treuil manquants avec les longues remorques, permettant de sélectionner et d’accrocher les véhicules proches. Inclus dans les améliorations Vehicle; la portée du treuil reste inchangée.
 
-📍 La marche arrière automatique se règle dans **Paramètres → ENHANCED → VÉHICULE**.
+La marche arrière automatique se règle dans **Paramètres → ENHANCED → VÉHICULE**.
 
 ---
 
