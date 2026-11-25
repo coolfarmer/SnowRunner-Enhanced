@@ -1,10 +1,16 @@
-# SnowRunner Enhanced — 0.1.0-preview.24
+# SnowRunner Enhanced — 0.1.0-preview.25
+
+## Enhancement #5 – Vehicle
+
+The player confirmed the preview.25 Vehicle option works in game.
+
+Under **ENHANCED → VEHICLE**, turn **Automatic reverse** off to keep a held brake from engaging reverse in AUTO. Select R to back up. The setting defaults to On and saves immediately.
 
 ## Enhancement #4 – General Improvements
 
 Preview.24 repeats Up or Down while held in Functions. Repetition starts after 420 ms and continues about every 140 ms until release. After restarting with preview.24 installed, the player confirmed continuous scrolling with both the keyboard and the controller D-pad. Steering wheel input still needs a separate test.
 
-In **Functions**, press **Down** on the last selectable action to highlight the first, or **Up** on the first to highlight the last. For an existing preview, choose **Update Enhanced** in the installer to enable all four enhancements. You can then customize them. New installations also start with all four enabled. Find it under **Advanced Options → Customize enhancements**.
+In **Functions**, press **Down** on the last selectable action to highlight the first, or **Up** on the first to highlight the last. For an existing preview, choose **Update Enhanced** in the installer to enable all five enhancements. You can then customize them. New installations also start with all five enabled. Find it under **Advanced Options → Customize enhancements**.
 
 Preview.17 adds the always-on **ENHANCED** settings menu, independent of the optional enhancements.
 

@@ -1,5 +1,11 @@
 # SnowRunner Enhanced
 
+## Enhancement #5 – Vehicle
+
+The player confirmed the preview.25 Vehicle option works in game.
+
+Under **ENHANCED → VEHICLE**, turn **Automatic reverse** off to keep a held brake from engaging reverse in AUTO. Select R to back up. The setting defaults to On and saves immediately.
+
 ## Enhancement #4 – General Improvements
 
 Preview.24 repeats Up or Down while held in Functions. Repetition starts after 420 ms and continues about every 140 ms until release. After restarting with preview.24 installed, the player confirmed continuous scrolling with both the keyboard and the controller D-pad. Steering wheel input still needs a separate test.
@@ -21,7 +27,7 @@ user confirmed the result. The installed preview.15 was then tested and
 confirmed in game on November 23, 2026; both repairs are active with no
 instrumentation faults reported.
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.24** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.25** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
 Opening Functions with the keyboard or wheel now releases mouse camera capture

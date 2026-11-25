@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.24'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.25'
 SETUP = PACKAGE / 'Sources/Installer/SnowRunnerEnhanced.Setup.exe'
 CONFIG = 'SnowRunnerEnhanced.json'
 RECEIPT = 'SnowRunnerEnhanced.install.json'
@@ -120,6 +120,15 @@ class ReleaseTests(unittest.TestCase):
             self.assertTrue(result[flag])
         self.run_setup('configure', '--map', 'false')
         self.assertFalse(self.run_setup('configure')['mapEnabled'])
+        self.run_setup('uninstall')
+
+    def test_independent_vehicle_configuration(self):
+        self.assertTrue(self.run_setup('install')['vehicleEnabled'])
+        self.assertFalse(self.run_setup('configure', '--vehicle', 'false')['vehicleEnabled'])
+        self.assertFalse(self.run_setup('configure', '--map', 'false')['vehicleEnabled'])
+        result = self.run_setup('configure', '--vehicle', 'true')
+        self.assertTrue(result['vehicleEnabled'])
+        self.assertFalse(result['mapEnabled'])
         self.run_setup('uninstall')
 
     def test_general_improvements_can_run_alone(self):
@@ -324,7 +333,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_navigation_changes_language_and_preserves_pending_fixes(self):
         result = subprocess.run([SETUP, '--plain', '--language', 'en', '--game-directory', self.folder],
-                                input='2\n1\n\n2\n2\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
+                                input='2\n1\n\n2\n2\n2\n2\n2\n2\n2\n3\n3\n1\n3\n4\n1\n\n2\n1\n\n5\n', capture_output=True,
                                 text=True, encoding='utf-8', timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('MAIN MENU', result.stdout)

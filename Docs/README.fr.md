@@ -1,10 +1,16 @@
-# SnowRunner Enhanced — 0.1.0-preview.24
+# SnowRunner Enhanced — 0.1.0-preview.25
+
+## Enhancement #5 – Vehicle
+
+Le joueur a validé la preview.25 en jeu.
+
+Dans **ENHANCED → VÉHICULE**, désactivez **Marche arrière automatique** pour que le frein maintenu en AUTO cesse d’engager la marche arrière. Sélectionnez R pour reculer. Le réglage est activé par défaut et sauvegardé dès sa modification.
 
 ## Enhancement #4 – General Improvements
 
 Preview.24 ajoute le défilement par maintien de Haut ou Bas dans Fonctions. La répétition commence après 420 ms puis se poursuit toutes les 140 ms environ. Après relancement avec la preview.24 installée, le joueur a confirmé le défilement continu au clavier et avec la croix directionnelle de la manette. Le volant reste à tester séparément.
 
-Dans **Fonctions**, appuyez sur **Bas** sur la dernière action sélectionnable pour revenir à la première. **Haut** sur la première revient à la dernière. Sur une préversion existante, choisissez **Mettre à jour Enhanced** pour activer les quatre améliorations. Elles sont aussi activées sur une nouvelle installation. Vous pouvez ensuite les régler sous **Options avancées → Personnaliser les améliorations**.
+Dans **Fonctions**, appuyez sur **Bas** sur la dernière action sélectionnable pour revenir à la première. **Haut** sur la première revient à la dernière. Sur une préversion existante, choisissez **Mettre à jour Enhanced** pour activer les cinq améliorations. Elles sont aussi activées sur une nouvelle installation. Vous pouvez ensuite les régler sous **Options avancées → Personnaliser les améliorations**.
 
 Preview.17 ajoute le menu **ENHANCED** aux paramètres du jeu. Il reste actif indépendamment des améliorations sélectionnées.
 

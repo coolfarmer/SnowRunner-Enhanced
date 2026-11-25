@@ -30,11 +30,16 @@ class NativeSettingsTests(unittest.TestCase):
             for zoom, panning in [(75,0),(100,25),(0,100),(50,50)]:
                 self.assertEqual(run(dict(schemaVersion=2,zoomSensitivity=zoom,panningSensitivity=panning))['saved'], 1)
                 self.assertEqual((run()['value'], run()['panning']), (zoom, panning))
-                self.assertEqual(json.loads(path.read_text())['schemaVersion'], 3)
+                self.assertEqual(json.loads(path.read_text())['schemaVersion'], 4)
                 self.assertFalse(run()['keepNorthUp'])
             for locked in [True, False]:
                 self.assertEqual(run(dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=25, keepNorthUp=locked))['saved'], 1)
                 self.assertEqual(run()['keepNorthUp'], locked)
+            self.assertTrue(run()['automaticReverse'])
+            for reverse in (False, True, False):
+                self.assertEqual(run(dict(schemaVersion=4, zoomSensitivity=75, panningSensitivity=25, keepNorthUp=True, automaticReverse=reverse))['saved'], 1)
+                self.assertEqual(run()['automaticReverse'], reverse)
+                self.assertTrue(run()['keepNorthUp'])
             before = path.read_bytes()
             for value in [-1,101,1.5,'75',True,None]:
                 self.assertEqual(run(dict(schemaVersion=1,zoomSensitivity=value))['saved'], 0)

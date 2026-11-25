@@ -47,7 +47,7 @@ rpc.exports.run=(scenario)=>{
  PROFILE.createDataWords.forEach((w,i)=>code.add(i*4).writeU32(w));sig.writeU32(name('CreateData'));
  fn.add(0x40).writePointer(sig);fn.add(0x50).writePointer(constants);fn.add(0x58).writeU32(10);fn.add(0x60).writePointer(code);fn.add(0x68).writeU32(PROFILE.createDataWords.length);
  function vm(p,arg=ptr(0)){const v=alloc(32),args=alloc(16);args.writePointer(tag(p));args.add(8).writePointer(arg);v.add(0x18).writePointer(args);return v;}
- const callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{mapEnabled:scenario!=='no-map'});
+ const reverseChanges=[],callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{mapEnabled:scenario!=='no-map',vehicleEnabled:true,onReverseChange:value=>reverseChanges.push(value)});
  menu.start(ptr(0),slot);
  const visit=()=>callbacks['UiSettingsController.CreateData'](vm(self),fn);
  const capture=()=>{callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);callbacks['UiOneSettingStepperController.InitContent']?.(vm(step),fn);};
@@ -71,6 +71,11 @@ rpc.exports.run=(scenario)=>{
    return result;
  }
  const en=strings(),title=en.ENHANCED,label=en['Zoom sensitivity'],panningLabel=en['Panning sensitivity'];
+ if(scenario==='reverse'){
+   const control=object(onOff);put(control,39,en['Automatic reverse']);
+   for(const value of [0,0,1])callbacks['UiOneSettingStepperOnOff.UpdateStatus'](vm(control,ptr(value?'0x2000000000001':'0x2000000000000')));
+   menu.stop();return {reverseChanges};
+ }
  const localeFn=descriptor(settingsClass,33),localeCode=alloc(60);
  const originalLocale=[0x80000101,0x80000107,0x80000007,0x80000104,0x80000006,0x8000210e,0x80000002,
    0x80000101,0x80000107,0x80000007,0x8000390a,0x80000104,0x8000210d,0x80000002,0x80000213];
@@ -214,13 +219,13 @@ class SettingsMenuTests(unittest.TestCase):
                                  'Sensibilité de rotation', 'Garder le nord en haut', 'Désactivé', 'Activé'} <= french - english)
                 unused_en, unused_fr = set(), set()
                 if scenario == 'no-map':
-                    unused_en = {s for s in english if s in ('Keep North Up', 'On', 'Off') or s.startswith('Keeps north')}
-                    unused_fr = {s for s in french if s in ('Garder le nord en haut', 'Activé', 'Désactivé') or s.startswith('Garde le nord')}
+                    unused_en = {s for s in english if s == 'Keep North Up' or s.startswith('Keeps north')}
+                    unused_fr = {s for s in french if s == 'Garder le nord en haut' or s.startswith('Garde le nord')}
                 self.assertEqual((english - french) - set(result['usedEn']), unused_en)
                 self.assertEqual((french - english) - set(result['usedFr']), unused_fr)
                 self.assertEqual((english - french) - set(result['usedRefresh']), unused_en)
-                self.assertEqual(len(english - french), 11)
-                self.assertEqual(len(french - english), 11)
+                self.assertEqual(len(english - french), 14)
+                self.assertEqual(len(french - english), 14)
                 for texts, extracts in [(english, ('four times slower', 'fifty times slower', 'freely', 'plugin')),
                                         (french, ('quatre fois plus lent', 'cinquante fois plus lentement', 'librement', 'plugin'))]:
                     for extract in extracts:
@@ -230,6 +235,9 @@ class SettingsMenuTests(unittest.TestCase):
                 self.assertTrue(result['redrawsScreen'] and result['localeRestored'])
                 if scenario == 'locales':
                     self.assertEqual((result['zoom'], result['pan']), (50, 50))
+
+    def test_vehicle_toggle_applies_each_transition_once(self):
+        self.assertEqual(self.script.exports_sync.run('reverse')['reverseChanges'], [False, True])
 
     def test_changed_bytecode_is_left_untouched(self):
         r = self.script.exports_sync.run('body')

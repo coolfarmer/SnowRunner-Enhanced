@@ -13,7 +13,7 @@ namespace SnowRunnerEnhanced;
 // or installed once, and always preserved on uninstall for other mods.
 internal sealed class Installation
 {
-    internal const string Version = "0.1.0-preview.24";
+    internal const string Version = "0.1.0-preview.25";
     internal const string ConfigName = "SnowRunnerEnhanced.json";
     internal const string ReceiptName = "SnowRunnerEnhanced.install.json";
     internal const string StatusName = "SnowRunnerEnhanced.status.json";
@@ -139,7 +139,7 @@ internal sealed class Installation
         if (root.Count != 2 || root["schemaVersion"]?.GetValue<int>() != 1 || root["features"] is not JsonObject features)
             throw new InvalidDataException("Invalid feature configuration.");
         foreach (var pair in features) {
-            if (pair.Key is not ("wheel_mouse" or "skip_startup_logos" or "map" or "general_improvements") || pair.Value is not JsonObject entry ||
+            if (pair.Key is not ("wheel_mouse" or "skip_startup_logos" or "map" or "general_improvements" or "vehicle") || pair.Value is not JsonObject entry ||
                 entry.Count != 1 || entry["enabled"] is not JsonValue flag || !flag.TryGetValue<bool>(out _))
                 throw new InvalidDataException("Unknown feature or invalid enabled value.");
         }
@@ -150,6 +150,9 @@ internal sealed class Installation
         get { var root=ReadJson(At(ConfigName)); ParseFeature(root); return root["features"]?["map"]?["enabled"]?.GetValue<bool>() ?? false; }
     }
 
+    internal bool VehicleEnabled {
+        get { var root=ReadJson(At(ConfigName)); ParseFeature(root); return root["features"]?["vehicle"]?["enabled"]?.GetValue<bool>() ?? true; }
+    }
     internal bool GeneralImprovementsEnabled {
         get { var root=ReadJson(At(ConfigName)); ParseFeature(root); return root["features"]?["general_improvements"]?["enabled"]?.GetValue<bool>() ?? false; }
     }
@@ -161,9 +164,9 @@ internal sealed class Installation
     internal bool NeedsPreviewDefaults => HasReceipt && (Receipt()["allEnabledDefaults"]?.GetValue<bool>() != true || Receipt()["version"]?.GetValue<string>() != Version);
 
     internal bool HasReceipt => File.Exists(At(ReceiptName));
-    static byte[] Configuration(bool enabled, bool skipStartupLogos, bool map, bool general) => JsonSerializer.SerializeToUtf8Bytes(new
+    static byte[] Configuration(bool enabled, bool skipStartupLogos, bool map, bool general, bool vehicle) => JsonSerializer.SerializeToUtf8Bytes(new
     {
-        schemaVersion = 1, features = new { wheel_mouse = new { enabled }, skip_startup_logos = new { enabled = skipStartupLogos }, map = new { enabled = map }, general_improvements = new { enabled = general } }
+        schemaVersion = 1, features = new { wheel_mouse = new { enabled }, skip_startup_logos = new { enabled = skipStartupLogos }, map = new { enabled = map }, general_improvements = new { enabled = general }, vehicle = new { enabled = vehicle } }
     }, Pretty);
 
     JsonObject Receipt()
@@ -234,7 +237,7 @@ internal sealed class Installation
         }
         report["installedVersion"] = receipt["version"]?.DeepClone();
         report["files"] = files;
-        try { report["mapEnabled"] = MapEnabled; report["wheelMouseEnabled"] = Enabled; report["skipStartupLogosEnabled"] = SkipStartupLogosEnabled; report["generalImprovementsEnabled"] = GeneralImprovementsEnabled; }
+        try { report["vehicleEnabled"] = VehicleEnabled; report["mapEnabled"] = MapEnabled; report["wheelMouseEnabled"] = Enabled; report["skipStartupLogosEnabled"] = SkipStartupLogosEnabled; report["generalImprovementsEnabled"] = GeneralImprovementsEnabled; }
         catch (Exception error) when (error is IOException or InvalidDataException or JsonException or InvalidOperationException or FormatException)
         { report["configurationError"] = "Missing or invalid feature configuration."; }
         if (File.Exists(At(StatusName)))
@@ -286,11 +289,11 @@ internal sealed class Installation
     }
     static byte[] JsonBytes(JsonObject obj) => Encoding.UTF8.GetBytes(obj.ToJsonString(Pretty));
 
-    internal void Install(bool enabled, bool skipStartupLogos = true, bool map = true, bool general = true)
+    internal void Install(bool enabled, bool skipStartupLogos = true, bool map = true, bool general = true, bool vehicle = true)
     {
         using var held = LockForChange();
         CheckExecutable();
-        if (NeedsPreviewDefaults) { ApplyChoices(enabled, skipStartupLogos, map, general); return; }
+        if (NeedsPreviewDefaults) { ApplyChoices(enabled, skipStartupLogos, map, general, vehicle); return; }
         if (HasReceipt) { Receipt(); throw new IOException("Enhanced is already installed. Use Features or uninstall before replacing the package."); }
         var loaderHash = CheckLoader();
         // Hold a reused loader against replacement until installation completes.
@@ -300,7 +303,7 @@ internal sealed class Installation
         foreach (var name in Binaries.Concat([ConfigName, ReceiptName, "SnowRunnerEnhanced.dll"]))
             if (File.Exists(At(name)) || Directory.Exists(At(name)))
                 throw new IOException("Existing file preserved: " + name + ". Resolve this conflict before installing Enhanced.");
-        var config = Configuration(enabled, skipStartupLogos, map, general);
+        var config = Configuration(enabled, skipStartupLogos, map, general, vehicle);
         var receipt = new JsonObject { ["product"] = "SnowRunnerEnhanced", ["schemaVersion"] = 1, ["version"] = Version,
             ["files"] = JsonSerializer.SerializeToNode(Binaries.ToDictionary(n => n, n => payload[n])),
             ["loader"] = new JsonObject { ["name"] = LoaderName, ["sha256"] = loaderHash ?? payload[LoaderName],
@@ -340,13 +343,13 @@ internal sealed class Installation
         }
     }
 
-    internal void Configure(bool? enabled, bool? skipStartupLogos = null, bool? map = null, bool? general = null)
+    internal void Configure(bool? enabled, bool? skipStartupLogos = null, bool? map = null, bool? general = null, bool? vehicle = null)
     {
         using var held = LockForChange();
-        ApplyChoices(enabled, skipStartupLogos, map, general);
+        ApplyChoices(enabled, skipStartupLogos, map, general, vehicle);
     }
 
-    void ApplyChoices(bool? enabled, bool? skipStartupLogos, bool? map, bool? general)
+    void ApplyChoices(bool? enabled, bool? skipStartupLogos, bool? map, bool? general, bool? vehicle)
     {
         var receipt = Receipt();
         bool migrate = receipt["allEnabledDefaults"]?.GetValue<bool>() != true || receipt["version"]?.GetValue<string>() != Version;
@@ -357,7 +360,7 @@ internal sealed class Installation
             VerifyBinaries(receipt, allowMissing: false);
         var old = File.ReadAllBytes(At(ConfigName));
         ParseFeature(ReadJson(At(ConfigName)));
-        var config = Configuration(enabled ?? (migrate || Enabled), skipStartupLogos ?? (migrate || SkipStartupLogosEnabled), map ?? (migrate || MapEnabled), general ?? (migrate || GeneralImprovementsEnabled));
+        var config = Configuration(enabled ?? (migrate || Enabled), skipStartupLogos ?? (migrate || SkipStartupLogosEnabled), map ?? (migrate || MapEnabled), general ?? (migrate || GeneralImprovementsEnabled), vehicle ?? (migrate || VehicleEnabled));
         byte[]? previousPlugin = null;
         if (migrate && Hash(pluginPath) != payload[plugin])
         {

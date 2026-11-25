@@ -14,6 +14,6 @@ int wmain(int argc,wchar_t **argv) {
         saved=json_parser_load_from_data(parser,text,-1,NULL)&&SettingsSave(json_parser_get_root(parser));
         g_free(text);g_object_unref(parser);
     }
-    printf("{\"value\":%d,\"panning\":%d,\"keepNorthUp\":%s,\"saved\":%d,\"state\":\"%s\"}\n",before.zoom,before.panning,before.keep_north_up?"true":"false",saved,settings_state);
+    printf("{\"value\":%d,\"panning\":%d,\"keepNorthUp\":%s,\"automaticReverse\":%s,\"saved\":%d,\"state\":\"%s\"}\n",before.zoom,before.panning,before.keep_north_up?"true":"false",before.automatic_reverse?"true":"false",saved,settings_state);
     return 0;
 }

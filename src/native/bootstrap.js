@@ -3,15 +3,16 @@
 // Core UI belongs to the plugin, never to a configurable enhancement group.
 CONFIG.features = {wheel_mouse: ENHANCED_HOST.wheelMouse !== false, map: ENHANCED_HOST.map !== false};
 let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
+let vehicle = null, vehicleError = null;
 let menuFailure = null, functionsRepeat = null, repeatState = "disabled";
 function reportNative(state, extra = {}) {
     featureState = state;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.24',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.25',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
-        features: Object.fromEntries(Object.entries(CONFIG.features).map(([key, enabled]) =>
-            [key, enabled ? {enabled, status: state, ...extra} : {enabled, status: 'disabled'}])),
+        features: {vehicle: {enabled: ENHANCED_HOST.vehicle===true, status: vehicleError || (vehicle ? 'active' : ENHANCED_HOST.vehicle ? state : 'disabled'), ...vehicle?.status()}, ...Object.fromEntries(Object.entries(CONFIG.features).map(([key, enabled]) =>
+            [key, enabled ? {enabled, status: state, ...extra} : {enabled, status: 'disabled'}]))},
         validation: 'Preview: see packaged validation notes'}});
 }
 function attemptStart() {
@@ -45,14 +46,23 @@ function attemptStart() {
             agentState = 'error'; agentReason = 'Hook installation failed; correction stopped';
         }
     }
+    if (ENHANCED_HOST.vehicle === true) {
+        try {
+            if (ENHANCED_HOST.gameSha256 !== CONFIG.profile.gameSha256) throw Error('Unsupported game build');
+            vehicle = makeVehicleReverse();
+            vehicle.set(ENHANCED_HOST.automaticReverse !== false);
+        } catch (error) { vehicleError = String(error); vehicle = null; }
+    }
     // The optional agent validates original entry bytes before either component
     // attaches to the shared VM entry point. Its failure does not disable the UI.
     try {
         const validPreference = value => Number.isInteger(value) && value >= 0 && value <= 100 ? value : 50;
-        const preferences = {schemaVersion: 3, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
+        const preferences = {schemaVersion: 4, automaticReverse: ENHANCED_HOST.automaticReverse!==false, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
             panningSensitivity: validPreference(ENHANCED_HOST.panningSensitivity), keepNorthUp: ENHANCED_HOST.keepNorthUp===true};
         const savePreference = (key, value) => { preferences[key] = value; send({enhancedSettings: {...preferences}}); };
         settingsMenu = makeEnhancedSettingsMenu(SETTINGS_PROFILE, hookHudHintUpdates, {
+            vehicleEnabled: !!vehicle, automaticReverse: preferences.automaticReverse,
+            onReverseChange: value => { vehicle.set(value); savePreference('automaticReverse', value); },
             mapEnabled: CONFIG.features.map, zoomSensitivity: preferences.zoomSensitivity,
             panningSensitivity: preferences.panningSensitivity, keepNorthUp: preferences.keepNorthUp,
             onNorthChange: value => savePreference('keepNorthUp', value),
@@ -85,7 +95,7 @@ function attemptStart() {
                 nativeAgent.stop(); agentState = 'faulted'; agentReason = 'Correction stopped after a runtime error';
             }
         }
-        const serialized = JSON.stringify([agentState, nativeAgent.status(), settingsMenu ? settingsMenu.status() : menuFailure]);
+        const serialized = JSON.stringify([agentState, nativeAgent.status(), vehicle?.status(), settingsMenu ? settingsMenu.status() : menuFailure]);
         if (serialized !== previous) { previous = serialized; report(); }
     }, 2000);
 }

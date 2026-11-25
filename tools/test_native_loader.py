@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.24/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.25/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
@@ -85,7 +85,7 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                     assert zoom['enabled'] == map_enabled and zoom['running'] == map_enabled, status
                     assert zoom['value'] == zoom_value and zoom['fault'] is None, status
                     assert status['settingsPersistence'] == ('default' if zoom_value == 50 else 'loaded'), status
-                    assert set(status['features']) == {'wheel_mouse', 'map', 'skip_startup_logos', 'general_improvements'}
+                    assert set(status['features']) == {'wheel_mouse', 'map', 'skip_startup_logos', 'general_improvements', 'vehicle'}
                     for feature in status['features'].values():
                         if feature['status'] == 'active':
                             assert feature['compatibility']['relocatedGuards'] == GUARD_COUNT

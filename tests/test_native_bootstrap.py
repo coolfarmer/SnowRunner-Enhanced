@@ -50,10 +50,10 @@ rpc.exports={
         self.api.change('north', True)
         self.api.change('panning', 50)
         self.assertEqual(self.api.state()['settingsSaves'], [
-            dict(schemaVersion=3, zoomSensitivity=50, panningSensitivity=0, keepNorthUp=False),
-            dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=False),
-            dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=True),
-            dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=50, keepNorthUp=True)])
+            dict(schemaVersion=4, automaticReverse=True, zoomSensitivity=50, panningSensitivity=0, keepNorthUp=False),
+            dict(schemaVersion=4, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=False),
+            dict(schemaVersion=4, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=True),
+            dict(schemaVersion=4, automaticReverse=True, zoomSensitivity=75, panningSensitivity=50, keepNorthUp=True)])
 
     def test_discovery_retries_without_hooks_and_stops(self):
         self.api.set('scan', True)
@@ -94,7 +94,7 @@ rpc.exports={
         self.assertEqual(state['starts'], 0)
         self.assertEqual(state['menuStarts'], 1)
         self.assertFalse(state['mapEnabled'])
-        self.assertEqual(set(state['report']['features']), {'wheel_mouse', 'map'})
+        self.assertEqual(set(state['report']['features']), {'wheel_mouse', 'map', 'vehicle'})
         self.assertTrue(all(f['status'] == 'disabled' for f in state['report']['features'].values()))
         self.assertTrue(state['report']['components']['settings_menu']['running'])
 

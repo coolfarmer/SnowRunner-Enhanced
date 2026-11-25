@@ -14,6 +14,10 @@ const enhancedMenuText = {
     panningLabel: ['Panning sensitivity', 'Sensibilité de rotation'],
     panningDesc: ['Adjusts how fast the map rotates while you hold the right mouse button. At 50, rotation uses the original game speed. At 0, it is fifty times slower. At 100, it is four times faster. Changes are applied and saved immediately.',
         'Règle la vitesse de rotation de la carte lorsque vous maintenez le bouton droit de la souris. À 50, la carte tourne à la vitesse d’origine du jeu. À 0, elle tourne cinquante fois plus lentement. À 100, elle tourne quatre fois plus vite. Les changements sont appliqués et sauvegardés immédiatement.'],
+    vehicleCategory: ['VEHICLE', 'VÉHICULE'],
+    reverseLabel: ['Automatic reverse', 'Marche arrière automatique'],
+    reverseDesc: ['In AUTO, holding the brake after stopping engages reverse. Turn this off to select R manually.',
+        'En AUTO, maintenir le frein après l’arrêt engage la marche arrière. Désactivez cette option pour sélectionner R manuellement.'],
     northLabel: ['Keep North Up', 'Garder le nord en haut'],
     northDesc: ['Keeps north at the top of the map. Turn this off to rotate the map freely.',
         'Garde le nord en haut de la carte. Désactivez cette option pour tourner la carte librement.'],
@@ -28,6 +32,8 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
     const zoom=makeMapZoomSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','zoomLabel')},options,attach);
     const panning=makeMapPanningSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','panningLabel')},options,attach);
     const mapEnabled=options.mapEnabled!==false;
+    const vehicleEnabled=options.vehicleEnabled===true, needsStepper=mapEnabled||vehicleEnabled;
+    let automaticReverse=options.automaticReverse!==false;
     let northUp=options.keepNorthUp===true, cameraClass=null, northFault=null;
     function obj(v){if(v.shr(48).toUInt32()!==0x20)throw Error('Expected VM object');return v.and('0xffffffffffff');}
     function untag(v){return v.and('0xffffffffffff');}
@@ -129,17 +135,19 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
         localePatch={fn,code};
         fn.add(0x60).writePointer(plan.redraw.p);fn.add(0x68).writeU32(plan.redraw.words.length);
     }
-    function changeNorth(vm){
+    function changeStepper(vm){
         const control=receiver(vm);
-        if(!ownsNorth(control))return;
+        const reverse=vehicleEnabled&&ownsRow(control,'UiOneSettingStepperOnOff','reverseLabel');
+        if(!reverse&&!ownsNorth(control))return;
         const arg=vm.add(0x18).readPointer().add(8);
         if(arg.readPointer().shr(48).toUInt32()!==2)throw Error('Invalid on/off argument');
         // VM comparisons write only the low byte of a tagged boolean.
         const next=arg.readU8()!==0;
         // The on/off base implements UpdateStatus as a no-op. Its inherited
         // GetCurrentIndex reads hackCurrent on the ensuing native view refresh.
+        if(reverse && next!==automaticReverse){options.onReverseChange(next);automaticReverse=next;}
         prop(control,'hackCurrent').writePointer(ptr(next?'0x1000000000001':'0x1000000000000'));
-        if(northUp!==next){northUp=next;options.onNorthChange?.(next);}
+        if(!reverse&&northUp!==next){northUp=next;options.onNorthChange?.(next);}
     }
     function orientCamera(vm,fn){
         if(!northUp||northFault)return;
@@ -175,7 +183,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
             // The native view keeps its rendered label. Refresh it along with the
             // preset before CreateData lays out the selected tab in the new locale.
         }else if(n!==7||m!==7)throw Error('Unsupported settings tab layout');
-        if(n===7&&(!pendingGamma||(mapEnabled&&!pendingStepper))){state='waiting-for-controls';return;}
+        if(n===7&&(!pendingGamma||(needsStepper&&!pendingStepper))){state='waiting-for-controls';return;}
         const gamma=pendingGamma;
         const original=fn.add(0x60).readPointer(),originalConstants=fn.add(0x50).readPointer(),originalCount=fn.add(0x58).readU32();
         if(name(fn.add(0x40).readPointer().readU32())!=='CreateData'||fn.add(0x68).readU32()!==profile.createDataWords.length||
@@ -191,10 +199,11 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
             expectMembers(bar,[['CreateItem',52,2],['UnsubscribeContent',29,2],['SubscribeContent',28,2],['Show',16,2],['items',65,5],['UpdateTabsOffset',82,2]]);
             if(!plan){plan=build(self,gamma,fn,tabs,originalConstants,originalCount);methodOwner=fn;}
             plan.gammaSlot.writePointer(gamma.or('0x20000000000000'));
-            if(mapEnabled){
+            if(needsStepper){
                 if(!get(pendingStepper.control,'uiSystem').equals(get(self,'uiSystem')))throw Error('Unexpected on/off template');
                 plan.stepperSlot.writePointer(pendingStepper.control.or('0x20000000000000'));
-                plan.northIndexSlot.writePointer(ptr(northUp?'0x1000000000001':'0x1000000000000'));
+                if(vehicleEnabled)plan.reverseIndexSlot.writePointer(ptr(automaticReverse?'0x1000000000001':'0x1000000000000'));
+                if(mapEnabled)plan.northIndexSlot.writePointer(ptr(northUp?'0x1000000000001':'0x1000000000000'));
             }
         }
         if(!methodOwner.equals(fn))throw Error('Settings method owner changed');
@@ -257,17 +266,16 @@ function set(receiver,id,value){return [...value,...receiver,W(60,id),W(2)];}
 function assign(local,value){return [...value,W(59,local),W(2)];}
 function create(local,t){return assign(local,[W(1,1),W(57,t),W(4,0),W(58,t)]);}
 function append(array,value){return [...value,...array,W(66),W(2)];}
-let northRow=[],northData={},refreshNorth=[];
-if(mapEnabled){
+let northRow=[],vehicleRow=[],stepperData={},refreshNorth=[],refreshVehicle=[];
+if(needsStepper){
     const template=pendingStepper.control;
     expectMembers(template,[['view',5,5],['header',39,5],['desc',40,5],['shouldBeVisible',41,5],
         ['defaultStepperIndex',50,5],['hackCurrent',51,5],['SetForLocale',33,2],['Init',13,2]]);
     expectMembers(get(template,'view'),[['uiObjectDesc',5,5],['changeSound',31,5],['descriptionImage',32,5],
         ['updateCurrentWithoutNotification',41,5],['UpdateStepperCurrent',43,2],['GetUiObject',25,2]]);
     const stepper=type(pendingStepper.base),stepView=type(cls(get(template,'view')));
-    const stepSource=add(template.or('0x20000000000000')),northKey=add(textValue('EnhancedKeepNorthUp'));
-    const {northLabel:header,northDesc:help}=slots,index=add(ptr('0x1000000000000'));
-    northData={stepperSlot:constants.add(stepSource*8),northIndexSlot:constants.add(index*8)};
+    const stepSource=add(template.or('0x20000000000000'));
+    stepperData.stepperSlot=constants.add(stepSource*8);
     // The native on/off initializer constructs array<string> from constant 1.
     const initializer=classMember(pendingStepper.base,'CreateInitialData',2).desc;
     if(initializer.add(0x58).readU32()<2)throw Error('Missing stepper value array type');
@@ -280,15 +288,30 @@ if(mapEnabled){
         ...stmt(call(field(call(L(-13),25),144),96,[L(-10)])),
         ...stmt(call(L(-13),43,[field(L(-12),51)]))
     ];
-    refreshNorth=[...refreshRow(northKey,header,help),...choices];
-    northRow=[
-        ...create(-11,5),...set(L(-11),4,C(northKey)),...set(L(-11),5,B(0)),...append(field(L(-9),4),L(-11)),
-        ...create(-12,stepper),...set(L(-12),39,C(header)),...set(L(-12),40,C(help)),
-        ...create(-13,stepView),...set(L(-13),5,field(field(C(stepSource),5),5)),
-        ...set(L(-13),31,field(field(C(stepSource),5),31)),...set(L(-13),32,C(empty)),
-        ...set(L(-12),5,L(-13)),...set(L(-12),41,B(1)),...set(L(-12),50,I(0)),...set(L(-12),51,C(index)),
-        ...stmt(call(L(-12),13,[L(-14)])),...choices,...stmt(call(S(56),5,[C(northKey),L(-12)]))
-    ];
+    function toggle(key,header,help,index,initial){
+        return [
+            ...create(-11,5),...set(L(-11),4,C(key)),...set(L(-11),5,B(0)),...append(field(L(-9),4),L(-11)),
+            ...create(-12,stepper),...set(L(-12),39,C(header)),...set(L(-12),40,C(help)),
+            ...create(-13,stepView),...set(L(-13),5,field(field(C(stepSource),5),5)),
+            ...set(L(-13),31,field(field(C(stepSource),5),31)),...set(L(-13),32,C(empty)),
+            ...set(L(-12),5,L(-13)),...set(L(-12),41,B(1)),...set(L(-12),50,I(initial)),...set(L(-12),51,C(index)),
+            ...stmt(call(L(-12),13,[L(-14)])),...choices,...stmt(call(S(56),5,[C(key),L(-12)]))
+        ];
+    }
+    if(mapEnabled){
+        const key=add(textValue('EnhancedKeepNorthUp')),index=add(ptr('0x1000000000000'));
+        stepperData.northIndexSlot=constants.add(index*8);
+        northRow=toggle(key,slots.northLabel,slots.northDesc,index,0);
+        refreshNorth=[...refreshRow(key,slots.northLabel,slots.northDesc),...choices];
+    }
+    if(vehicleEnabled){
+        const key=add(textValue('EnhancedAutomaticReverse')),index=add(ptr('0x1000000000001'));
+        stepperData.reverseIndexSlot=constants.add(index*8);
+        vehicleRow=[...create(-10,3),...set(L(-10),4,C(slots.vehicleCategory)),...append(field(L(-9),4),L(-10)),
+            ...toggle(key,slots.reverseLabel,slots.reverseDesc,index,1)];
+        refreshVehicle=[...set(at(field(L(-9),4),mapEnabled?5:4),4,C(slots.vehicleCategory)),
+            ...refreshRow(key,slots.reverseLabel,slots.reverseDesc),...choices];
+    }
 }
 function refreshRow(key,label,help){
     return [
@@ -329,7 +352,7 @@ const prefix=[W(1,17),
  ...set(L(-12),5,L(-13)),...set(L(-12),39,C(panningLabel)),...set(L(-12),40,C(panningDescription)),...set(L(-12),41,B(options.mapEnabled===false?0:1)),
  ...set(L(-12),50,C(zero)),...set(L(-12),51,C(hundred)),...set(L(-12),52,C(fifty)),...set(L(-12),53,C(one)),...set(L(-12),54,I(2)),
  ...stmt(call(L(-12),13,[L(-14)])),...stmt(call(S(56),5,[C(panningKey),L(-12)])),
- ...northRow,
+ ...northRow,...vehicleRow,
  ...append(S(63),L(-9)),
  ...assign(-15,call([W(8)],127,[C(title),C(title)])),
  ...set(L(-15),5,field(call(call(L(0),34),25),148)),
@@ -337,12 +360,12 @@ const prefix=[W(1,17),
 ];
 function relocated(words,delta){return words.map(w=>[0x16,0x17,0x18,0x19,0x1a].includes(w&255)?W(w&255,(w>>>8)-0x800000+delta):w);}
 function code(words){const p=alloc(words.length*4);words.forEach((w,i)=>p.add(i*4).writeU32(w));return {p,words};}
-const at=(array,index)=>[...I(index),...array,W(63)];
+function at(array,index){return [...I(index),...array,W(63)];}
 const refreshPrefix=[W(1,17),
     ...assign(-9,at(S(63),7)),...set(L(-9),6,C(title)),
     ...set(at(field(L(-9),4),1),4,C(category)),
     ...refreshRow(infoKey,infoLabel,infoDesc),...refreshRow(key,label,description),
-    ...refreshRow(panningKey,panningLabel,panningDescription),...refreshNorth,
+    ...refreshRow(panningKey,panningLabel,panningDescription),...refreshNorth,...refreshVehicle,
     // UiSettingsTabElementView uses tfCont.tf.text; recompute native tab widths afterward.
     ...assign(-13,call(at(field(S(57),65),7),34)),
     ...set(field(field(call(L(-13),25),141),143),97,C(title)),...stmt(call(S(57),82))
@@ -353,7 +376,7 @@ function program(prefix){return code([...prefix,...relocated(profile.createDataW
 const localeWords=[W(1,1),...L(1),...L(0),...I(1),...C(0),W(14,33),W(2),
     ...stmt(call(S(57),33,[L(1)])),W(19,2)];
 const redraw=code([...localeWords.slice(0,-1),...stmt(call(L(0),24)),W(19,2)]);
-return {...northData,redraw,localeWords,install:program(prefix),refresh:program(refreshPrefix),constants,count:nconst,
+return {...stepperData,redraw,localeWords,install:program(prefix),refresh:program(refreshPrefix),constants,count:nconst,
     gammaSlot:constants.add(gammaValue*8),matches,current,selectLocale,bytes:used};
     }
     return {
@@ -363,10 +386,10 @@ return {...northData,redraw,localeWords,install:program(prefix),refresh:program(
                 hooks.push(attach(framePush,poolSlot,guarded(()=>{pendingGamma=null;pendingStepper=null;}),'UiSettingsController','InitContent'));
                 hooks.push(attach(framePush,poolSlot,guarded(setMenuLocale),'ComponentUiControllerBase','SetForLocale'));
                 hooks.push(attach(framePush,poolSlot,guarded(settingsLocale),'UiSettingsController','SetForLocale'));
-                if(mapEnabled){
+                if(needsStepper){
                     hooks.push(attach(framePush,poolSlot,guarded(captureStepper),'UiOneSettingStepperController','InitContent'));
-                    hooks.push(attach(framePush,poolSlot,guarded(changeNorth),'UiOneSettingStepperOnOff','UpdateStatus'));
-                    hooks.push(attach(framePush,poolSlot,orientCamera,'MinimapCameraController','UpdateImpl'));
+                    hooks.push(attach(framePush,poolSlot,guarded(changeStepper),'UiOneSettingStepperOnOff','UpdateStatus'));
+                    if(mapEnabled)hooks.push(attach(framePush,poolSlot,orientCamera,'MinimapCameraController','UpdateImpl'));
                 }
                 hooks.push(attach(framePush,poolSlot,guarded(capture),'UiOneSettingSliderController','InitContent'));
                 // Also supports attachment after the game has initialized its settings.
