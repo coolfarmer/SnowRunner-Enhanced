@@ -1,147 +1,112 @@
 # SnowRunner Enhanced
 
-Preview.33 marks MAP **Active** as soon as its components are initialized and ready. Opening the map, zooming and rotating are no longer prerequisites. Errors discovered on first or subsequent use still change the state to **Error**.
+English · [Français](README_FR.md)
 
-Preview.32 fixes the invisible feature values reported in preview.31 by supplying opaque ARGB colors. States remain read-only text on the right, without arrows. The regression test now checks alpha as well as RGB; in-game visual confirmation is pending.
+Small improvements for a smoother SnowRunner experience — with your mouse,
+keyboard, controller or steering wheel.
 
-Preview.31 adds **FEATURES** above **MAP** in the ENHANCED settings. All six installer categories show their runtime health: **Inactive** (red), **Pending** (amber), **Active** (green), or **Error** (red). These rows are read-only; select a row for contextual help. Names, states and help follow the game's English/French language.
+## ✨ Enhancements
 
-Native diagnostics are delivered in memory every two seconds; values refresh with settings-screen updates. Some categories may wait for a relevant screen or load; MAP reports readiness without requiring first use. A component failure makes its category show Error. Active means initialized with no detected error, not a guarantee against every behavioral issue. Module selection remains in the installer, with the game closed.
+### 🖱️ Enhancement #1 – Simultaneous Mouse & Wheel Input
 
-Preview.31 validation: automated tests; in-game layout, colors, scrolling and continuous refresh still require confirmation.
+- **No more cursor jumping.** Touching your wheel no longer sends the mouse cursor back to the center of the screen.
+- **Your mouse is just a mouse now!** Moving or clicking it no longer switches the interface to keyboard controls or causes input conflicts.
+- **Winch your way.** Attach the winch using either your mouse or your wheel. Your choice!
+- **Smoother menus.** Fixed flickering in the Functions menu.
+- **Automatic cursor release.** If your mouse is locked to control the camera, opening the Functions menu automatically unlocks it.
 
+---
 
-## Enhancement #6 – Steering Wheel Improvements
+### ⏩ Enhancement #2 – Skip Startup Logos
 
-Preview.30 integrates the former FFB Fix into Enhanced to correct abnormal oscillations during map transitions. **Steering Wheel Improvements** is an independent installer option, enabled when first added, with changes taking effect at the next game launch. Updates preserve existing enhancement choices.
+- **Get to the main menu sooner.** Skip the startup warning and three logos — about 19 seconds less waiting!
 
-Signatures and cross-references now locate the constructor, so moving code or changing the executable hash alone no longer disables the correction. Changed object layouts or ambiguous discovery leave only this enhancement inactive. The separate FFB plugin is no longer required. On November 25, 2026, the player confirmed that the integrated preview.30 works in game. See [implementation and limits](Docs/STEERING_WHEEL.md).
+---
 
+### 🗺️ Enhancement #3 – Map Improvements & Options
 
-In both preview.27 and preview.28, the player verified in game that the three MAP options and the VEHICLE Automatic reverse option were grayed out when their modules were disabled and became accessible again after the modules were re-enabled.
+- **Responsive map buttons.** Fixed the Map icon next to Tasks and Contracts not responding correctly to hovering and clicking.
+- **Adjustable sensitivity.** Separate sliders let you adjust map zoom and rotation sensitivity.
+- **Keep North Up.** An optional setting keeps the map facing north and prevents it from rotating.
 
-## Enhancement #5 – Vehicle
+📍 Available under **Settings → ENHANCED → MAP**.
 
-In preview.29, Vehicle controls the fix that keeps the engine off when you stop it with the wheel and close the Functions menu. The player confirmed it works in game with Simultaneous Mouse & Wheel Input disabled.
+---
 
-The player confirmed the preview.25 Vehicle option works in game.
+### 📋 Enhancement #4 – General Improvements
 
-Under **ENHANCED → VEHICLE**, turn **Automatic reverse** off to keep a held brake from engaging reverse in AUTO. Select R to back up. The setting defaults to On and saves immediately.
+- **Hold to scroll.** Hold a navigation button to move continuously through the Functions menu.
+- **Loop through options.** Going past the last option brings you back to the first, and vice versa.
 
-## Enhancement #4 – General Improvements
+---
 
-Preview.24 repeats Up or Down while held in Functions. Repetition starts after 420 ms and continues about every 140 ms until release. After restarting with preview.24 installed, the player confirmed continuous scrolling with both the keyboard and the controller D-pad. Steering wheel input still needs a separate test.
+### 🚚 Enhancement #5 – Vehicle Improvements & Options
 
-Preview.23 adds wraparound navigation to **Functions**. Press Down on the last selectable action to highlight the first, or Up on the first to highlight the last. The installer enables this option by default on a new installation.
+- **Optional automatic reverse.** Choose whether holding the brake in AUTO engages reverse. Disable it to select R yourself.
+- **Your engine stays off.** Fixed small wheel inputs restarting the engine after turning it off with the wheel and closing the Functions menu.
 
-Preview.22 translates the in-game settings tab, map options and help text into English and French. Other game languages display the English text.
+📍 Automatic reverse is available under **Settings → ENHANCED → VEHICLE**.
 
-Preview.21 adds **Keep North Up** under **ENHANCED → MAP**. Turn it on to align a rotated map with north. Turn it off to rotate freely again. Both directions have been tested in game.
+---
 
-Preview.17 adds the always-on **ENHANCED** settings menu, independent of the optional enhancements.
+### 🕹️ Enhancement #6 – Steering Wheel Improvements
 
-Preview.15 fixes the map icon’s upper-right hover and click area, now grouped under enhancement #3: Map.
-It hides an unused notification placeholder through the live UI method, while
-preserving both existing button actions. The preview.12 fix for the left
-navigation button is retained. Live memory testing on November 23, 2026 passed
-at both previously blocked points, including an on/off comparison, and the
-user confirmed the result. The installed preview.15 was then tested and
-confirmed in game on November 23, 2026; both repairs are active with no
-instrumentation faults reported.
+- No more abnormal shaking during map transitions. Integrates a Force Feedback Fix to prevent unwanted oscillations while preserving normal force feedback.
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.33** includes mouse and
-wheel coexistence: map and winch interaction, Function menu focus and selection,
-and targeted flicker fixes. The Vehicle module filters tiny wheel inputs at rest
-so closing Functions keeps the engine off after you stop it with the wheel.
-Opening Functions with the keyboard or wheel now releases mouse camera capture
-and restores the cursor automatically. A new click can still control the camera.
-HUD zone prompts now refresh when switching between keyboard and wheel.
-Open interaction panels also refresh their action hints, including Close,
-without having to close and reopen the panel. The installed preview.9 passed
-the keyboard/wheel switching test on November 22, 2026 after restarting the game.
-Idle wheel axis chatter no longer immediately restores wheel hints after a
-keyboard action. Presentation uses a 0.1% cumulative movement threshold from
-the last keyboard action; buttons remain immediate and driving input is unchanged.
-The installed preview.7 passed the gas-station test on November 22, 2026:
-keyboard hints stayed visible for 15 seconds at idle with the engine running,
-then wheel movement restored the wheel hint.
+---
 
-Enhancement #2, **Skip Startup Logos**, is an independent installer option,
-on by default. It skips the photosensitivity warning and publisher logos by
-intercepting read buffers in memory, without changing gfx.pak. This preview
-locates both loading movies by name and verifies each movie before use.
-The installed startup behavior was confirmed by the user on November 22, 2026.
-See [implementation and validation limits](Docs/STARTUP_LOGOS.md).
+💡 **All enhancements are enabled on a new installation.** Choose the ones you want under **Advanced Options → Customize enhancements** in the installer.
 
-The standalone package includes a bilingual installer. Players do not need to
-install Python, Frida, or .NET. Extract the complete release ZIP and run
-`Install.cmd`. Enhanced is an ASI plugin: a single Ultimate ASI Loader
-(`dinput8.dll`) can load it alongside SMT. A recognized existing
-loader is reused and always retained on uninstall. The source checkout must
-be built before it can be installed.
+## 📦 Installation
 
-- [English installation and removal guide](Docs/README.en.md)
-- [Guide français](Docs/README.fr.md)
-- [Build instructions and validation limits](Docs/NATIVE_BUILD.md)
-- [Installer interface](Docs/INSTALLER_UI.md)
-- [Third-party notices](Licenses/)
+1. Close SnowRunner.
+2. Download the compiled ZIP from [Releases](https://github.com/coolfarmer/SnowRunner-Enhanced/releases).
+3. Extract the entire ZIP into a separate folder outside the game.
+4. Run `Install.cmd`, choose your language and select your game folder.
+5. Choose **Install Enhanced**, then launch SnowRunner normally through Steam.
 
-This native integration is a preview. In-game testing on November 21, 2026
-confirmed restored Function menu and winch-point hover after wheel input with
-preview.3. Automated tests also cover the hooks, installer and ASI loading.
-The preview.4 cursor change was confirmed with both keyboard and wheel after
-uninstalling, reinstalling the package and restarting the game. The earlier
-temporary test also confirmed clicking to resume camera control.
-The gas-station prompt fix is confirmed after installing preview.7 and restarting
-the game; other interaction zones remain to be tested.
-The preview.9 panel test covered refuelling and cargo management, including
-switching back to the keyboard and keeping hints stable at idle.
-The earlier V18 prototype was tested with a Logitech G923. Other wheels, a full
-V18 regression pass, extended sessions and coexistence with all supported mods
-remain to be validated.
+Keep the `Sources` folder alongside `Install.cmd`.
+No additional software needs to be installed.
 
-## Build and test
+> Download a compiled release package. GitHub's **Code → Download ZIP**
+> contains the source code.
 
-From this repository root, with Python 3.12+, .NET SDK 10.0.401, and Windows SDK
-10.0.26100.0 installed:
+## ⚙️ Customize, update or uninstall
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.\tools\build_release.ps1 -FetchDependencies -RunTests
-```
+All improvements are enabled on a new installation.
 
-The script downloads verified C++ tools and GumJS dependencies into ignored local
-directories. Later builds can omit `-FetchDependencies`. Outputs are created in
-`build/` and `dist/`; the ZIP and its `.sha256` file are release download assets.
-See the build guide for using an existing Python environment.
+- **Customize:** open **Advanced Options → Customize enhancements** in the installer.
+- **Update:** extract the new package and choose **Update Enhanced** when offered.
+- **Uninstall:** open **Advanced Options → Uninstall Enhanced**.
 
-## Repository scope
+Close the game before using these options. Changes to enabled improvements
+take effect the next time you launch it.
 
-This is the single home for production sources, the installer, build and
-packaging tools, synthetic regression tests, dependency metadata, and user
-documentation. The native DLL embeds the JavaScript agents in `src/` using
-GumJS/QuickJS; these files are required production sources.
+Map and vehicle settings can be adjusted directly in the **ENHANCED** tab.
 
-Capture and analysis tools, experiments, raw captures, and investigation notes
-are maintained outside this repository. No parent workspace files are needed
-to build or test a standalone checkout. Local dependencies, generated binaries,
-packages, and logs are ignored by Git.
+## 🎮 Compatibility
 
-## Enhancement #3 : Map
+- **Platform:** Windows 64-bit
+- **Store tested:** Steam
+- **Game build tested:** `1.907887.SNOW_DLC_19`
+- **Steering wheel tested:** Logitech G923
+- **Languages:** English and French
 
-- Fixed a bug where the Map icon (next to Tasks and Contracts) wasn't responding correctly to hovering and clicking.
+This project is currently a preview. Other wheels and game versions have
+not been fully verified. Game updates may require an Enhanced update.
 
-Since preview.16, **Map** (`map`) is an independent option, enabled by default, in **Advanced Options → Customize enhancements**. It contains both the left and upper-right hit-area repairs previously included in enhancement #1. Changes take effect on the next launch.
+## 🐛 Need help?
 
-## ENHANCED settings menu
+[Report a problem](https://github.com/coolfarmer/SnowRunner-Enhanced/issues)
+with the steps to reproduce it, your game version and your input devices.
 
-The menu follows the game language. French displays **ENHANCED → CARTE**. English and all other languages display **ENHANCED → MAP**.
+The installer can export a diagnostic report to attach to your issue.
+Reports are never sent automatically.
 
-The **ENHANCED** tab follows **STEERING WHEEL** in the game settings. It belongs to the plugin itself and remains available with every optional enhancement disabled. It is not a fourth enhancement or an installer checkbox.
+## 📝 License
 
-The informational row **Why am I seeing this?** displays contextual help without a value on the right. With enhancement #3 **Map** enabled, **Zoom sensitivity** controls map zoom immediately. Its numeric value appears on the right: **0 = ×0.25, 50 = the original game setting, 100 = ×4**. Restore defaults returns it to 50. The preference is saved in `SnowRunnerEnhanced.settings.json` next to the plugin and retained across upgrades and reinstalls.
+[MIT License](LICENSE) · [Third-party notices](Licenses/NOTICE.md)
 
-**Panning sensitivity**, below zoom in **ENHANCED → MAP**, controls rotation while holding the right mouse button: **0 = fifty times slower (×0.02), 50 = original speed, 100 = four times faster**. The initial and restored default is **50**. Changes take effect immediately; zoom and rotation are saved independently in the same preferences file. Existing zoom preferences are preserved, with rotation initially set to 50.
+## ⭐ Support
 
-**Keep North Up** locks the map with north at the top. Turn it off to rotate the map freely. It starts off and remembers your choice.
+If Enhanced makes your time in SnowRunner better, leave a star!
