@@ -1,10 +1,9 @@
 'use strict';
 
 // ShiftGear semantics and transmission layout: github.com/dazza-bo/SR-NoAutoReverse.
-// The complete function body is pinned to the build validated in the driving trial.
-function makeVehicleReverse() {
-    const shift = Process.mainModule.base.add(0xd73cf0);
-    const guard = '488974241048897c241841564883ec20488b8148010000488bf148b9ffffffffffff00ff8bfa4823c1745c0fb64010c0e802a8017551488d8e48010000e88e24d0ff837804007e3f488d8e4801000048895c2430e87724d0ff488d8e48010000488bd8e86824d0ff8b4b04488b5c24303908751332c0488b742438488b7c24404883c420415ec3488b46684883c07485ff7907bfffffffffeb04750233ff8938488bce488b46688b5074e8f153dbff488b742438b001488b7c24404883c420415ec3';
+function makeVehicleReverse(profile) {
+    const shift = Process.mainModule.base.add(profile.shiftGearRva);
+    const guard = profile.guards[0].hex;
     function verify() {
         const bytes = new Uint8Array(shift.readByteArray(guard.length / 2));
         if (!bytes.every((value, i) => value === parseInt(guard.slice(i*2,i*2+2),16)))

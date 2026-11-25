@@ -40,6 +40,28 @@ def synthetic_image(code_delta=0, data_delta=0):
 
 
 class CompatibilityTests(unittest.TestCase):
+    def test_relocated_shift_with_changed_call_distances(self):
+        profile = json.loads((ROOT / 'src/vehicle-profile.json').read_text())
+        sig, = compile_signatures(profile)
+        moved = sig['rva'] + 0x4000
+        raw = bytearray.fromhex(sig['hex'])
+        for ref in sig['refs']:
+            target = ref['target']
+            if sig['rva'] <= target < sig['rva'] + len(raw):
+                target += 0x4000
+            delta = target - (moved + ref['next'])
+            raw[ref['offset']:ref['offset'] + ref['size']] = delta.to_bytes(ref['size'], 'little', signed=True)
+        sections = [dict(rva=0, size=0x3000000, readable=True, executable=True)]
+        def resolve(segments):
+            hits = find_matches(sig, segments, None)
+            return resolve_profile(profile, [sig], {sig['name']: hits}, sections)[0]
+        self.assertEqual(resolve([(moved, raw)])['shiftGearRva'], moved)
+        with self.assertRaises(IncompatibleError):
+            resolve([(moved, raw), (moved + 0x10000, raw)])
+        raw[0] ^= 1
+        with self.assertRaises(IncompatibleError):
+            resolve([(moved, raw)])
+
     def test_original_profile_reconstructed(self):
         matches, sections, *_ = synthetic_image()
         resolved, details = resolve_profile(PROFILE, SIGNATURES, matches, sections)

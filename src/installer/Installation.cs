@@ -13,7 +13,7 @@ namespace SnowRunnerEnhanced;
 // or installed once, and always preserved on uninstall for other mods.
 internal sealed class Installation
 {
-    internal const string Version = "0.1.0-preview.25";
+    internal const string Version = "0.1.0-preview.26";
     internal const string ConfigName = "SnowRunnerEnhanced.json";
     internal const string ReceiptName = "SnowRunnerEnhanced.install.json";
     internal const string StatusName = "SnowRunnerEnhanced.status.json";

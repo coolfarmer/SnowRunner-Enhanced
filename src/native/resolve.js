@@ -6,8 +6,8 @@ function resolveNativeProfile(profile, signatures, matches, sections) {
     const fields = [];
     for (const [key, value] of Object.entries(profile))
         if (key.endsWith('Rva')) fields.push([[key], value]);
-    for (const [key, value] of Object.entries(profile.ids)) fields.push([['ids', key], value]);
-    profile.winchGamepadCallers.forEach((v, i) => fields.push([['winchGamepadCallers', i], v]));
+    for (const [key, value] of Object.entries(profile.ids || {})) fields.push([['ids', key], value]);
+    (profile.winchGamepadCallers || []).forEach((v, i) => fields.push([['winchGamepadCallers', i], v]));
     const symbols = new Set(fields.map(f => f[1]));
     signatures.forEach(s => { symbols.add(s.rva); s.refs.forEach(r => symbols.add(r.target)); });
     const bytes = hex => Uint8Array.from(hex.match(/../g).map(x => parseInt(x, 16)));
@@ -74,9 +74,9 @@ function resolveNativeProfile(profile, signatures, matches, sections) {
         parent[path[path.length - 1]] = mapping.get(old);
     }
     result.guards = signatures.map(s => ({name: s.name, rva: choices[s.name][0].rva, hex: choices[s.name][0].hex}));
-    for (const rva of Object.values(result.ids)) if (!contained(rva, 4)) throw new Error('Invalid category slot');
-    for (const key of ['stringPoolSlotRva', 'engineStateSlotRva'])
-        if (!contained(result[key], 8)) throw new Error('Invalid pointer slot');
+    for (const rva of Object.values(result.ids || {})) if (!contained(rva, 4)) throw new Error('Invalid category slot');
+    for (const key of ['stringPoolSlotRva', 'engineStateSlotRva', 'functionsManagerSlotRva'])
+        if (key in result && !contained(result[key], 8)) throw new Error('Invalid pointer slot');
     return {profile: result, details: {method: 'signatures-and-references', candidateCounts: counts,
         relocatedGuards: result.guards.filter((g, i) => g.rva !== profile.guards[i].rva).length}};
 }

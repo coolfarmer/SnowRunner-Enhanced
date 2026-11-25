@@ -8,11 +8,15 @@
 #include "../../src/native/startup.h"
 
 int wmain(int argc, wchar_t **argv) {
-    if(argc!=2 && argc!=3)return 2;
-    gum_init_embedded(); configured_features=argc==3?_wtoi(argv[2]):10;
+    if(argc<2 || argc>4)return 2;
+    gum_init_embedded(); configured_features=argc>=3?_wtoi(argv[2]):10;
     BOOL logos = (configured_features & 2) != 0;
     BOOL general = (configured_features & 8) != 0;
     StartupInstall(argv[1]);
+    if(argc==4) {
+        printf("%s %s\n",StartupState(),FunctionsMenuState());
+        return 0;
+    }
     assert(!strcmp(StartupState(), logos ? "armed" : "disabled"));
     assert(!strcmp(FunctionsMenuState(), general ? "armed" : "disabled"));
     wchar_t path[32768];

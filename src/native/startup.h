@@ -9,7 +9,7 @@ static volatile LONG startup_seen;
 static volatile LONG64 startup_coverage[STARTUP_EDIT_COUNT];
 static CRITICAL_SECTION startup_lock;
 static const char *startup_state = "disabled";
-static int configured_features;
+static int configured_features, verified_features;
 
 typedef BOOL (WINAPI *StartupCompleted)(HANDLE,LPOVERLAPPED,LPDWORD,BOOL);
 static StartupCompleted startup_completed;
@@ -19,7 +19,7 @@ static StartupPending startup_pending[32];
 static void StartupPatch(PVOID buffer, ULONGLONG offset, ULONG_PTR count) {
     for (unsigned i=0; i<STARTUP_EDIT_COUNT; ++i) {
         const StartupEdit *edit=&startup_edits[i];
-        if (!(configured_features & edit->feature)) continue;
+        if (!(configured_features & verified_features & edit->feature)) continue;
         ULONGLONG begin=max(offset,edit->offset), end=min(offset+count,edit->offset+edit->size);
         if(begin<end) {
             size_t dst=(size_t)(begin-offset), src=(size_t)(begin-edit->offset), n=(size_t)(end-begin);
@@ -52,7 +52,7 @@ static LONG NTAPI StartupReadHook(HANDLE file,HANDLE event,PVOID apc,PVOID conte
     if(target) {
         BOOL overlap=FALSE;
         for(unsigned i=0;i<STARTUP_EDIT_COUNT;i++)
-            if((configured_features & startup_edits[i].feature) &&
+            if((configured_features & verified_features & startup_edits[i].feature) &&
                (ULONGLONG)position.QuadPart<startup_edits[i].offset+startup_edits[i].size &&
                (ULONGLONG)position.QuadPart+size>startup_edits[i].offset)overlap=TRUE;
         if(overlap) {
@@ -93,21 +93,109 @@ static BOOL WINAPI StartupCompletedHook(HANDLE file,LPOVERLAPPED io,LPDWORD coun
     return result;
 }
 
-static BOOL StartupHash(HANDLE file) {
-    BCRYPT_ALG_HANDLE alg=NULL; BCRYPT_HASH_HANDLE hash=NULL;
-    BOOL ok=BCryptOpenAlgorithmProvider(&alg,BCRYPT_SHA256_ALGORITHM,NULL,0)==0 &&
-        BCryptCreateHash(alg,&hash,NULL,0,NULL,0,0)==0;
-    unsigned char buffer[65536], digest[32]; DWORD count;
-    while(ok) {
-        if(!ReadFile(file,buffer,sizeof(buffer),&count,NULL)){ok=FALSE;break;}
-        if(!count)break;
-        ok=BCryptHashData(hash,buffer,count,0)==0;
+// Resolve a stored ZIP member using both directory records. Reject duplicate
+// names, compressed/encrypted data, ZIP64, and out-of-bounds records.
+static unsigned Read16(const unsigned char *p) {
+    return p[0] | ((unsigned)p[1]<<8);
+}
+static unsigned Read32(const unsigned char *p) {
+    return Read16(p) | (Read16(p+2)<<16);
+}
+static BOOL BundleName(const unsigned char *name, unsigned length) {
+    const char expected[]="[gfx]/gfxbundle.gfxbundle";
+    if(length!=sizeof(expected)-1)return FALSE;
+    for(unsigned i=0;i<length;i++)
+        if((name[i]=='\\' ? '/' : name[i])!=expected[i])return FALSE;
+    return TRUE;
+}
+static BOOL FindBundle(const unsigned char *file, size_t size, size_t *base, size_t *length) {
+    if(size<22)return FALSE;
+    size_t end=size-22, limit=end>65535 ? end-65535 : 0;
+    while(Read32(file+end)!=0x06054b50) {
+        if(end==limit)return FALSE;
+        --end;
     }
-    if(ok)ok=BCryptFinishHash(hash,digest,32,0)==0 && !memcmp(digest,startup_sha256,32);
-    if(hash)BCryptDestroyHash(hash);
-    if(alg)BCryptCloseAlgorithmProvider(alg,0);
+    const unsigned char *footer=file+end;
+    size_t pos=Read32(footer+16);
+    if(Read32(footer+4) || Read16(footer+8)!=Read16(footer+10) ||
+       pos>end || Read32(footer+12)!=end-pos || Read16(footer+20)>size-end-22)return FALSE;
+    BOOL found=FALSE;
+    for(unsigned i=0;i<Read16(footer+10);i++) {
+        if(end-pos<46 || Read32(file+pos)!=0x02014b50)return FALSE;
+        const unsigned char *entry=file+pos;
+        unsigned namesize=Read16(entry+28);
+        size_t record=46+namesize+Read16(entry+30)+Read16(entry+32);
+        if(record>end-pos)return FALSE;
+        if(BundleName(entry+46,namesize)) {
+            size_t local=Read32(entry+42), directory=Read32(footer+16);
+            if(found || Read32(entry+8)!=0 || Read16(entry+34) ||
+               Read32(entry+20)!=Read32(entry+24) || local>directory || directory-local<30)return FALSE;
+            const unsigned char *header=file+local;
+            size_t prefix=30+Read16(header+26)+Read16(header+28);
+            if(prefix>directory-local || Read32(header)!=0x04034b50 || Read32(header+6)!=0 ||
+               Read32(header+18)!=Read32(entry+20) || Read32(header+22)!=Read32(entry+24) ||
+               !BundleName(header+30,Read16(header+26)))return FALSE;
+            *base=local+prefix; *length=Read32(entry+24);
+            if(*length>directory-*base)return FALSE;
+            found=TRUE;
+        }
+        pos+=record;
+    }
+    return found && pos==end;
+}
+
+static BOOL MovieMatches(const unsigned char *data, unsigned movie) {
+    BCRYPT_ALG_HANDLE algorithm=NULL;
+    unsigned char digest[32];
+    if(BCryptOpenAlgorithmProvider(&algorithm,BCRYPT_SHA256_ALGORITHM,NULL,0)!=0)return FALSE;
+    BOOL ok=BCryptHash(algorithm,NULL,0,(PUCHAR)data,movies[movie].size,digest,sizeof(digest))==0 &&
+            !memcmp(digest,movies[movie].hash,sizeof(digest));
+    BCryptCloseAlgorithmProvider(algorithm,0);
     return ok;
 }
+
+static int ResolveMovies(const unsigned char *file, size_t size) {
+    size_t base=0,length=0;
+    if(!FindBundle(file,size,&base,&length) || length<21)return 0;
+    const unsigned char *bundle=file+base;
+    if(memcmp(bundle,"S3DB\x01\x00\x02\x00\x01\x00\x01",11))return 0;
+    unsigned count=Read32(bundle+11), indices[MOVIE_COUNT]={0};
+    size_t pos=20;
+    if(!count || count>length/8)return 0;
+    for(unsigned i=1;i<=count;i++) {
+        if(length-pos<4)return 0;
+        unsigned n=Read32(bundle+pos); pos+=4;
+        if(n>length-pos)return 0;
+        for(unsigned m=0;m<MOVIE_COUNT;m++) {
+            if(strlen(movies[m].name)==n && !memcmp(bundle+pos,movies[m].name,n))
+                indices[m]=indices[m] ? UINT_MAX : i;
+        }
+        pos+=n;
+    }
+    if(pos==length || bundle[pos++]!=1 || count>(length-pos)/4)return 0;
+    const unsigned char *sizes=bundle+pos;
+    pos+=4ULL*count;
+    size_t offsets[MOVIE_COUNT]={0};
+    for(unsigned i=1;i<=count;i++) {
+        unsigned n=Read32(sizes+4ULL*(i-1));
+        if(n>length-pos)return 0;
+        for(unsigned m=0;m<MOVIE_COUNT;m++)
+            if(indices[m]==i && n==movies[m].size && MovieMatches(bundle+pos,m))
+                offsets[m]=base+pos;
+        pos+=n;
+    }
+    int verified=2|8;
+    for(unsigned i=0;i<STARTUP_EDIT_COUNT;i++) {
+        StartupEdit *edit=&startup_edits[i];
+        size_t start=offsets[edit->movie];
+        if(!start || edit->offset+edit->size>movies[edit->movie].size ||
+           memcmp(file+start+edit->offset,edit->before,edit->size))verified &= ~edit->feature;
+        else edit->offset+=start;
+    }
+    return verified;
+}
+
+
 
 static void StartupInstall(const wchar_t *folder) {
     if (!(configured_features & (2 | 8))) return;
@@ -117,8 +205,17 @@ static void StartupInstall(const wchar_t *folder) {
     startup_file=CreateFileW(path,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
     if(startup_file==INVALID_HANDLE_VALUE)return;
     LARGE_INTEGER size;
-    if(!GetFileSizeEx(startup_file,&size) || size.QuadPart!=STARTUP_ARCHIVE_SIZE ||
-       !StartupHash(startup_file) || !GetFileInformationByHandle(startup_file,&startup_identity)) {
+    HANDLE mapping=CreateFileMappingW(startup_file,NULL,PAGE_READONLY,0,0,NULL);
+    if(mapping) {
+        const unsigned char *view=MapViewOfFile(mapping,FILE_MAP_READ,0,0,0);
+        if(view) {
+            if(GetFileSizeEx(startup_file,&size) && size.QuadPart>0)
+                verified_features=ResolveMovies(view,(size_t)size.QuadPart);
+            UnmapViewOfFile(view);
+        }
+        CloseHandle(mapping);
+    }
+    if(!(verified_features & configured_features) || !GetFileInformationByHandle(startup_file,&startup_identity)) {
         CloseHandle(startup_file);startup_file=INVALID_HANDLE_VALUE;return;
     }
     InitializeCriticalSection(&startup_lock);
@@ -138,6 +235,7 @@ static void StartupInstall(const wchar_t *folder) {
 static const char *StartupState(void) {
     if (configured_features < 0 || !(configured_features & 2)) return "disabled";
     LONG seen=InterlockedCompareExchange(&startup_seen,0,0);
+    if(!(verified_features & 2))return "incompatible";
     return ((seen&3)==3 || (seen&12)==12) ? "active" : startup_state;
 }
 
@@ -145,6 +243,7 @@ static const char *FunctionsMenuState(void) {
     if (configured_features < 0) return "configuration-error";
     if (!(configured_features & 8)) return "disabled";
     LONG seen=InterlockedCompareExchange(&startup_seen,0,0);
+    if(!(verified_features & 8))return "incompatible";
     for (unsigned i=0; i<STARTUP_EDIT_COUNT; ++i)
         if (startup_edits[i].feature == 8 && !(seen & (1L << i))) return startup_state;
     return "active";

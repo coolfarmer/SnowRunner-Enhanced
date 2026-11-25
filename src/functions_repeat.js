@@ -7,10 +7,13 @@ function startFunctionsRepeat(profile) {
     const pool = base.add(profile.stringPoolSlotRva);
     const scope = makeUiScope(pool, {});
     const frame = base.add(profile.guards.find(g => g.name === 'vm_frame_push').rva);
-    const site = base.add(0x1052509);
-    const target = base.add(0x10177a0);
+    const site = base.add(profile.functionsCallRva);
+    const target = base.add(profile.functionsTargetRva);
     if (site.readU8() !== 0xe8 || !site.add(5 + site.add(1).readS32()).equals(target))
         throw Error('Unsupported Functions key dispatch');
+    const entry = '48 89 5c 24 08 57 48 83 ec 70 48 63 42 08 48 8b da 48 8b f9';
+    if (Memory.scanSync(target, 20, entry).length !== 1)
+        throw Error('Unsupported Functions dispatch target');
     const dispatch = new NativeFunction(target, 'void', ['pointer','pointer','uint8']);
     const user = Process.getModuleByName('user32.dll');
     const foreground = new NativeFunction(user.getExportByName('GetForegroundWindow'),'pointer',[]);
@@ -68,7 +71,7 @@ function startFunctionsRepeat(profile) {
         watch('TruckInputController','Update', () => {
             if (!held || held.packets.length !== 2 || Date.now() < held.next || Process.getCurrentThreadId() !== held.thread) return;
             windowPid(foreground(),pid);
-            const manager = base.add(0x10524cc+0x1a65f34).readPointer();
+            const manager = base.add(profile.functionsManagerSlotRva).readPointer();
             const engine = base.add(profile.engineStateSlotRva).readPointer();
             if (pid.readU32() !== Process.id || engine.isNull() || !engine.add(0xc4).readU32() ||
                 manager.isNull() || !manager.add(0x68).readPointer().equals(held.ui) || held.ui.add(8).readPointer().isNull()) {clear(); return;}

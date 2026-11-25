@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 from native_image import create_image
 from asi_loaders import LOADERS, loader_path, verify
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.25/Sources'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-0.1.0-preview.26/Sources'
 SETUP = PACKAGE / 'Installer/SnowRunnerEnhanced.Setup.exe'
 STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
@@ -31,7 +31,11 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
         shutil.copyfile(ROOT / 'build/native/companion.asi', folder / 'ZZCompanion.asi')
         if config is not None:
             (folder / 'SnowRunnerEnhanced.json').write_text(json.dumps(config), encoding='utf-8')
-        if zoom_value != 50:
+        if config and config.get('features', {}).get('vehicle', {}).get('enabled'):
+            (folder / 'SnowRunnerEnhanced.settings.json').write_text(json.dumps({
+                'schemaVersion': 4, 'automaticReverse': False, 'keepNorthUp': False,
+                'zoomSensitivity': zoom_value, 'panningSensitivity': 50}))
+        elif zoom_value != 50:
             (folder / 'SnowRunnerEnhanced.settings.json').write_text(json.dumps({'schemaVersion':2,'zoomSensitivity':zoom_value,'panningSensitivity':0}))
         original = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.iterdir()}
         process = subprocess.Popen([exe, str(delay)], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -84,9 +88,15 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                     map_enabled = bool(config.get('features', {}).get('map', {}).get('enabled', False))
                     assert zoom['enabled'] == map_enabled and zoom['running'] == map_enabled, status
                     assert zoom['value'] == zoom_value and zoom['fault'] is None, status
-                    assert status['settingsPersistence'] == ('default' if zoom_value == 50 else 'loaded'), status
+                    assert status['settingsPersistence'] == ('loaded' if zoom_value != 50 or config['features'].get('vehicle', {}).get('enabled') else 'default'), status
                     assert set(status['features']) == {'wheel_mouse', 'map', 'skip_startup_logos', 'general_improvements', 'vehicle'}
-                    for feature in status['features'].values():
+                    if config['features'].get('vehicle', {}).get('enabled'):
+                        assert status['features']['vehicle']['status'] == 'active', status
+                        assert status['features']['vehicle']['automaticReverse'] is False, status
+                    if general:
+                        assert status['components']['functions_repeat']['status'] == 'ready', status
+                    for key in ('wheel_mouse', 'map'):
+                        feature = status['features'][key]
                         if feature['status'] == 'active':
                             assert feature['compatibility']['relocatedGuards'] == GUARD_COUNT
                             assert feature['counters']['active']
@@ -133,6 +143,9 @@ if __name__ == '__main__':
         ('invalid boolean', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': 'true'}}}, 'configuration-error')]:
         run_case(name, config, state)
     run_case('wrong executable', None, None, wrong_name=True)
+    run_case('relocated key repeat and automatic reverse',
+             {'schemaVersion': 1, 'features': {'vehicle': {'enabled': True}, 'general_improvements': {'enabled': True}}},
+             'disabled', delay=6000, synthetic=True)
     run_case('active relocated image', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},
              'active', delay=6000, synthetic=True)
     run_case('both features independent', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}, 'skip_startup_logos': {'enabled': True}}}, 'active', delay=6000, synthetic=True)

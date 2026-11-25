@@ -1,4 +1,4 @@
-# SnowRunner Enhanced — 0.1.0-preview.25
+# SnowRunner Enhanced — 0.1.0-preview.26
 
 ## Enhancement #5 – Vehicle
 
@@ -82,7 +82,9 @@ effect on the next launch. Map and Skip Startup Logos have their own independent
 
 ## Game updates
 
-The fix searches for 31 signatures and checks their references at startup.
+Functions key repeat follows the resolved dispatch call and UI manager reference. Automatic reverse separately scans for the gear-shift routine and checks its field offsets and branch instructions.
+
+The shared input scan searches for 31 signatures and checks their references at startup.
 Compatible code/data relocation is accepted without requiring an exact game
 hash. Missing, ambiguous or inconsistent signatures leave the fix inactive.
 Startup discovery may take about a minute. Changes to instructions, data
@@ -135,7 +137,7 @@ checked in memory when the game runs.
 
 In **Advanced Options → Customize enhancements**, enable **Skip Startup Logos** to skip the photosensitivity warning and the Saber, Focus and Havok logos on the next launch. It defaults to on and works independently of simultaneous mouse/wheel input. Disable it to restore the original sequence next launch.
 
-The plugin changes only the read buffers of a recognized archive in memory; `gfx.pak` stays unchanged. This preview supports one exact archive hash. A game update or another mod changing that archive retains the original intro and reports `incompatible`. `armed` means the hook is waiting for reads; `active` confirms both changes for the sequence were read. Actual game loading is still required.
+The plugin changes only the read buffers of a recognized archive in memory; `gfx.pak` stays unchanged. Enhanced locates both loading movies by name in the stored graphics bundle and verifies their contents. Repacking or changing unrelated assets is supported. A changed or missing loading movie leaves the original intro in place. `armed` means the hook is waiting for reads; `active` confirms both changes for the sequence were read. Actual game loading is still required.
 
 CLI: `Install.cmd --action configure --game-directory "GAME_PATH" --skip-startup-logos true --json`. Omitted configuration options keep their current values.
 

@@ -25,9 +25,9 @@ def address_fields(profile):
     for key, value in profile.items():
         if key.endswith('Rva'):
             yield (key,), value
-    for key, value in profile['ids'].items():
+    for key, value in profile.get('ids', {}).items():
         yield ('ids', key), value
-    for index, value in enumerate(profile['winchGamepadCallers']):
+    for index, value in enumerate(profile.get('winchGamepadCallers', [])):
         yield ('winchGamepadCallers', index), value
 
 
@@ -35,7 +35,7 @@ def compile_signatures(profile):
     decoder = Cs(CS_ARCH_X86, CS_MODE_64)
     decoder.detail = True
     signatures = []
-    identity_origin = next(g['rva'] for g in profile['guards'] if g['name'] == 'keyboard_identity')
+    identity_origin = next((g['rva'] for g in profile['guards'] if g['name'] == 'keyboard_identity'), None)
     for guard in profile['guards']:
         raw = bytes.fromhex(guard['hex'])
         begin, end = guard['rva'], guard['rva'] + len(raw)
@@ -190,11 +190,11 @@ def resolve_profile(profile, signatures, matches, sections):
     resolved['guards'] = [{'name': sig['name'], 'rva': choices[sig['name']][0]['rva'],
                            'hex': choices[sig['name']][0]['hex']} for sig in signatures]
     # Data slots must be fully readable, not just their first byte.
-    for address in resolved['ids'].values():
+    for address in resolved.get('ids', {}).values():
         if not contained(address, 4):
             raise IncompatibleError('Invalid category slot')
-    for key in ('stringPoolSlotRva', 'engineStateSlotRva'):
-        if not contained(resolved[key], 8):
+    for key in ('stringPoolSlotRva', 'engineStateSlotRva', 'functionsManagerSlotRva'):
+        if key in resolved and not contained(resolved[key], 8):
             raise IncompatibleError('Invalid pointer slot')
     return resolved, {'method': 'signatures-and-references', 'candidateCounts': counts,
                       'relocatedGuards': sum(a['rva'] != b['rva'] for a, b in

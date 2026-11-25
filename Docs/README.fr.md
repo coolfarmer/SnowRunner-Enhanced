@@ -1,4 +1,4 @@
-# SnowRunner Enhanced — 0.1.0-preview.25
+# SnowRunner Enhanced — 0.1.0-preview.26
 
 ## Enhancement #5 – Vehicle
 
@@ -87,6 +87,8 @@ Le changement s’applique au prochain lancement. Map et Skip Startup Logos disp
 
 ## Mises à jour du jeu
 
+La répétition des touches utilise les références du répartiteur d’événements. Le réglage de marche arrière vérifie séparément la signature de la fonction de changement de rapport.
+
 Le correctif recherche 31 signatures et contrôle leurs références au lancement.
 Il accepte les déplacements de code et de données compatibles sans exiger une
 empreinte exacte du jeu. Si les signatures sont absentes, ambiguës ou incohérentes,
@@ -143,7 +145,7 @@ la compatibilité des signatures est vérifiée dans le jeu.
 
 Dans **Options avancées → Personnaliser les améliorations**, activez **Skip Startup Logos** pour sauter l’avertissement de photosensibilité et les logos Saber, Focus et Havok au prochain lancement. L’option est activée par défaut et indépendante de l’utilisation simultanée souris/volant. Désactivez-la pour retrouver les écrans d’origine au lancement suivant.
 
-Le plugin intercepte uniquement les lectures de l’archive reconnue et adapte les données en mémoire. `gfx.pak` n’est pas modifié. La préversion reconnaît une empreinte précise de cette archive : une mise à jour ou un autre mod qui la modifie laisse l’introduction d’origine et produit l’état `incompatible`. `armed` signifie que l’interception attend les lectures ; `active` confirme la lecture des deux changements de la séquence. Le chargement réel du jeu reste nécessaire.
+Le plugin intercepte uniquement les lectures de l’archive reconnue et adapte les données en mémoire. `gfx.pak` n’est pas modifié. Enhanced retrouve les deux animations de chargement par leur nom et vérifie leur contenu. Les autres ressources peuvent changer de place ou de contenu. Si une animation manque ou change, le jeu conserve son introduction. `armed` signifie que l’interception attend les lectures ; `active` confirme la lecture des deux changements de la séquence. Le chargement réel du jeu reste nécessaire.
 
 Ligne de commande : `Install.cmd --action configure --game-directory "CHEMIN_DU_JEU" --skip-startup-logos true --json`. Une option omise lors de la configuration conserve sa valeur actuelle.
 

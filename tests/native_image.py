@@ -1,12 +1,17 @@
 """Extend our tiny test EXE with relocated guard snippets, never a game binary."""
 from pathlib import Path
 import struct
+import json
 import pefile
 from test_compatibility import PROFILE, synthetic_image
 
 
 def create_image(source, target):
     matches, sections, segments, labels, move = synthetic_image(0x100000, 0x400000)
+    vehicle = json.loads((Path(__file__).resolve().parents[1] / 'src/vehicle-profile.json').read_text())
+    shift = vehicle['guards'][0]
+    segments.append((move(shift['rva']), bytes.fromhex(shift['hex'])))
+    segments.append((move(PROFILE['functionsTargetRva']), bytes.fromhex('48895c2408574883ec7048634208488bda488bf9')))
     data = bytearray(Path(source).read_bytes())
     pe = pefile.PE(data=bytes(data))
     align = lambda value, multiple: (value + multiple - 1) // multiple * multiple

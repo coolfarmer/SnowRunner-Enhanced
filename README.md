@@ -27,7 +27,7 @@ user confirmed the result. The installed preview.15 was then tested and
 confirmed in game on November 23, 2026; both repairs are active with no
 instrumentation faults reported.
 
-Windows x64 mod for SnowRunner. Version **0.1.0-preview.25** includes mouse and
+Windows x64 mod for SnowRunner. Version **0.1.0-preview.26** includes mouse and
 wheel coexistence: map and winch interaction, Function menu focus and selection,
 targeted flicker fixes, and filtering of a tiny wheel input residue at rest.
 Opening Functions with the keyboard or wheel now releases mouse camera capture
@@ -46,7 +46,7 @@ then wheel movement restored the wheel hint.
 Enhancement #2, **Skip Startup Logos**, is an independent installer option,
 on by default. It skips the photosensitivity warning and publisher logos by
 intercepting read buffers in memory, without changing gfx.pak. This preview
-requires a recognized archive hash; unsupported archives retain their intro.
+locates both loading movies by name and verifies each movie before use.
 The installed startup behavior was confirmed by the user on November 22, 2026.
 See [implementation and validation limits](Docs/STARTUP_LOGOS.md).
 

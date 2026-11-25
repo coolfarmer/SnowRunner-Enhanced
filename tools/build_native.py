@@ -31,19 +31,28 @@ def generate():
     BUILD.mkdir(parents=True, exist_ok=True)
     (ROOT / 'build/tmp').mkdir(parents=True, exist_ok=True)
     startup = json.loads((ROOT / 'src/startup-profile.json').read_text())
+    movies = list(startup['movies'])
+    def initializer(raw):
+        return '{' + ','.join(map(str, raw)) + '}'
+    movie_rows = []
+    for name, movie in startup['movies'].items():
+        movie_rows.append('{"%s",%d,%s}' % (name, movie['size'], initializer(bytes.fromhex(movie['sha256']))))
     rows = []
     for feature, edits in [(2, startup['edits']), (8, startup['functionsMenuEdits'])]:
         for e in edits:
             a, b = bytes.fromhex(e['original']), bytes.fromhex(e['replacement'])
             assert 0 < len(a) == len(b) < 63
-            rows.append('{%dULL,%d,%d,{%s},{%s}}' % (e['offset'], len(a), feature, ','.join(map(str,a)), ','.join(map(str,b))))
+            rows.append('{%dULL,%d,%d,%d,{%s},{%s}}' % (e['offset'], len(a), feature, movies.index(e['movie']), ','.join(map(str,a)), ','.join(map(str,b))))
     (BUILD / 'startup_profile.h').write_text(
-        'typedef struct { unsigned long long offset; unsigned size, feature; unsigned char before[64], after[64]; } StartupEdit;\n'
-        + '#define STARTUP_EDIT_COUNT %d\n#define STARTUP_ARCHIVE_SIZE %dULL\n' % (len(rows), startup['size'])
-        + 'static const unsigned char startup_sha256[32]={' + ','.join(map(str,bytes.fromhex(startup['sha256']))) + '};\n'
-        + 'static const StartupEdit startup_edits[STARTUP_EDIT_COUNT]={' + ','.join(rows) + '};\n')
+        'typedef struct { unsigned long long offset; unsigned size, feature, movie; unsigned char before[64], after[64]; } StartupEdit;\n'
+        + '#define STARTUP_EDIT_COUNT %d\n#define MOVIE_COUNT %d\n' % (len(rows), len(movies))
+        + 'static const struct {const char *name; unsigned size; unsigned char hash[32];} movies[MOVIE_COUNT]={' + ','.join(movie_rows) + '};\n'
+        + 'static StartupEdit startup_edits[STARTUP_EDIT_COUNT]={'  + ','.join(rows) + '};\n')
     profile = json.loads((ROOT / 'src/input-profile.json').read_text())
+    vehicle = json.loads((ROOT / 'src/vehicle-profile.json').read_text())
     parts = ["const CONFIG={test:false,gamePath:Process.mainModule.path,profile:" + json.dumps(profile) + '};',
+             'const VEHICLE_PROFILE=' + json.dumps(vehicle) + ';',
+             'const VEHICLE_SIGNATURES=' + json.dumps(compile_signatures(vehicle)) + ';',
              'const NATIVE_SIGNATURES=' + json.dumps(compile_signatures(profile)) + ';',
              (ROOT / 'src/compatibility_probe.js').read_text(), 'const nativeProbe=rpc.exports;',
              (ROOT / 'src/vm_scope.js').read_text(), (ROOT / 'src/input_agent.js').read_text(),
@@ -82,7 +91,7 @@ def main():
     invoke([*common, str(ROOT / 'tests/native/game_host.c'), '/link', '/OUT:game-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, '/LD', str(ROOT / 'tests/native/companion.c'), '/link', '/OUT:companion.asi'])
     (BUILD / 'build.json').write_text(json.dumps({
-        'version': '0.1.0-preview.25', 'engine': 'GumJS 17.26.3 embedded',
+        'version': '0.1.0-preview.26', 'engine': 'GumJS 17.26.3 embedded',
         'artifacts': {n: hashlib.sha256((BUILD / n).read_bytes()).hexdigest()
                       for n in ('SnowRunnerEnhanced.asi', 'native-harness.exe')},
         'v18Sources': {n: hashlib.sha256((ROOT / 'src' / n).read_bytes()).hexdigest()

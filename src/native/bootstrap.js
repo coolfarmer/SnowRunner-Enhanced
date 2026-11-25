@@ -7,7 +7,7 @@ let vehicle = null, vehicleError = null;
 let menuFailure = null, functionsRepeat = null, repeatState = "disabled";
 function reportNative(state, extra = {}) {
     featureState = state;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.25',
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.26',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
@@ -18,9 +18,9 @@ function reportNative(state, extra = {}) {
 function attemptStart() {
     attempts++;
     const wantsAgent = Object.values(CONFIG.features).some(Boolean);
-    let result;
+    let result, info;
     try {
-        const info = nativeProbe.describe();
+        info = nativeProbe.describe();
         if (info.name.toLowerCase() !== 'snowrunner.exe') throw new Error('Wrong executable');
         const matches = nativeProbe.scan(NATIVE_SIGNATURES, info.sections);
         result = resolveNativeProfile(CONFIG.profile, NATIVE_SIGNATURES, matches, info.sections);
@@ -48,8 +48,9 @@ function attemptStart() {
     }
     if (ENHANCED_HOST.vehicle === true) {
         try {
-            if (ENHANCED_HOST.gameSha256 !== CONFIG.profile.gameSha256) throw Error('Unsupported game build');
-            vehicle = makeVehicleReverse();
+            const matches = nativeProbe.scan(VEHICLE_SIGNATURES, info.sections);
+            const resolved = resolveNativeProfile(VEHICLE_PROFILE, VEHICLE_SIGNATURES, matches, info.sections);
+            vehicle = makeVehicleReverse(resolved.profile);
             vehicle.set(ENHANCED_HOST.automaticReverse !== false);
         } catch (error) { vehicleError = String(error); vehicle = null; }
     }
@@ -74,10 +75,8 @@ function attemptStart() {
     } catch (error) { menuFailure = String(error); settingsMenu = null; }
     if (ENHANCED_HOST.general === true) {
         repeatState = 'unsupported';
-        if (ENHANCED_HOST.gameSha256 === CONFIG.profile.gameSha256) {
-            try { functionsRepeat = startFunctionsRepeat(result.profile); }
-            catch (error) { repeatState = String(error); }
-        }
+        try { functionsRepeat = startFunctionsRepeat(result.profile); }
+        catch (error) { repeatState = String(error); }
     }
     function report() { reportNative(agentState, {compatibility: result.details, counters: nativeAgent.status(), reason: agentReason}); }
     report();
