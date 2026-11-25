@@ -1,17 +1,18 @@
 'use strict';
 
 // Core UI belongs to the plugin, never to a configurable enhancement group.
-CONFIG.features = {wheel_mouse: ENHANCED_HOST.wheelMouse !== false, map: ENHANCED_HOST.map !== false};
+CONFIG.features = {wheel_mouse: ENHANCED_HOST.wheelMouse !== false, map: ENHANCED_HOST.map !== false, vehicle: ENHANCED_HOST.vehicle === true};
 let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
 let vehicle = null, vehicleError = null;
 let menuFailure = null, functionsRepeat = null, repeatState = "disabled";
 function reportNative(state, extra = {}) {
     featureState = state;
-    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.28',
+    const {vehicle: vehicleEnabled, ...inputFeatures} = CONFIG.features;
+    send({enhancedStatus: {schemaVersion: 1, version: '0.1.0-preview.29',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
-        features: {vehicle: {enabled: ENHANCED_HOST.vehicle===true, status: vehicleError || (vehicle ? 'active' : ENHANCED_HOST.vehicle ? state : 'disabled'), ...vehicle?.status()}, ...Object.fromEntries(Object.entries(CONFIG.features).map(([key, enabled]) =>
+        features: {vehicle: {enabled: vehicleEnabled, status: vehicleError || (vehicleEnabled ? state : 'disabled'), ...vehicle?.status()}, ...Object.fromEntries(Object.entries(inputFeatures).map(([key, enabled]) =>
             [key, enabled ? {enabled, status: state, ...extra} : {enabled, status: 'disabled'}]))},
         validation: 'Preview: see packaged validation notes'}});
 }

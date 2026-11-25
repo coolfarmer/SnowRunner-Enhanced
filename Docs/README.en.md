@@ -1,4 +1,4 @@
-# SnowRunner Enhanced — 0.1.0-preview.28
+# SnowRunner Enhanced — 0.1.0-preview.29
 
 Grayed-out MAP and VEHICLE options belong to a disabled module. Enable the module in the installer to use its options the next time you start the game.
 
@@ -75,13 +75,15 @@ uninstalling, reinstalling and restarting the game.
 
 ## Fixes
 
-**Simultaneous Mouse & Wheel Input** (`wheel_mouse`) contains all V18 corrections:
-map and winch input, Function menu selection and focus, targeted flickering,
-and wheel residue at rest. It does not filter by wheel brand or USB identity.
+**Simultaneous Mouse & Wheel Input** (`wheel_mouse`) corrects map and winch input,
+Function menu selection and focus, and targeted flickering. It does not filter by wheel brand or USB identity.
 The V18 physical validation used a G923. Other wheels and extended sessions
 still need physical testing.
 
-Disable this fix through **Customize enhancements** with the game closed. Changes take
+The **Vehicle** module filters wheel input at rest so closing the Functions menu
+keeps the engine off after you stop it with the wheel.
+
+Disable the mouse and wheel fix through **Customize enhancements** with the game closed. Changes take
 effect on the next launch. Map and Skip Startup Logos have their own independent options.
 
 ## Game updates

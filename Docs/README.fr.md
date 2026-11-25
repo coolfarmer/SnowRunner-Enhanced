@@ -1,4 +1,4 @@
-# SnowRunner Enhanced — 0.1.0-preview.28
+# SnowRunner Enhanced — 0.1.0-preview.29
 
 Les options grisées de CARTE et VÉHICULE correspondent à un module désactivé. Activez le module dans l’installateur pour accéder à ses options au prochain lancement du jeu.
 
@@ -80,13 +80,15 @@ clavier et au volant après désinstallation, réinstallation et relancement du 
 
 ## Correctifs
 
-**Utilisation simultanée de la souris et du volant** (`wheel_mouse`) regroupe toute la V18 :
-carte et treuil, sélection et focus du menu Fonctions, clignotements ciblés
-et filtrage du résidu du volant au repos. Il ne filtre aucune marque ni aucun
+**Utilisation simultanée de la souris et du volant** (`wheel_mouse`) corrige les commandes de la carte et du treuil,
+la sélection et le focus du menu Fonctions ainsi que les clignotements ciblés. Il ne filtre aucune marque ni aucun
 identifiant USB. La validation physique de la V18 concerne un G923 ; les
 autres volants et une session prolongée restent à tester.
 
-Vous pouvez désactiver ce correctif dans **Personnaliser les améliorations**, jeu fermé.
+Le module **Véhicule** filtre le signal du volant au repos pour que le moteur reste
+arrêté à la fermeture du menu Fonctions après un arrêt moteur au volant.
+
+Vous pouvez désactiver le correctif souris et volant dans **Personnaliser les améliorations**, jeu fermé.
 Le changement s’applique au prochain lancement. Map et Skip Startup Logos disposent de leurs propres options indépendantes.
 
 ## Mises à jour du jeu

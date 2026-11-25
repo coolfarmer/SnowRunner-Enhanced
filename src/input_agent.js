@@ -215,6 +215,39 @@ function install(b) {
                 }
             }, 'MinimapUiSidepanelView', 'HideContractBtn'));
         }
+        if (b.wheelNeutral && CONFIG.features?.vehicle !== false) {
+            const zero = Memory.alloc(8);
+            zero.writeU64(uint64('0x3000000000000')); // immutable float variant: 0
+            listeners.push(Interceptor.attach(b.wheelNeutral, {
+                onEnter(args) {
+                    const savedError = this.lastError;
+                    try {
+                        if (mode !== 'ui-mouse-priority' || args[2].toUInt32() !== 1) return;
+                        const operand = args[3];
+                        if (operand.readU64().shr(48).toNumber() !== 3) return;
+                        const value = operand.readFloat(), magnitude = Math.abs(value);
+                        // Preserve real pedal travel, non-finite values, and
+                        // values the original 1e-6 comparison already accepts.
+                        if (!Number.isFinite(value) || magnitude < Math.fround(0.000001) ||
+                                magnitude >= Math.fround(0.0001)) return;
+                        const requested = b.engineStateSlot.readPointer().readU32();
+                        const wheel = requested === b.ids.wheel || requested === b.ids.supplemental ||
+                            (requested === b.ids.mouse && [b.ids.wheel, b.ids.supplemental].includes(preferredCategory));
+                        if (!wheel || !uiScope.isWheelNeutralComparison(args[0], operand)) return;
+                        // Redirect only the temporary AbsFloat operand for the
+                        // verified neutral decision. The raw axes, VM arguments,
+                        // global tolerance and intentional engine commands stay real.
+                        args[3] = zero;
+                        wheelNeutralFiltered++;
+                        if (lastWheelNeutralValue !== value) {
+                            emit({kind: 'wheel-neutral-filter', value, deadzone: 0.0001});
+                            lastWheelNeutralValue = value;
+                        }
+                    } catch (e) { fail(e); }
+                    finally { this.lastError = savedError; }
+                }
+            }));
+        }
         if (CONFIG.features?.wheel_mouse !== false) {
         if (b.hudHintFramePush) {
             hudHintHook = hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (vm, fn) => {
@@ -265,39 +298,6 @@ function install(b) {
                         menuCursorReleases++;
                         emit({kind: 'menu-cursor-release'});
                     } catch (e) { pendingMenuCursor = null; fail(e); }
-                    finally { this.lastError = savedError; }
-                }
-            }));
-        }
-        if (b.wheelNeutral) {
-            const zero = Memory.alloc(8);
-            zero.writeU64(uint64('0x3000000000000')); // immutable float variant: 0
-            listeners.push(Interceptor.attach(b.wheelNeutral, {
-                onEnter(args) {
-                    const savedError = this.lastError;
-                    try {
-                        if (mode !== 'ui-mouse-priority' || args[2].toUInt32() !== 1) return;
-                        const operand = args[3];
-                        if (operand.readU64().shr(48).toNumber() !== 3) return;
-                        const value = operand.readFloat(), magnitude = Math.abs(value);
-                        // Preserve real pedal travel, non-finite values, and
-                        // values the original 1e-6 comparison already accepts.
-                        if (!Number.isFinite(value) || magnitude < Math.fround(0.000001) ||
-                                magnitude >= Math.fround(0.0001)) return;
-                        const requested = b.engineStateSlot.readPointer().readU32();
-                        const wheel = requested === b.ids.wheel || requested === b.ids.supplemental ||
-                            (requested === b.ids.mouse && [b.ids.wheel, b.ids.supplemental].includes(preferredCategory));
-                        if (!wheel || !uiScope.isWheelNeutralComparison(args[0], operand)) return;
-                        // Redirect only the temporary AbsFloat operand for the
-                        // verified neutral decision. The raw axes, VM arguments,
-                        // global tolerance and intentional engine commands stay real.
-                        args[3] = zero;
-                        wheelNeutralFiltered++;
-                        if (lastWheelNeutralValue !== value) {
-                            emit({kind: 'wheel-neutral-filter', value, deadzone: 0.0001});
-                            lastWheelNeutralValue = value;
-                        }
-                    } catch (e) { fail(e); }
                     finally { this.lastError = savedError; }
                 }
             }));

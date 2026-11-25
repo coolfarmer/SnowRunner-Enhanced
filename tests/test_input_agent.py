@@ -1,4 +1,5 @@
 """Test actual Frida argument redirection in a disposable process, without SnowRunner."""
+from itertools import product
 import json
 from pathlib import Path
 import sys
@@ -651,10 +652,10 @@ def main():
         assert f.run(22, 33, 77)['state'] == [33, 1, 1, 33, 77]
         checks += 1
         agent.unload()
-        print('Checking independent Map and wheel options', flush=True)
-        for wheel, map_enabled in ((False, False), (False, True), (True, False), (True, True)):
+        print('Checking independent Map, wheel and Vehicle options', flush=True)
+        for wheel, map_enabled, vehicle in product((False, True), repeat=3):
             f.navigation_show({'reset': True, 'text': ''})
-            isolated = session.create_script(source({'test': True, 'features': {'wheel_mouse': wheel, 'map': map_enabled}}))
+            isolated = session.create_script(source({'test': True, 'features': {'wheel_mouse': wheel, 'map': map_enabled, 'vehicle': vehicle}}))
             isolated.load()
             api = isolated.exports_sync
             api.fixture(info['selector'], info['uiCallback'], info['uiGetter'],
@@ -662,10 +663,11 @@ def main():
             api.mode('ui-mouse-priority')
             assert f.navigation_show({'text': ''})['layout']['hitWidth'] == (2 if map_enabled else 74.4)
             assert f.hover_gate(33, 1, 1)['result'] == (1 if wheel else 0)
+            assert f.wheel_neutral({'category': 33})['result'] == (0 if vehicle else abs(residue))
             api.stop()
             assert f.navigation_show({'text': ''})['layout']['hitWidth'] == 74.4
             isolated.unload()
-            checks += 3
+            checks += 4
         fixture.unload()
         print(json.dumps({'passed': True, 'checks': checks,
                           'scope': 'synthetic process; no physical or game validation'}, indent=2))
