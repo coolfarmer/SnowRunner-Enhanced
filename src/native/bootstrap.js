@@ -30,7 +30,7 @@ function menuFeatureStates() {
 function reportNative(state, extra = {}) {
     featureState = state; lastReportExtra = extra;
     const {vehicle: vehicleEnabled, ...inputFeatures} = CONFIG.features;
-    send({enhancedStatus: {schemaVersion: 1, version: '1.0.0',
+    send({enhancedStatus: {schemaVersion: 1, version: '1.0.1',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},

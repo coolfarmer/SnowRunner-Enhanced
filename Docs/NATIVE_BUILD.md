@@ -1,6 +1,6 @@
 # Paquet natif autonome
 
-Version : `1.0.0`.
+Version : `1.0.1`.
 
 Preview.34 ajoute à **Vehicle** la correction de recherche et d’attachement du
 treuil depuis les longues remorques. Le joueur a confirmé le prototype en mémoire
