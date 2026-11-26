@@ -18,7 +18,7 @@ STATUS = 'SnowRunnerEnhanced.status.json'
 GUARD_COUNT = len(json.loads((ROOT / 'src/input-profile.json').read_text())['guards'])
 
 
-def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None, map_state=None, zoom_value=50, steering=False, input_compatible=True):
+def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=False, loader=None, map_state=None, zoom_value=50, steering=False, input_compatible=True, loader_ini=None):
     with tempfile.TemporaryDirectory(prefix='loader-', dir=ROOT / 'build/tests') as directory:
         folder = Path(directory)
         exe = folder / ('Other.exe' if wrong_name else 'SnowRunner.exe')
@@ -28,6 +28,8 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
             shutil.copyfile(PACKAGE / 'Payload' / binary, folder / binary)
         if loader is not None:
             shutil.copyfile(loader_path(loader), folder / 'dinput8.dll')
+        if loader_ini is not None:
+            (folder / 'dinput8.ini').write_text(loader_ini, encoding='utf-8')
         shutil.copyfile(ROOT / 'build/native/companion.asi', folder / 'ZZCompanion.asi')
         if config is not None:
             (folder / 'SnowRunnerEnhanced.json').write_text(json.dumps(config), encoding='utf-8')
@@ -144,9 +146,17 @@ if __name__ == '__main__':
     verify()
     test_running_game_guard()
     for loader in LOADERS:
-        run_case('shared loader ' + loader['version'],
+        run_case('shared loader ' + loader['version'] + ' ' + loader.get('variant', 'pinned'),
                  {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},
                  'active', delay=6000, synthetic=True, loader=loader)
+    run_case('SMT loader with harmless INI',
+             {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},
+             'active', delay=6000, synthetic=True, loader=LOADERS[1],
+             loader_ini='[GlobalSets]\nLoadPlugins=1\nDontLoadFromDllMain=1\n')
+    run_case('standard loader with explicit extra plugins',
+             {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},
+             'active', delay=6000, synthetic=True, loader=LOADERS[2],
+             loader_ini='[GlobalSets]\nLoadFromScriptsOnly=1\nLoadExtraPlugins=.\\SnowRunnerEnhanced.asi|ZZCompanion.asi\n')
     for name, config, state in [
         ('disabled', {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': False}}}, 'disabled'),
         ('startup only, unsupported archive', {'schemaVersion': 1, 'features': {'skip_startup_logos': {'enabled': True}}}, 'disabled'),

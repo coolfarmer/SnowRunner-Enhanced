@@ -118,13 +118,29 @@ second défaut ; preview.15 ajoute le masquage validé décrit ci-dessus.
 
 Les sources, dépendances de construction, caches, configurations et paquets
 restent propres à Enhanced. Le seul composant partagé dans le dossier du jeu
-est Ultimate ASI Loader (`dinput8.dll`). L’installateur réutilise les copies x64
-vérifiées 10.0.2 et 8.5.0 de SMT v1.5, ou installe sa propre copie téléchargée
-chez l’éditeur. Les empreintes et URL sont dans `tools/asi_loaders.py`.
+est Ultimate ASI Loader (`dinput8.dll`). L’installateur réutilise les DLL x64
+reconnues par leurs métadonnées Ultimate ASI Loader / ThirteenAG et leurs exports
+`IsUltimateASILoader` et `DirectInput8Create`, sans imposer de version ni afficher
+d’avertissement de version. Il examine le fichier PE sans exécuter la DLL.
+Cette reconnaissance est un contrôle de compatibilité, pas une authentification.
+En l’absence de chargeur, il installe sa copie x64 NoPDB 10.0.2 vérifiée.
+Les empreintes et URL des fixtures testées sont dans `tools/asi_loaders.py` ;
+elles restent obligatoires pour les téléchargements et le paquet distribué.
+Le diagnostic JSON conserve la version, l’empreinte et son appartenance à
+l’inventaire testé, sans les transformer en avertissement dans l’interface.
 Il préserve les autres plugins et leurs réglages.
 
-Un chargeur inconnu, ses fichiers de configuration ou un proxy chaîné provoquent
-un refus sans écrasement. Le chargeur reste toujours à la désinstallation, car
+Un chargeur non reconnu, invalide ou 32 bits provoque un refus explicite sans
+écrasement. Les fichiers INI ordinaires sont conservés et acceptés. Les réglages
+effectifs sont lus avec les API INI Windows, dans l’ordre de priorité du chargeur :
+`dinput8.ini`, `global.ini`, puis `scripts/global.ini`, `plugins/global.ini` et
+`update/global.ini`. L’installateur explique les blocages `LoadPlugins=0`,
+`LoadFromScriptsOnly=1` (sauf chargement explicite via `LoadExtraPlugins` avec
+une version déclarée 10.0.2 ou ultérieure ; cette option est absente de 8.5.0) et
+`DontLoadFromDllMain=0`, avec le fichier et le réglage à corriger. Il ne réécrit
+aucun INI. Un proxy chaîné `dinput8Hooked.dll` conserve son contrôle manuel.
+Les erreurs du chargeur sont disponibles en français et en anglais.
+Le chargeur reste toujours à la désinstallation, car
 d’autres mods peuvent en dépendre. Enhanced possède uniquement son ASI, sa
 configuration et son reçu. Une installation preview.1 doit être retirée avec
 son ancien installateur ; aucun `version.dll` n’est supprimé par le nouvel outil.
@@ -170,8 +186,9 @@ final fonctionne hors ligne. Les versions NuGet sont verrouillées dans
 `src/installer/packages.lock.json`, le runtime .NET embarqué est `10.0.12`.
 `WINDOWS_SDK_ROOT` permet de changer le répertoire racine du SDK Windows.
 
-`tools/asi_loaders.py` télécharge indépendamment les deux chargeurs de test
-et vérifie leurs archives et DLL. Seule la copie 10.0.2 est distribuée.
+`tools/asi_loaders.py` télécharge indépendamment les trois chargeurs de test
+(10.0.2 x64 NoPDB, 10.0.2 x64 standard et 8.5.0 x64 de SMT) et vérifie leurs
+archives et DLL. Seule la copie 10.0.2 NoPDB est distribuée.
 
 Artefacts :
 

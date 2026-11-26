@@ -73,7 +73,7 @@ internal static class Program
     }
 
     static string Sources => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
-    static Installation Open(string directory) => new(directory, Sources);
+    static Installation Open(string directory) => new(directory, Sources, french);
     static bool BooleanOption(Dictionary<string, string> options, bool? fallback = null)
     {
         if (options.TryGetValue("wheel-mouse", out var value) && bool.TryParse(value, out var enabled)) return enabled;

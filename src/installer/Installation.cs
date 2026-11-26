@@ -26,10 +26,13 @@ internal sealed class Installation
     readonly string sources;
     readonly Dictionary<string, string> payload;
     readonly HashSet<string> compatibleLoaders = new(StringComparer.Ordinal);
+    readonly AsiLoader loader;
+    string? loaderVersion;
     string At(string name) => Path.Combine(GameDirectory, name);
 
-    internal Installation(string directory, string sources)
+    internal Installation(string directory, string sources, bool french = false)
     {
+        loader = new AsiLoader(french);
         GameDirectory = FindGameDirectory(directory);
         this.sources = Path.GetFullPath(sources);
         CheckPath(this.sources);
@@ -184,32 +187,29 @@ internal sealed class Installation
         return receipt;
     }
 
-    void CheckLoaderConfiguration()
-    {
-        foreach (var directory in new[] { "", "scripts", "plugins", "update" })
-            foreach (var name in new[] { "global.ini", "dinput8.ini" })
-            {
-                var path = At(Path.Combine(directory, name));
-                CheckPath(path);
-                if (File.Exists(path) || Directory.Exists(path))
-                    throw new IOException("Existing ASI loader configuration requires manual review: " + Path.Combine(directory, name));
-            }
-        CheckPath(At("dinput8Hooked.dll"));
-        if (File.Exists(At("dinput8Hooked.dll")) || Directory.Exists(At("dinput8Hooked.dll")))
-            throw new IOException("A chained DirectInput proxy requires manual review; existing files were preserved.");
-    }
-
     string? CheckLoader()
     {
-        CheckLoaderConfiguration();
+        loaderVersion = null;
         CheckPath(At(LoaderName));
-        if (Directory.Exists(At(LoaderName))) throw new IOException("A directory occupies dinput8.dll.");
-        if (!File.Exists(At(LoaderName))) return null;
-        var hash = Hash(At(LoaderName));
-        if (!compatibleLoaders.Contains(hash))
-            throw new IOException("Unrecognized dinput8.dll preserved. This package supports the verified x64 Ultimate ASI Loaders 10.0.2 and 8.5.0 from SMT v1.5.");
+        if (Directory.Exists(At(LoaderName))) throw loader.Problem(
+            "Un dossier nommé dinput8.dll empêche l’installation du chargeur. Déplacez ce dossier avant de réessayer.",
+            "A directory named dinput8.dll prevents loader installation. Move that directory before trying again.");
+        string? hash = null;
+        if (File.Exists(At(LoaderName)))
+        {
+            hash = Hash(At(LoaderName));
+            loaderVersion = loader.Recognize(At(LoaderName));
+        }
+        // This feature is present in 10.0.2, but absent in SMT's 8.5.0.
+        // Versions never gate loader acceptance; only this optional INI feature.
+        bool extraPlugins = System.Version.TryParse(loaderVersion ?? "10.0.2", out var version) && version >= new System.Version(10, 0, 2);
+        loader.CheckConfiguration(GameDirectory, extraPlugins);
         return hash;
     }
+
+    IOException MissingLoader() => loader.Problem(
+        "Le chargeur dinput8.dll est manquant ; SnowRunner Enhanced ne peut pas démarrer. Restaurez Ultimate ASI Loader x64 à côté de SnowRunner.exe.",
+        "The dinput8.dll loader is missing; SnowRunner Enhanced cannot start. Restore Ultimate ASI Loader x64 next to SnowRunner.exe.");
 
     internal JsonObject Inspect()
     {
@@ -220,7 +220,9 @@ internal sealed class Installation
             CheckExecutable();
             var hash = CheckLoader();
             report["loaderSha256"] = hash;
-            if (HasReceipt && hash == null) throw new IOException("The shared dinput8.dll loader is missing; Enhanced cannot start.");
+            report["loaderVersion"] = loaderVersion;
+            report["loaderKnownHash"] = hash == null ? null : JsonValue.Create(compatibleLoaders.Contains(hash));
+            if (HasReceipt && hash == null) throw MissingLoader();
             report["loaderSupported"] = true;
         }
         catch (Exception error) when (error is IOException or InvalidDataException or BadImageFormatException)
@@ -372,7 +374,7 @@ internal sealed class Installation
         if (migrate || !JsonNode.DeepEquals(JsonNode.Parse(old), JsonNode.Parse(config)))
         {
             CheckExecutable();
-            if (CheckLoader() == null) throw new IOException("Missing shared loader.");
+            if (CheckLoader() == null) throw MissingLoader();
             replacement = File.ReadAllBytes(Path.Combine(sources, "Payload", plugin));
             if (Convert.ToHexStringLower(SHA256.HashData(replacement)) != payload[plugin]) throw new IOException("Payload changed during update.");
             previousPlugin = File.ReadAllBytes(pluginPath);

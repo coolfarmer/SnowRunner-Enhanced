@@ -6,10 +6,12 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import tempfile
 import time
 import unittest
+import pefile
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-1.0.0'
@@ -290,11 +292,156 @@ class ReleaseTests(unittest.TestCase):
             with self.subTest(relative=relative):
                 path = self.folder / relative
                 path.parent.mkdir(exist_ok=True)
-                path.write_bytes(b'existing settings')
+                content = b'[GlobalSets]\nLoadPlugins=0\n' if relative.endswith('.ini') else b'existing proxy'
+                path.write_bytes(content)
                 self.run_setup('install', success=False)
-                self.assertEqual(path.read_bytes(), b'existing settings')
+                self.assertEqual(path.read_bytes(), content)
                 self.assertFalse((self.folder / RECEIPT).exists())
                 path.unlink()
+
+    def set_loader(self, data):
+        self.sentinels['dinput8.dll'] = bytes(data)
+        (self.folder / 'dinput8.dll').write_bytes(data)
+
+    def test_standard_x64_loader_lifecycle(self):
+        self.set_loader((ROOT / 'vendor/asi-loader/dinput8-10.0.2-standard.dll').read_bytes())
+        self.assertTrue(self.run_setup('install')['loaderSupported'])
+        self.run_setup('configure', '--wheel-mouse', 'false')
+        receipt = json.loads((self.folder / RECEIPT).read_text())
+        self.assertTrue(receipt['loader']['reused'])
+        self.assertEqual(receipt['loader']['sha256'], hashlib.sha256(self.sentinels['dinput8.dll']).hexdigest())
+        self.run_setup('uninstall')
+
+    def test_unlisted_loader_version_is_accepted_silently(self):
+        data = self.sentinels['dinput8.dll']
+        # Change only version-resource text, without adding an allowlisted hash.
+        old, new = '10.0.2'.encode('utf-16-le'), '99.0.0'.encode('utf-16-le')
+        self.assertIn(old, data)
+        self.set_loader(data.replace(old, new))
+        result = self.run_setup('install')
+        self.assertTrue(result['loaderSupported'])
+        self.assertFalse(result['loaderKnownHash'])
+        self.assertEqual(result['loaderVersion'], '99.0.0')
+        self.assertNotIn('loaderReason', result)
+        for language in ('fr', 'en'):
+            output = subprocess.run([SETUP, '--action', 'status', '--game-directory', self.folder,
+                                     '--plain', '--language', language], capture_output=True, text=True,
+                                    encoding='utf-8', timeout=30)
+            self.assertEqual(output.returncode, 0, output.stdout)
+            self.assertNotIn('99.0.0', output.stdout)
+            self.assertNotIn('loader', output.stdout.lower())
+            self.assertNotIn('chargeur', output.stdout.lower())
+        self.run_setup('configure', '--wheel-mouse', 'false')
+        self.run_setup('uninstall')
+
+    def test_loader_identity_and_exports_are_required(self):
+        original = self.sentinels['dinput8.dll']
+        with pefile.PE(data=original) as pe:
+            marker = next(x for x in pe.DIRECTORY_ENTRY_EXPORT.symbols if x.name == b'IsUltimateASILoader')
+            marker_offset = marker.name_offset
+            addresses = pe.get_offset_from_rva(pe.DIRECTORY_ENTRY_EXPORT.struct.AddressOfFunctions)
+            marker_index = marker.ordinal - pe.DIRECTORY_ENTRY_EXPORT.struct.Base
+            export_rva = pe.OPTIONAL_HEADER.DATA_DIRECTORY[0].VirtualAddress
+        bad_address = bytearray(original)
+        struct.pack_into('<I', bad_address, addresses + marker_index * 4, 0)
+        forwarded = bytearray(original)
+        struct.pack_into('<I', forwarded, addresses + marker_index * 4, export_rva)
+        bad_name = bytearray(original)
+        bad_name[marker_offset] = ord('X')
+        publisher = 'ThirteenAG'.encode('utf-16-le')
+        self.assertIn(publisher, original)
+        for data in (bad_name, bad_address, forwarded,
+                     original.replace(publisher, 'OtherMaker'.encode('utf-16-le')),
+                     original.replace(b'DirectInput8Create\0', b'XirectInput8Create\0')):
+            with self.subTest(hash=hashlib.sha256(data).hexdigest()):
+                self.set_loader(data)
+                result = self.run_setup('install', '--language', 'en', success=False)
+                self.assertIn('not recognized', result['error'])
+                self.assertFalse((self.folder / RECEIPT).exists())
+                self.assertFalse((self.folder / BINARY).exists())
+
+    def test_wrong_architecture_and_corrupt_loaders_have_clear_errors(self):
+        original = self.sentinels['dinput8.dll']
+        pe_offset = struct.unpack_from('<I', original, 0x3c)[0]
+        x86 = bytearray(original)
+        struct.pack_into('<H', x86, pe_offset + 4, 0x14c)
+        malformed = bytearray(original)
+        with pefile.PE(data=original) as pe:
+            offset = pe.OPTIONAL_HEADER.DATA_DIRECTORY[0].get_file_offset()
+        struct.pack_into('<I', malformed, offset, 0x7fffffff)
+        for data, english, french in ((x86, '32-bit', '32 bits'),
+                                      (b'not a DLL', 'not a valid', 'pas une DLL'),
+                                      (malformed, 'not a valid', 'pas une DLL')):
+            self.set_loader(data)
+            for language, expected in (('en', english), ('fr', french)):
+                with self.subTest(language=language, expected=expected):
+                    result = self.run_setup('install', '--language', language, success=False)
+                    self.assertIn(expected, result['error'])
+                    status = self.run_setup('check', '--language', language)
+                    self.assertFalse(status['loaderSupported'])
+                    self.assertIn(expected, status['loaderReason'])
+                    self.assertFalse((self.folder / RECEIPT).exists())
+
+    def test_harmless_loader_configuration_is_preserved(self):
+        for relative in ('dinput8.ini', 'global.ini', 'scripts/global.ini', 'plugins/global.ini', 'update/global.ini', 'plugins/dinput8.ini'):
+            path = self.folder / relative
+            path.parent.mkdir(exist_ok=True)
+            content = b'[GlobalSets]\nDebugLog=1\nLoadPlugins=1\nLoadFromScriptsOnly=0\nDontLoadFromDllMain=1\n'
+            self.sentinels[relative] = content
+            path.write_bytes(content)
+        self.run_setup('install')
+        self.run_setup('configure', '--wheel-mouse', 'false')
+        self.run_setup('uninstall')
+
+    def test_loader_configuration_precedence(self):
+        # Later global.ini files override individual keys, including dinput8.ini.
+        files = [('dinput8.ini', 0), ('global.ini', 1), ('scripts/global.ini', 0),
+                 ('plugins/global.ini', 1), ('update/global.ini', 0)]
+        for relative, enabled in files:
+            path = self.folder / relative
+            path.parent.mkdir(exist_ok=True)
+            content = f'[gLoBaLsEtS]\nlOaDpLuGiNs={enabled}\n'.encode()
+            self.sentinels[relative] = content
+            path.write_bytes(content)
+            self.assertEqual(self.run_setup('check')['loaderSupported'], bool(enabled))
+        result = self.run_setup('install', '--language', 'en', success=False)
+        self.assertIn('update\\global.ini', result['error'])
+        self.sentinels['update/global.ini'] = b'[Other]\nLoadPlugins=0\n'
+        (self.folder / 'update/global.ini').write_bytes(self.sentinels['update/global.ini'])
+        self.run_setup('install')
+        self.run_setup('uninstall')
+
+    def test_loader_settings_explain_actionable_blockages(self):
+        for key, value in (('LoadPlugins', 0), ('LoadFromScriptsOnly', 1), ('DontLoadFromDllMain', 0)):
+            for encoding in ('utf-8', 'utf-16'):
+                content = f'[GlobalSets]\n{key}={value}\n'.encode(encoding)
+                (self.folder / 'dinput8.ini').write_bytes(content)
+                for language, hint in (('en', 'Setting to change'), ('fr', 'Réglage à corriger')):
+                    result = self.run_setup('install', '--language', language, success=False)
+                    self.assertIn(hint, result['error'])
+                    self.assertIn(key + '=' + str(1 - value), result['error'])
+                    self.assertEqual((self.folder / 'dinput8.ini').read_bytes(), content)
+                    self.assertFalse((self.folder / RECEIPT).exists())
+
+    def test_configuration_error_identifies_last_explicit_override(self):
+        (self.folder / 'dinput8.ini').write_text('[GlobalSets]\nLoadPlugins=0\n')
+        (self.folder / 'global.ini').write_text('[GlobalSets]\nLoadPlugins=0\n')
+        result = self.run_setup('install', '--language', 'en', success=False)
+        self.assertIn('global.ini:', result['error'])
+
+    def test_explicit_extra_plugin_allows_scripts_only_configuration(self):
+        content = b'[GlobalSets]\nLoadFromScriptsOnly=1\nLoadExtraPlugins=other.asi|.\\SnowRunnerEnhanced.asi\n'
+        self.sentinels['dinput8.ini'] = content
+        (self.folder / 'dinput8.ini').write_bytes(content)
+        self.run_setup('install')
+        self.run_setup('uninstall')
+        (self.folder / 'global.ini').write_text('[GlobalSets]\nLoadExtraPlugins=other.asi\n')
+        result = self.run_setup('install', '--language', 'en', success=False)
+        self.assertIn('LoadFromScriptsOnly=0', result['error'])
+        (self.folder / 'global.ini').unlink()
+        self.set_loader((ROOT / 'vendor/asi-loader/dinput8-8.5.0.dll').read_bytes())
+        result = self.run_setup('install', '--language', 'en', success=False)
+        self.assertIn('LoadFromScriptsOnly=0', result['error'])
 
     def test_changed_shared_loader_does_not_block_removal(self):
         self.run_setup('install')
@@ -308,9 +455,10 @@ class ReleaseTests(unittest.TestCase):
         self.run_setup('install')
         self.sentinels.pop('dinput8.dll')
         (self.folder / 'dinput8.dll').unlink()
-        status = self.run_setup('status')
-        self.assertFalse(status['loaderSupported'])
-        self.assertIn('missing', status['loaderReason'])
+        for language, expected in (('en', 'missing'), ('fr', 'manquant')):
+            status = self.run_setup('status', '--language', language)
+            self.assertFalse(status['loaderSupported'])
+            self.assertIn(expected, status['loaderReason'])
         self.run_setup('uninstall')
         self.assertFalse((self.folder / BINARY).exists())
 

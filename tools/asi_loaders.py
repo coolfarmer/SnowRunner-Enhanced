@@ -15,10 +15,15 @@ LOADERS = [
          sha256='66fd34b4f7944c1ef3e67a1b4c5d4973109405f824971cbe19372bb9c9ac6535',
          url='https://github.com/drafty46/SMT/releases/download/v1.5/SMT.v1.5.zip',
          archiveSha256='e89b18bb2dc9debb9e79d1719281e8a72457024f05c6672d98c03463dcf9a8e8'),
+    dict(version='10.0.2', variant='standard', architecture='x64',
+         sha256='fa2b9bd317bb597906bc2c4cc2008c1444e50bfdc367e648d18f36f015812e27',
+         url='https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/v10.0.2/Ultimate-ASI-Loader_x64.zip',
+         archiveSha256='a99e188e1f40d7aac9db9c0339990332152d372e0359faa06a52fa339e8b218f'),
 ]
 
 def loader_path(entry):
-    return ROOT / 'vendor/asi-loader' / ('dinput8-' + entry['version'] + '.dll')
+    variant = '-' + entry['variant'] if entry.get('variant') else ''
+    return ROOT / 'vendor/asi-loader' / ('dinput8-' + entry['version'] + variant + '.dll')
 
 def verify():
     for entry in LOADERS:
