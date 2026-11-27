@@ -74,8 +74,11 @@ def generate(*, loading_diagnostic=False, diagnostic_menu=False, diagnostic_grou
     vehicle = json.loads((ROOT / 'src/vehicle-profile.json').read_text())
     winch = json.loads((ROOT / 'src/winch-profile.json').read_text())
     search = json.loads((ROOT / 'src/truck-search-profile.json').read_text())
+    game_time = json.loads((ROOT / 'src/game-time-profile.json').read_text())
     parts = ["const CONFIG={test:false,gamePath:Process.mainModule.path,profile:" + json.dumps(profile) + '};',
              'const VEHICLE_PROFILE=' + json.dumps(vehicle) + ';',
+             'const GAME_TIME_PROFILE=' + json.dumps(game_time) + ';',
+             'const GAME_TIME_SIGNATURES=' + json.dumps(compile_signatures(game_time)) + ';',
              'const VEHICLE_SIGNATURES=' + json.dumps(compile_signatures(vehicle)) + ';',
              'const TRUCK_SEARCH_PROFILE=' + json.dumps(search) + ';',
              'const TRUCK_SEARCH_SIGNATURES=' + json.dumps(compile_signatures(search)) + ';',
@@ -87,6 +90,7 @@ def generate(*, loading_diagnostic=False, diagnostic_menu=False, diagnostic_grou
              'const nativeAgent=rpc.exports;',
              'const SETTINGS_PROFILE=' + (ROOT / 'src/settings-profile.json').read_text(encoding='utf-8') + ';',
              (ROOT / 'src/vehicle.js').read_text(encoding='utf-8'),
+             (ROOT / 'src/game_time.js').read_text(encoding='utf-8'),
              (ROOT / 'src/vehicle_winch.js').read_text(encoding='utf-8'),
              (ROOT / 'src/truck_search_vm.js').read_text(encoding='utf-8'),
              (ROOT / 'src/truck_search.js').read_text(encoding='utf-8'),
@@ -154,7 +158,7 @@ def main():
         'artifacts': {n: hashlib.sha256((BUILD / n).read_bytes()).hexdigest()
                       for n in ('SnowRunnerEnhanced.asi', 'native-harness.exe')},
         'v18Sources': {n: hashlib.sha256((ROOT / 'src' / n).read_bytes()).hexdigest()
-                       for n in ('input_agent.js', 'vm_scope.js', 'input-profile.json', 'map_zoom.js', 'map_panning.js', 'settings_menu.js', 'settings-profile.json', 'vehicle_winch.js', 'winch-profile.json', 'truck-search-profile.json', 'truck_search_vm.js', 'truck_search.js')}
+                       for n in ('input_agent.js', 'vm_scope.js', 'input-profile.json', 'map_zoom.js', 'map_panning.js', 'settings_menu.js', 'settings-profile.json', 'vehicle_winch.js', 'winch-profile.json', 'truck-search-profile.json', 'truck_search_vm.js', 'truck_search.js', 'game_time.js', 'game-time-profile.json')}
     }, indent=2))
 
 

@@ -94,6 +94,22 @@ class ReleaseTests(unittest.TestCase):
                     self.assertEqual(preference.read_bytes(), b'{"schemaVersion":2,"zoomSensitivity":75}')
         self.run_setup('uninstall')
 
+    def test_same_version_replacement_updates_receipt(self):
+        self.run_setup('install')
+        plugin = self.folder / BINARY
+        expected = plugin.read_bytes()
+        plugin.write_bytes(b'previous build of the same version')
+        receipt_path = self.folder / RECEIPT
+        receipt = json.loads(receipt_path.read_text())
+        receipt['files'][BINARY] = hashlib.sha256(plugin.read_bytes()).hexdigest()
+        receipt_path.write_text(json.dumps(receipt))
+        self.run_setup('configure', '--general-improvements', 'false')
+        self.assertEqual(plugin.read_bytes(), expected)
+        self.assertEqual(json.loads(receipt_path.read_text())['files'][BINARY],
+                         hashlib.sha256(expected).hexdigest())
+        self.assertTrue(self.run_setup('configure', '--general-improvements', 'true')['generalImprovementsEnabled'])
+        self.run_setup('uninstall')
+
     def test_interactive_update_feedback_in_both_languages(self):
         self.run_setup('install')
         for language, message, saved in (

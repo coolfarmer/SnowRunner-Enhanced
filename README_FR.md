@@ -37,6 +37,9 @@ Disponible dans **Paramètres → ENHANCED → CARTE**.
 
 - **Maintenez pour défiler.** Maintenez une touche de navigation pour parcourir le menu Fonctions en continu.
 - **Parcourez les options en boucle.** Dépasser la dernière option vous ramène à la première, et inversement.
+- **Figer l’heure du jeu.** Arrêtez le cycle jour/nuit à l’heure actuelle en solo. L’option reste activée lors des changements de carte et est désactivée par défaut.
+
+L’option Figer l’heure du jeu se trouve dans **Paramètres → ENHANCED → GÉNÉRAL**.
 
 ---
 

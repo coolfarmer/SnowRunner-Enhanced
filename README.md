@@ -37,6 +37,9 @@ Available under **Settings → ENHANCED → MAP**.
 
 - **Hold to scroll.** Hold a navigation button to move continuously through the Functions menu.
 - **Loop through options.** Going past the last option brings you back to the first, and vice versa.
+- **Freeze game time.** Stop the day/night cycle at the current time in single-player. The option stays enabled across map changes and is off by default.
+
+Freeze game time is available under **Settings → ENHANCED → GENERAL**.
 
 ---
 

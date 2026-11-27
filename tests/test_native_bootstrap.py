@@ -17,6 +17,10 @@ for(let i=0;i<4;i++) data.add(4*i).writeU32(11*(i+1));
 const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12},guards:[{name:'vm_frame_push_entry',rva:0},{name:'vm_frame_push',rva:16}],stringPoolSlotRva:8}};
 const SETTINGS_PROFILE={},NATIVE_SIGNATURES=[],ENHANCED_HOST={gameSha256:'test'};
 const TRUCK_SEARCH_PROFILE={},TRUCK_SEARCH_SIGNATURES=[];
+const GAME_TIME_PROFILE={},GAME_TIME_SIGNATURES=[];
+let freezeStarts=0,freezeEnabled=false,freezeFailure=false;
+const makeGameTimeFreeze=()=>{freezeStarts++;if(freezeFailure)throw Error('clock failed');return {set:v=>{freezeEnabled=v;},stop(){},status:()=>({status:'ready',enabled:freezeEnabled})};};
+const startFunctionsRepeat=()=>({status:()=> 'ready'});
 const VEHICLE_PROFILE={},VEHICLE_SIGNATURES=[],WINCH_PROFILE={},WINCH_SIGNATURES=[];
 let searchStarts=0,searchEnabled=true,searchFailure=false;
 const makeVehicleTruckSearch=(_profile,_entry,_pool,enabled)=>{searchEnabled=enabled;searchStarts++;if(searchFailure)throw Error('search failed');return {set:v=>{searchEnabled=v;},status:()=>({status:'ready',enabled:searchEnabled})};};
@@ -38,6 +42,8 @@ mode:()=>{},status:()=>({active,faults}),drain:()=>{},stop:()=>{stops++;active=f
 ''' + (ROOT / 'src/feature_status.js').read_text() + (ROOT / 'src/native/bootstrap.js').read_text() + '''
 })({mainModule:{base:data},id:123},fn=>queued.push(fn),fn=>{interval=fn;return 1;},()=>{interval=null;},m=>{if(m.enhancedSettings){settingsSaves.push(m.enhancedSettings);return;}reports.push(m.enhancedStatus);states.push(m.enhancedStatus.features.wheel_mouse.status);},TestDate,fakeRecv);
 rpc.exports={
+ general:(enabled,fail=false)=>{ENHANCED_HOST.general=enabled;ENHANCED_HOST.modules={general_improvements:enabled};freezeFailure=fail;},
+ freeze:()=>({starts:freezeStarts,enabled:freezeEnabled}),
  vehicle:(enabled,reverseFail=false,winchFail=false)=>{ENHANCED_HOST.vehicle=enabled;CONFIG.features.vehicle=enabled;reverseFailure=reverseFail;winchFailure=winchFail;},
  winchfault:()=>{winchFault='Invalid registry';},
  vehiclecounts:()=>({reverseStarts,winchStarts}),
@@ -50,7 +56,7 @@ rpc.exports={
  set:(key,value)=>{if(key==='menu')menuError=value;if(key==='features')CONFIG.features=value;if(key==='scan')scanError=value;if(key==='start')startError=value;if(key==='faults')faults=value;if(key==='ids')data.writeU32(value);},
  tick:()=>{if(queued.length)queued.shift()();},
  monitor:()=>{if(interval)interval();},
- change:(key,value)=>menuOptions[{zoom:'onZoomChange',panning:'onPanningChange',north:'onNorthChange',search:'onSearchChange'}[key]](value),
+ change:(key,value)=>menuOptions[{zoom:'onZoomChange',panning:'onPanningChange',north:'onNorthChange',freeze:'onFreezeTimeChange',search:'onSearchChange'}[key]](value),
  state:()=>({settingsSaves,states,starts,stops,active,menuStarts,order,mapEnabled:menuOptions?.modules.map,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
 '''
         self.script = self.device.create_script(source)
@@ -81,10 +87,28 @@ rpc.exports={
         self.api.change('north', True)
         self.api.change('panning', 50)
         self.assertEqual(self.api.state()['settingsSaves'], [
-            dict(schemaVersion=5, truckStorageSearch=False, automaticReverse=True, zoomSensitivity=50, panningSensitivity=0, keepNorthUp=False),
-            dict(schemaVersion=5, truckStorageSearch=False, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=False),
-            dict(schemaVersion=5, truckStorageSearch=False, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=True),
-            dict(schemaVersion=5, truckStorageSearch=False, automaticReverse=True, zoomSensitivity=75, panningSensitivity=50, keepNorthUp=True)])
+            dict(schemaVersion=6, freezeGameTime=False, truckStorageSearch=False, automaticReverse=True, zoomSensitivity=50, panningSensitivity=0, keepNorthUp=False),
+            dict(schemaVersion=6, freezeGameTime=False, truckStorageSearch=False, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=False),
+            dict(schemaVersion=6, freezeGameTime=False, truckStorageSearch=False, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=True),
+            dict(schemaVersion=6, freezeGameTime=False, truckStorageSearch=False, automaticReverse=True, zoomSensitivity=75, panningSensitivity=50, keepNorthUp=True)])
+
+    def test_clock_is_opt_in_persists_and_does_not_hide_failure(self):
+        self.api.general(True)
+        self.api.tick()
+        self.assertEqual(self.api.freeze(), dict(starts=1, enabled=False))
+        self.api.change('freeze', True)
+        self.assertTrue(self.api.freeze()['enabled'])
+        self.assertTrue(self.api.state()['settingsSaves'][-1]['freezeGameTime'])
+
+    def test_general_off_has_no_clock_hooks(self):
+        self.api.tick()
+        self.assertEqual(self.api.freeze()['starts'], 0)
+
+    def test_clock_failure_preserves_menu_and_reports_error(self):
+        self.api.general(True, True)
+        self.api.tick()
+        self.assertTrue(self.api.state()['report']['components']['settings_menu']['running'])
+        self.assertEqual(self.api.health()['general_improvements'], 'error')
 
     def test_discovery_retries_without_hooks_and_stops(self):
         self.api.set('scan', True)

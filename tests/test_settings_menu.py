@@ -54,7 +54,7 @@ rpc.exports.run=(scenario)=>{
    ]});
  }
  let featureStates=scenario==='features'?{wheel_mouse:'active',skip_startup_logos:'inactive',map:'pending',general_improvements:'error',vehicle:'active',steering_wheel_improvements:'active'}:null;
- const reverseChanges=[],searchChanges=[],callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{getFeatureStates:()=>featureStates,modules:{map:!['no-map','both-off'].includes(scenario),vehicle:!['no-vehicle','both-off'].includes(scenario),future:scenario==='future-on'},onReverseChange:value=>reverseChanges.push(value),onSearchChange:value=>searchChanges.push(value)});
+ const reverseChanges=[],searchChanges=[],freezeChanges=[],callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{getFeatureStates:()=>featureStates,modules:{general_improvements:scenario!=='no-general',map:!['no-map','both-off'].includes(scenario),vehicle:!['no-vehicle','both-off'].includes(scenario),future:scenario==='future-on'},onReverseChange:value=>reverseChanges.push(value),onSearchChange:value=>searchChanges.push(value),onFreezeTimeChange:value=>freezeChanges.push(value)});
  menu.start(ptr(0),slot);
  const visit=()=>callbacks['UiSettingsController.CreateData'](vm(self),fn);
  const capture=()=>{callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);callbacks['UiOneSettingStepperController.InitContent']?.(vm(step),fn);};
@@ -78,6 +78,11 @@ rpc.exports.run=(scenario)=>{
    return result;
  }
  const en=strings(),title=en.ENHANCED,label=en['Zoom sensitivity'],panningLabel=en['Panning sensitivity'];
+ if(scenario==='freeze'){
+   const control=object(onOff);put(control,39,en['Freeze game time']);
+   for(const value of [0,1,1,0])callbacks['UiOneSettingStepperOnOff.UpdateStatus'](vm(control,ptr(value?'0x2000000000001':'0x2000000000000')));
+   menu.stop();return {freezeChanges,searchChanges,reverseChanges};
+ }
  if(scenario==='search'){
    const control=object(onOff);put(control,39,en['Truck Storage search']);
    for(const value of [1,1,0])callbacks['UiOneSettingStepperOnOff.UpdateStatus'](vm(control,ptr(value?'0x20000d62d1c01':'0x20000d62d1c00')));
@@ -99,14 +104,14 @@ rpc.exports.run=(scenario)=>{
    if(row.equals(self))callbacks['UiSettingsController.SetForLocale'](args,localeFn);
    else callbacks['ComponentUiControllerBase.SetForLocale'](args);
  }
- if(future || ['locales','no-map','no-vehicle','both-off'].includes(scenario)){
+ if(future || ['locales','no-map','no-vehicle','both-off','no-general'].includes(scenario)){
    const skip={},dimmed=[],mouseBlocked=[];
    let key;
    for(let i=0;i<delta;i++){
      const word=replacement.add(4*i).readU32(),op=word&255,arg=(word>>>8)-0x800000;
      if(op===6){
        const v=newConstants.add(arg*8).readPointer();
-       if(v.shr(48).toUInt32()===16 && /^Enhanced(About|Zoom|Panning|KeepNorthUp|AutomaticReverse|TruckStorageSearch|Future|Feature_[a-z_]+)$/.test(readText(v)))key=readText(v);
+       if(v.shr(48).toUInt32()===16 && /^Enhanced(About|Zoom|Panning|KeepNorthUp|AutomaticReverse|TruckStorageSearch|FreezeGameTime|Future|Feature_[a-z_]+)$/.test(readText(v)))key=readText(v);
      }
      if(op===60 && arg===5 && (replacement.add((i-2)*4).readU32()&255)===5)
        skip[key]=replacement.add((i-2)*4).readU32()===0x80000105;
@@ -272,7 +277,7 @@ class SettingsMenuTests(unittest.TestCase):
         self.assertFalse(r['stopped']['running'])
 
     def test_every_visible_string_follows_the_game_locale(self):
-        for scenario in ('locales', 'no-map', 'no-vehicle', 'both-off'):
+        for scenario in ('locales', 'no-map', 'no-vehicle', 'both-off', 'no-general'):
             with self.subTest(scenario=scenario):
                 result = self.script.exports_sync.run(scenario)
                 english, french = set(result['en']), set(result['fr'])
@@ -292,15 +297,15 @@ class SettingsMenuTests(unittest.TestCase):
                                    'Initialized successfully,', 'At least one correction', 'Désactivé dans l’installateur.',
                                    'Sélectionné dans l’installateur.', 'Initialisé correctement,', 'Au moins un correctif'))}
                     self.assertTrue(expected - conditional <= set(result[actual]))
-                disabled = set()
+                disabled = {'EnhancedFreezeGameTime'} if scenario == 'no-general' else set()
                 if scenario in ('no-map', 'both-off'):
                     disabled.update(('EnhancedZoom', 'EnhancedPanning', 'EnhancedKeepNorthUp'))
                 if scenario in ('no-vehicle', 'both-off'):
                     disabled.update(['EnhancedAutomaticReverse','EnhancedTruckStorageSearch'])
                 self.assertEqual({key for key, skip in result['skip'].items() if skip}, disabled)
                 self.assertEqual(set(result['dimmed']), disabled)
-                self.assertEqual(len(english - french), 31)
-                self.assertEqual(len(french - english), 31)
+                self.assertEqual(len(english - french), 34)
+                self.assertEqual(len(french - english), 34)
                 for texts, extracts in [(english, ('four times slower', 'fifty times slower', 'freely', 'in the installer')),
                                         (french, ('quatre fois plus lent', 'cinquante fois plus lentement', 'librement', 'dans l’installateur'))]:
                     for extract in extracts:
@@ -318,6 +323,12 @@ class SettingsMenuTests(unittest.TestCase):
             self.assertEqual(state['skip'][key], not enabled)
             self.assertEqual(state['dimmed'], [] if enabled else [key])
             self.assertEqual(state['mouseBlocked'], [] if enabled else [[key, 22], [key, 23]])
+
+    def test_freeze_toggle_defaults_off_and_changes_only_its_preference(self):
+        result = self.script.exports_sync.run('freeze')
+        self.assertEqual(result['freezeChanges'], [True, False])
+        self.assertEqual(result['searchChanges'], [])
+        self.assertEqual(result['reverseChanges'], [])
 
     def test_search_toggle_saves_transitions_without_changing_reverse(self):
         result = self.script.exports_sync.run('search')

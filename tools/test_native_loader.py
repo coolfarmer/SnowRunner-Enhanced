@@ -92,7 +92,7 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                     assert dispatch['committed'] and dispatch['fault'] is None, dispatch
                     assert 'buildMode' not in status, status
                     selected_features = status['features']
-                    entry_count = 9 + int(selected_features['wheel_mouse']['enabled']) + 10 * int(selected_features['map']['enabled'])
+                    entry_count = 9 + int(selected_features['wheel_mouse']['enabled']) + 10 * int(selected_features['map']['enabled']) + 6 * int(general)
                     interior_count = 6 * (int(selected_features['general_improvements']['enabled']) + int(selected_features['vehicle']['enabled']))
                     for phase, count in (('entry', entry_count), ('interior', interior_count)):
                         observer = dispatch[phase]
@@ -120,13 +120,19 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                         assert status['features']['vehicle']['winch']['status'] == 'active', status
                         assert status['features']['vehicle']['winch']['fault'] is None, status
                         assert status['features']['vehicle']['truckSearch']['status'] == 'ready', status
-                        assert status['features']['vehicle']['truckSearch']['enabled'] is True, status
+                        # The schema-4 fixture predates this opt-in preference.
+                        assert status['features']['vehicle']['truckSearch']['enabled'] is False, status
                     # Older configs omit Vehicle; its existing migration default
                     # is enabled. Only an explicit false disables its hooks.
                     winch_selected = config['features'].get('vehicle', {}).get('enabled', True)
                     assert status['features']['vehicle']['winch']['status'] == ('active' if winch_selected else 'disabled'), status
                     if general:
                         assert status['components']['functions_repeat']['status'] == 'ready', status
+                        assert status['components']['game_time']['status'] == 'ready', status
+                        assert status['components']['game_time']['enabled'] is False, status
+                        assert status['components']['game_time']['session'] == 'unknown', status
+                    else:
+                        assert status['components']['game_time']['status'] == 'disabled', status
                     for key in ('wheel_mouse', 'map'):
                         feature = status['features'][key]
                         if feature['status'] == 'active':

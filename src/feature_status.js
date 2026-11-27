@@ -30,7 +30,8 @@ function enhancedFeatureStates(selected, runtime) {
         wheel_mouse: [input],
         skip_startup_logos: [native.skip_startup_logos],
         map,
-        general_improvements: [native.general_improvements, runtime.repeat],
+        general_improvements: [native.general_improvements, runtime.repeat,
+            runtime.gameTimeError ? {fault: runtime.gameTimeError} : runtime.gameTime],
         vehicle: [runtime.vehicleError ? {fault: runtime.vehicleError} : runtime.vehicle ?
             {status: 'active', fault: runtime.vehicle.fault, faults: runtime.vehicle.unknown} : null,
             runtime.vehicleWinchError ? {fault: runtime.vehicleWinchError} : runtime.vehicleWinch,

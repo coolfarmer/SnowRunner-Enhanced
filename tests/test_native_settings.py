@@ -32,7 +32,7 @@ class NativeSettingsTests(unittest.TestCase):
             for zoom, panning in [(75,0),(100,25),(0,100),(50,50)]:
                 self.assertEqual(run(dict(schemaVersion=2,zoomSensitivity=zoom,panningSensitivity=panning))['saved'], 1)
                 self.assertEqual((run()['value'], run()['panning']), (zoom, panning))
-                self.assertEqual(json.loads(path.read_text())['schemaVersion'], 5)
+                self.assertEqual(json.loads(path.read_text())['schemaVersion'], 6)
                 self.assertFalse(run()['keepNorthUp'])
                 self.assertFalse(run()['truckStorageSearch'])
             for locked in [True, False]:
@@ -54,7 +54,18 @@ class NativeSettingsTests(unittest.TestCase):
                 self.assertFalse(current['automaticReverse'])
                 self.assertEqual((current['value'], current['panning']), (75,25))
                 self.assertTrue(current['keepNorthUp'])
+            self.assertFalse(run()['freezeGameTime'])
+            data = dict(schemaVersion=6, zoomSensitivity=75, panningSensitivity=25,
+                        keepNorthUp=True, automaticReverse=False, truckStorageSearch=True, freezeGameTime=True)
+            self.assertEqual(run(data)['saved'], 1)
+            self.assertTrue(run()['freezeGameTime'])
+            self.assertTrue(run()['truckStorageSearch'])
             before = path.read_bytes()
+            for invalid in (None, 1, 'true'):
+                data['freezeGameTime'] = invalid
+                self.assertEqual(run(data)['saved'], 0)
+                self.assertEqual(path.read_bytes(), before)
+            data['freezeGameTime'] = True
             for invalid in (None, 1, 'true'):
                 data['truckStorageSearch'] = invalid
                 self.assertEqual(run(data)['saved'], 0)

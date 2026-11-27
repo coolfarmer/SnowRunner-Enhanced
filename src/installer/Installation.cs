@@ -395,7 +395,8 @@ internal sealed class Installation
             AtomicWrite(At(ConfigName), config, true);
             configWritten = true;
             receipt["allEnabledDefaults"] = true;
-            if (migrate) { receipt["version"] = Version; receipt["files"]![plugin] = payload[plugin]; }
+            if (migrate) receipt["version"] = Version;
+            if (replacement != null) receipt["files"]![plugin] = payload[plugin];
             receipt["configurationSha256"] = Convert.ToHexStringLower(SHA256.HashData(config));
             AtomicWrite(At(ReceiptName), JsonBytes(receipt), true);
         }

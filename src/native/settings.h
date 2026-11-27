@@ -3,7 +3,7 @@
 static wchar_t settings_path[32768], settings_temp[32768];
 static const char *settings_state = "default";
 
-typedef struct { int zoom, panning; BOOL keep_north_up, automatic_reverse, truck_storage_search; } SettingsPreferences;
+typedef struct { int zoom, panning; BOOL keep_north_up, automatic_reverse, truck_storage_search, freeze_game_time; } SettingsPreferences;
 
 static int SettingsNumber(JsonNode *node) {
     if (!node || json_node_get_value_type(node)!=G_TYPE_INT64) return -1;
@@ -17,7 +17,7 @@ static BOOL SettingsValue(JsonNode *node, SettingsPreferences *result) {
     JsonNode *schema=json_object_get_member(root,"schemaVersion");
     if (!schema || json_node_get_value_type(schema)!=G_TYPE_INT64) return FALSE;
     gint64 version=json_node_get_int(schema);
-    if (version<1 || version>5 || json_object_get_size(root)!=(guint)(version+1)) return FALSE;
+    if (version<1 || version>6 || json_object_get_size(root)!=(guint)(version+1)) return FALSE;
     int zoom=SettingsNumber(json_object_get_member(root,"zoomSensitivity"));
     // Upgrade preview.18 preferences without changing the existing zoom value.
     int panning=version==1?50:SettingsNumber(json_object_get_member(root,"panningSensitivity"));
@@ -27,6 +27,9 @@ static BOOL SettingsValue(JsonNode *node, SettingsPreferences *result) {
     if(version>=4 && (!reverse || json_node_get_value_type(reverse)!=G_TYPE_BOOLEAN))return FALSE;
     JsonNode *search=json_object_get_member(root,"truckStorageSearch");
     if(version>=5 && (!search || json_node_get_value_type(search)!=G_TYPE_BOOLEAN))return FALSE;
+    JsonNode *freeze=json_object_get_member(root,"freezeGameTime");
+    if(version>=6 && (!freeze || json_node_get_value_type(freeze)!=G_TYPE_BOOLEAN))return FALSE;
+    result->freeze_game_time=version>=6 && json_node_get_boolean(freeze);
     result->truck_storage_search=version>=5 && json_node_get_boolean(search);
     result->automatic_reverse=version<4 || json_node_get_boolean(reverse);
     result->zoom=zoom;result->panning=panning;result->keep_north_up=version>=3 && json_node_get_boolean(north);
@@ -34,7 +37,7 @@ static BOOL SettingsValue(JsonNode *node, SettingsPreferences *result) {
 }
 
 static SettingsPreferences SettingsLoad(const wchar_t *folder) {
-    SettingsPreferences values={50,50,FALSE,TRUE,FALSE};
+    SettingsPreferences values={50,50,FALSE,TRUE,FALSE,FALSE};
     swprintf_s(settings_path,32768,L"%lsSnowRunnerEnhanced.settings.json",folder);
     swprintf_s(settings_temp,32768,L"%lsSnowRunnerEnhanced.settings.tmp",folder);
     HANDLE file=CreateFileW(settings_path,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_DELETE,NULL,OPEN_EXISTING,0,NULL);
@@ -54,7 +57,7 @@ static SettingsPreferences SettingsLoad(const wchar_t *folder) {
 
 static BOOL SettingsSave(JsonNode *node) {
     SettingsPreferences values;if(!SettingsValue(node,&values))return FALSE;
-    char text[256];int count=snprintf(text,sizeof(text),"{\"schemaVersion\":5,\"zoomSensitivity\":%d,\"panningSensitivity\":%d,\"keepNorthUp\":%s,\"automaticReverse\":%s,\"truckStorageSearch\":%s}\n",values.zoom,values.panning,values.keep_north_up?"true":"false",values.automatic_reverse?"true":"false",values.truck_storage_search?"true":"false");
+    char text[256];int count=snprintf(text,sizeof(text),"{\"schemaVersion\":6,\"zoomSensitivity\":%d,\"panningSensitivity\":%d,\"keepNorthUp\":%s,\"automaticReverse\":%s,\"truckStorageSearch\":%s,\"freezeGameTime\":%s}\n",values.zoom,values.panning,values.keep_north_up?"true":"false",values.automatic_reverse?"true":"false",values.truck_storage_search?"true":"false",values.freeze_game_time?"true":"false");
     if(count<0 || count>=(int)sizeof(text)){settings_state="write-error";return FALSE;}
     HANDLE file=CreateFileW(settings_temp,GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_DELETE,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
     if(file==INVALID_HANDLE_VALUE){settings_state="write-error";return FALSE;}

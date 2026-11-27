@@ -15,7 +15,7 @@ def create_image(source, target, steering=False, input_compatible=True):
     shift = vehicle['guards'][0]
     segments.append((move(shift['rva']), bytes.fromhex(shift['hex'])))
     from compatibility import compile_signatures
-    for filename in ('winch-profile.json', 'truck-search-profile.json'):
+    for filename in ('winch-profile.json', 'truck-search-profile.json', 'game-time-profile.json'):
         profile = json.loads((Path(__file__).resolve().parents[1] / 'src' / filename).read_text())
         for sig in compile_signatures(profile):
             raw = bytearray.fromhex(sig['hex'])

@@ -18,7 +18,7 @@ class FeatureStatusTests(unittest.TestCase):
         self.selected = dict.fromkeys(('wheel_mouse', 'skip_startup_logos', 'map',
                                       'general_improvements', 'vehicle', 'steering_wheel_improvements'), True)
         self.runtime = dict(inputState='active', input=dict(faults=0, navigationHitAreaRepairs=1,
-                            mapNotificationHitAreaRepairs=1), repeat='ready', vehicle=dict(unknown=0), vehicleWinch=dict(status='active'), truckSearch=dict(status='ready'),
+                            mapNotificationHitAreaRepairs=1), repeat='ready', gameTime=dict(status='ready'), vehicle=dict(unknown=0), vehicleWinch=dict(status='active'), truckSearch=dict(status='ready'),
                             native={key: dict(status='active') for key in
                                     ('skip_startup_logos', 'general_improvements', 'steering_wheel_improvements')},
                             menu=dict(zoomSensitivity=dict(status='active', zoomCalls=1),

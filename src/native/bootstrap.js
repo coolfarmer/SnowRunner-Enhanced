@@ -6,6 +6,7 @@ let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
 let vehicle = null, vehicleError = null;
 let vehicleWinch = null, vehicleWinchError = null;
 let truckSearch = null, truckSearchError = null;
+let gameTime = null, gameTimeError = null;
 let lastReportExtra = {};
 let fastVmHooks = null;
 let menuFailure = null, functionsRepeat = null, repeatState = ENHANCED_HOST.general ? 'pending' : 'disabled';
@@ -26,7 +27,8 @@ function menuFeatureStates() {
         native: Date.now() - nativeRuntimeTime < 6500 ? nativeRuntime : null,
         menu: settingsMenu?.status(), vehicle: vehicle?.status(), vehicleError,
         vehicleWinch: vehicleWinch?.status(), vehicleWinchError, truckSearch: truckSearch?.status(), truckSearchError,
-        repeat: functionsRepeat?.status() || repeatState
+        repeat: functionsRepeat?.status() || repeatState,
+        gameTime: gameTime?.status(), gameTimeError
     });
 }
 function reportNative(state, extra = {}) {
@@ -34,7 +36,7 @@ function reportNative(state, extra = {}) {
     const {vehicle: vehicleEnabled, ...inputFeatures} = CONFIG.features;
     send({enhancedStatus: {schemaVersion: 1, version: '1.0.1',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
-        components: {...(fastVmHooks ? {vm_dispatch:fastVmHooks.status()} : {}), functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
+        components: {...(fastVmHooks ? {vm_dispatch:fastVmHooks.status()} : {}), game_time: gameTime?.status() || {status: gameTimeError ? 'error' : ENHANCED_HOST.general ? 'waiting' : 'disabled', fault: gameTimeError}, functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
         features: {vehicle: {enabled: vehicleEnabled, status: vehicleEnabled ? menuFeatureStates().vehicle : 'disabled', ...vehicle?.status(),
             reverseError: vehicleError, truckSearch: truckSearch?.status() || {status: truckSearchError ? 'error' : vehicleEnabled ? 'waiting' : 'disabled', fault: truckSearchError}, winch: vehicleWinch?.status() || {status: vehicleWinchError ? 'error' : vehicleEnabled ? 'waiting' : 'disabled', fault: vehicleWinchError}}, ...Object.fromEntries(Object.entries(inputFeatures).map(([key, enabled]) =>
@@ -101,9 +103,17 @@ function attemptStart() {
     }
     // The optional agent validates original entry bytes before either component
     // attaches to the shared VM entry point. Its failure does not disable the UI.
+    if (ENHANCED_HOST.general === true) {
+        try {
+            const matches = nativeProbe.scan(GAME_TIME_SIGNATURES, info.sections);
+            const resolved = resolveNativeProfile(GAME_TIME_PROFILE, GAME_TIME_SIGNATURES, matches, info.sections);
+            gameTime = makeGameTimeFreeze(resolved.profile, result.profile, fastVmHooks?.attach);
+            gameTime.set(ENHANCED_HOST.freezeGameTime === true);
+        } catch (error) { gameTimeError = String(error); }
+    }
     try {
         const validPreference = value => Number.isInteger(value) && value >= 0 && value <= 100 ? value : 50;
-        const preferences = {schemaVersion: 5, truckStorageSearch: ENHANCED_HOST.truckStorageSearch===true, automaticReverse: ENHANCED_HOST.automaticReverse!==false, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
+        const preferences = {schemaVersion: 6, freezeGameTime: ENHANCED_HOST.freezeGameTime===true, truckStorageSearch: ENHANCED_HOST.truckStorageSearch===true, automaticReverse: ENHANCED_HOST.automaticReverse!==false, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
             panningSensitivity: validPreference(ENHANCED_HOST.panningSensitivity), keepNorthUp: ENHANCED_HOST.keepNorthUp===true};
         const savePreference = (key, value) => { preferences[key] = value; send({enhancedSettings: {...preferences}}); };
         const menuGuard = result.profile.guards.find(g => g.name === 'vm_frame_push_entry');
@@ -116,6 +126,8 @@ function attemptStart() {
             getFeatureStates: menuFeatureStates,
             automaticReverse: preferences.automaticReverse,
             truckStorageSearch: preferences.truckStorageSearch,
+            freezeGameTime: preferences.freezeGameTime,
+            onFreezeTimeChange: value => { gameTime?.set(value); savePreference('freezeGameTime', value); },
             onSearchChange: value => { truckSearch?.set(value); savePreference('truckStorageSearch', value); },
             onReverseChange: value => { vehicle?.set(value); savePreference('automaticReverse', value); },
             zoomSensitivity: preferences.zoomSensitivity,
@@ -141,6 +153,8 @@ function attemptStart() {
             try { settingsMenu?.stop(); } catch(_) {}
             settingsMenu=null;menuFailure=String(error);
             try { functionsRepeat?.stop(); } catch(_) {}
+            try { gameTime?.stop(); } catch(_) {}
+            if(ENHANCED_HOST.general)gameTimeError=String(error);
             functionsRepeat=null;
             if(ENHANCED_HOST.general)repeatState=String(error);
             if(ENHANCED_HOST.vehicle) {

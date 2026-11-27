@@ -20,7 +20,7 @@ def main():
         source = loader_path(LOADERS[0]) if name == 'dinput8.dll' else ROOT / 'build/native' / name
         files['Sources/Payload/' + name] = source
         payload[name] = hashlib.sha256(source.read_bytes()).hexdigest()
-    for name in ('README.en.md', 'README.fr.md', 'STEERING_WHEEL.md', 'VEHICLE.md'):
+    for name in ('README.en.md', 'README.fr.md', 'STEERING_WHEEL.md', 'VEHICLE.md', 'GAME_TIME.md'):
         files['Sources/Docs/' + name] = ROOT / 'Docs' / name
     for source in (ROOT / 'Licenses').rglob('*'):
         if source.is_file():

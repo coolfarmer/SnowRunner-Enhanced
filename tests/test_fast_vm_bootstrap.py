@@ -9,6 +9,7 @@ const data=Memory.alloc(256);for(let i=0;i<4;i++)data.add(4*i).writeU32(11*(i+1)
 const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12},guards:[
     {name:'vm_frame_push_entry',rva:32},{name:'vm_frame_push',rva:64}],stringPoolSlotRva:96}};
 const ENHANCED_HOST={wheelMouse:false,map:false,vehicle:false,general:false,modules:{}};
+const GAME_TIME_PROFILE={},GAME_TIME_SIGNATURES=[];
 const SETTINGS_PROFILE={},NATIVE_SIGNATURES=[],VEHICLE_PROFILE={},VEHICLE_SIGNATURES=[],
     WINCH_PROFILE={},WINCH_SIGNATURES=[],TRUCK_SEARCH_PROFILE={},TRUCK_SEARCH_SIGNATURES=[];
 let order=[],registrations=[],stops=[],reports=[],queued=[],monitor=null,committed=false,failed=false,active=false;
@@ -37,6 +38,7 @@ function makeVehicleTruckSearch(profile,entry,pool,enabled,attach){
     order.push('search');attach(entry,pool,()=>{},'search','CreateData',true);
     return {keepAlive:[{detach(){stops.push('search');}}],status:()=>({status:'ready'})};
 }
+function makeGameTimeFreeze(profile,vmProfile,attach){order.push('clock');attach(data.add(32),data.add(96),()=>{},'clock','CreateSinglePlayer');return {set(){},status:()=>({status:'ready'}),stop(){stops.push('clock');}};}
 function startFunctionsRepeat(profile,attach){order.push('repeat');
     attach(data.add(64),data.add(96),()=>{},'general','Update',true);
     return {status:()=> 'ready',stop(){stops.push('repeat');}};}
@@ -72,7 +74,7 @@ class FastVmBootstrapTests(unittest.TestCase):
                 self.assertEqual(result['order'].count('commit'),1)
                 registrations={r['cls']:r for r in result['registrations']}
                 self.assertIn('menu',registrations)
-                for name,bit in (('map',4),('search',16),('general',8)):
+                for name,bit in (('map',4),('search',16),('general',8),('clock',8)):
                     self.assertEqual(name in registrations,bool(mask&bit))
                 for name,offset in (('search',72),('general',64)):
                     if name in registrations:
@@ -82,7 +84,7 @@ class FastVmBootstrapTests(unittest.TestCase):
 
     def test_install_failure_stops_owners_and_reports_unavailable_search(self):
         result=self.run_case(29,True)
-        self.assertEqual(set(result['stops']),{'agent','menu','repeat','search'})
+        self.assertEqual(set(result['stops']),{'agent','menu','repeat','search','clock'})
         report=result['report']
         self.assertEqual(report['features']['map']['status'],'error')
         self.assertEqual(report['features']['vehicle']['truckSearch']['status'],'error')
