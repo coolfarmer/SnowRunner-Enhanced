@@ -33,7 +33,8 @@ function enhancedFeatureStates(selected, runtime) {
         general_improvements: [native.general_improvements, runtime.repeat],
         vehicle: [runtime.vehicleError ? {fault: runtime.vehicleError} : runtime.vehicle ?
             {status: 'active', fault: runtime.vehicle.fault, faults: runtime.vehicle.unknown} : null,
-            runtime.vehicleWinchError ? {fault: runtime.vehicleWinchError} : runtime.vehicleWinch],
+            runtime.vehicleWinchError ? {fault: runtime.vehicleWinchError} : runtime.vehicleWinch,
+            runtime.truckSearchError ? {fault: runtime.truckSearchError} : runtime.truckSearch],
         steering_wheel_improvements: [native.steering_wheel_improvements]
     };
     return Object.fromEntries(enhancedFeatureIds.map(id => [id, enhancedFeatureHealth(selected[id] === true, components[id])]));

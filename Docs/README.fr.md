@@ -28,6 +28,8 @@ Le joueur a validé la preview.25 en jeu.
 
 Dans **ENHANCED → VÉHICULE**, désactivez **Marche arrière automatique** pour que le frein maintenu en AUTO cesse d’engager la marche arrière. Sélectionnez R pour reculer. Le réglage est activé par défaut et sauvegardé dès sa modification.
 
+Dans **ENHANCED → VÉHICULE**, **Recherche dans le stockage de camions** affiche ou masque le champ de recherche instantanée. Cette option est activée par défaut et sauvegardée immédiatement. La désactiver efface la recherche et rétablit la disposition d’origine de la liste.
+
 ## Enhancement #4 – General Improvements
 
 Preview.24 ajoute le défilement par maintien de Haut ou Bas dans Fonctions. La répétition commence après 420 ms puis se poursuit toutes les 140 ms environ. Après relancement avec la preview.24 installée, le joueur a confirmé le défilement continu au clavier et avec la croix directionnelle de la manette. Le volant reste à tester séparément.

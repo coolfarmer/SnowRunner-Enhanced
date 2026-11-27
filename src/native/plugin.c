@@ -201,7 +201,7 @@ static void EnhancedStart(void) {
     g_main_context_push_thread_default(context);
     SettingsPreferences preferences=SettingsLoad(folder);
     char *module_flags = MenuModuleFlags(enabled);
-    char *source = g_strdup_printf("const ENHANCED_HOST={modules:%s,gameSha256:'%s',general:%s,wheelMouse:%s,map:%s,zoomSensitivity:%d,panningSensitivity:%d,keepNorthUp:%s,vehicle:%s,automaticReverse:%s};\n%s", module_flags, hash, (enabled & 8) ? "true" : "false", (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", preferences.zoom, preferences.panning, preferences.keep_north_up?"true":"false", (enabled & 16)?"true":"false", preferences.automatic_reverse?"true":"false", enhanced_bundle);
+    char *source = g_strdup_printf("const ENHANCED_HOST={modules:%s,gameSha256:'%s',general:%s,wheelMouse:%s,map:%s,zoomSensitivity:%d,panningSensitivity:%d,keepNorthUp:%s,vehicle:%s,automaticReverse:%s,truckStorageSearch:%s};\n%s", module_flags, hash, (enabled & 8) ? "true" : "false", (enabled & 1) ? "true" : "false", (enabled & 4) ? "true" : "false", preferences.zoom, preferences.panning, preferences.keep_north_up?"true":"false", (enabled & 16)?"true":"false", preferences.automatic_reverse?"true":"false", preferences.truck_storage_search?"true":"false", enhanced_bundle);
     GError *error = NULL;
     g_free(module_flags);
     GumScript *script = gum_script_backend_create_sync(gum_script_backend_obtain_qjs(), "Enhanced", source, NULL, NULL, &error);

@@ -30,7 +30,7 @@ class NativeSettingsTests(unittest.TestCase):
             for zoom, panning in [(75,0),(100,25),(0,100),(50,50)]:
                 self.assertEqual(run(dict(schemaVersion=2,zoomSensitivity=zoom,panningSensitivity=panning))['saved'], 1)
                 self.assertEqual((run()['value'], run()['panning']), (zoom, panning))
-                self.assertEqual(json.loads(path.read_text())['schemaVersion'], 4)
+                self.assertEqual(json.loads(path.read_text())['schemaVersion'], 5)
                 self.assertFalse(run()['keepNorthUp'])
             for locked in [True, False]:
                 self.assertEqual(run(dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=25, keepNorthUp=locked))['saved'], 1)
@@ -40,7 +40,21 @@ class NativeSettingsTests(unittest.TestCase):
                 self.assertEqual(run(dict(schemaVersion=4, zoomSensitivity=75, panningSensitivity=25, keepNorthUp=True, automaticReverse=reverse))['saved'], 1)
                 self.assertEqual(run()['automaticReverse'], reverse)
                 self.assertTrue(run()['keepNorthUp'])
+            self.assertTrue(run()['truckStorageSearch'])
+            for search in (False, True, False):
+                data = dict(schemaVersion=5, zoomSensitivity=75, panningSensitivity=25,
+                            keepNorthUp=True, automaticReverse=False, truckStorageSearch=search)
+                self.assertEqual(run(data)['saved'], 1)
+                current = run()
+                self.assertEqual(current['truckStorageSearch'], search)
+                self.assertFalse(current['automaticReverse'])
+                self.assertEqual((current['value'], current['panning']), (75,25))
+                self.assertTrue(current['keepNorthUp'])
             before = path.read_bytes()
+            for invalid in (None, 1, 'true'):
+                data['truckStorageSearch'] = invalid
+                self.assertEqual(run(data)['saved'], 0)
+                self.assertEqual(path.read_bytes(), before)
             for value in [-1,101,1.5,'75',True,None]:
                 self.assertEqual(run(dict(schemaVersion=1,zoomSensitivity=value))['saved'], 0)
                 self.assertEqual(run(dict(schemaVersion=2,zoomSensitivity=75,panningSensitivity=value))['saved'], 0)

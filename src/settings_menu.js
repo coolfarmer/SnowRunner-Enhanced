@@ -34,6 +34,9 @@ const enhancedMenuText = {
     panningDesc: ['Adjusts how fast the map rotates while you hold the right mouse button. At 50, rotation uses the original game speed. At 0, it is fifty times slower. At 100, it is four times faster. Changes are applied and saved immediately.',
         'Règle la vitesse de rotation de la carte lorsque vous maintenez le bouton droit de la souris. À 50, la carte tourne à la vitesse d’origine du jeu. À 0, elle tourne cinquante fois plus lentement. À 100, elle tourne quatre fois plus vite. Les changements sont appliqués et sauvegardés immédiatement.'],
     vehicleCategory: ['VEHICLE', 'VÉHICULE'],
+    searchLabel: ['Truck Storage search', 'Recherche dans le stockage de camions'],
+    searchDesc: ['Show a search field in Truck Storage to filter your trucks as you type.',
+        'Affiche un champ de recherche dans le stockage de camions pour filtrer la liste pendant la saisie.'],
     reverseLabel: ['Automatic reverse', 'Marche arrière automatique'],
     reverseDesc: ['In AUTO, holding the brake after stopping engages reverse. Turn this off to select R manually.',
         'En AUTO, maintenir le frein après l’arrêt engage la marche arrière. Désactivez cette option pour sélectionner R manuellement.'],
@@ -53,7 +56,8 @@ const enhancedMenuSections = [
         {key: 'EnhancedKeepNorthUp', kind: 'toggle', label: 'northLabel', help: 'northDesc', initial: 0}
     ]},
     {module: 'vehicle', category: 'vehicleCategory', rows: [
-        {key: 'EnhancedAutomaticReverse', kind: 'toggle', label: 'reverseLabel', help: 'reverseDesc', initial: 1}
+        {key: 'EnhancedAutomaticReverse', kind: 'toggle', label: 'reverseLabel', help: 'reverseDesc', initial: 1},
+        {key: 'EnhancedTruckStorageSearch', kind: 'toggle', label: 'searchLabel', help: 'searchDesc', initial: 1}
     ]}
 ];
 const enhancedMenuFeatures = [
@@ -97,6 +101,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
     const zoom=makeMapZoomSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','zoomLabel')},{...options,mapEnabled},attach);
     const panning=makeMapPanningSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','panningLabel')},{...options,mapEnabled},attach);
     let automaticReverse=options.automaticReverse!==false;
+    let truckStorageSearch=options.truckStorageSearch!==false;
     let northUp=options.keepNorthUp===true, cameraClass=null, northFault=null;
     function obj(v){if(v.shr(48).toUInt32()!==0x20)throw Error('Expected VM object');return v.and('0xffffffffffff');}
     function untag(v){return v.and('0xffffffffffff');}
@@ -201,16 +206,18 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
     function changeStepper(vm){
         const control=receiver(vm);
         const reverse=vehicleEnabled&&ownsRow(control,'UiOneSettingStepperOnOff','reverseLabel');
-        if(!reverse&&!(mapEnabled&&ownsNorth(control)))return;
+        const search=vehicleEnabled&&ownsRow(control,'UiOneSettingStepperOnOff','searchLabel');
+        if(!reverse&&!search&&!(mapEnabled&&ownsNorth(control)))return;
         const arg=vm.add(0x18).readPointer().add(8);
         if(arg.readPointer().shr(48).toUInt32()!==2)throw Error('Invalid on/off argument');
         // VM comparisons write only the low byte of a tagged boolean.
         const next=arg.readU8()!==0;
         // The on/off base implements UpdateStatus as a no-op. Its inherited
         // GetCurrentIndex reads hackCurrent on the ensuing native view refresh.
-        if(reverse && next!==automaticReverse){options.onReverseChange(next);automaticReverse=next;}
+        if(reverse && next!==automaticReverse){options.onReverseChange?.(next);automaticReverse=next;}
+        if(search && next!==truckStorageSearch){options.onSearchChange?.(next);truckStorageSearch=next;}
         prop(control,'hackCurrent').writePointer(ptr(next?'0x1000000000001':'0x1000000000000'));
-        if(!reverse&&northUp!==next){northUp=next;options.onNorthChange?.(next);}
+        if(!reverse&&!search&&northUp!==next){northUp=next;options.onNorthChange?.(next);}
     }
     function orientCamera(vm,fn){
         if(!northUp||northFault)return;
@@ -267,6 +274,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
             if(!get(pendingStepper.control,'uiSystem').equals(get(self,'uiSystem')))throw Error('Unexpected on/off template');
             plan.stepperSlot.writePointer(pendingStepper.control.or('0x20000000000000'));
             plan.indexSlots.EnhancedAutomaticReverse.writePointer(ptr(automaticReverse?'0x1000000000001':'0x1000000000000'));
+            plan.indexSlots.EnhancedTruckStorageSearch.writePointer(ptr(truckStorageSearch?'0x1000000000001':'0x1000000000000'));
             plan.indexSlots.EnhancedKeepNorthUp.writePointer(ptr(northUp?'0x1000000000001':'0x1000000000000'));
         }
         if(!methodOwner.equals(fn))throw Error('Settings method owner changed');

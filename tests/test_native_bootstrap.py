@@ -14,9 +14,12 @@ class BootstrapTests(unittest.TestCase):
         source = '''
 const data=Memory.alloc(16);
 for(let i=0;i<4;i++) data.add(4*i).writeU32(11*(i+1));
-const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12},guards:[{name:'vm_frame_push_entry',rva:0}],stringPoolSlotRva:8}};
+const CONFIG={profile:{ids:{a:0,b:4,c:8,d:12},guards:[{name:'vm_frame_push_entry',rva:0},{name:'vm_frame_push',rva:16}],stringPoolSlotRva:8}};
 const SETTINGS_PROFILE={},NATIVE_SIGNATURES=[],ENHANCED_HOST={gameSha256:'test'};
+const TRUCK_SEARCH_PROFILE={},TRUCK_SEARCH_SIGNATURES=[];
 const VEHICLE_PROFILE={},VEHICLE_SIGNATURES=[],WINCH_PROFILE={},WINCH_SIGNATURES=[];
+let searchStarts=0,searchEnabled=true,searchFailure=false;
+const makeVehicleTruckSearch=()=>{searchStarts++;if(searchFailure)throw Error('search failed');return {set:v=>{searchEnabled=v;},status:()=>({status:'ready',enabled:searchEnabled})};};
 let reverseStarts=0,winchStarts=0,reverseFailure=false,winchFailure=false,winchFault=null;
 const makeVehicleReverse=()=>{reverseStarts++;if(reverseFailure)throw Error('reverse failed');return {set:()=>{},status:()=>({unknown:0,automaticReverse:true})};};
 const makeVehicleWinchRange=()=>{winchStarts++;if(winchFailure)throw Error('winch failed');return {status:()=>({status:winchFault?'error':'active',fault:winchFault})};};
@@ -38,6 +41,8 @@ rpc.exports={
  vehicle:(enabled,reverseFail=false,winchFail=false)=>{ENHANCED_HOST.vehicle=enabled;CONFIG.features.vehicle=enabled;reverseFailure=reverseFail;winchFailure=winchFail;},
  winchfault:()=>{winchFault='Invalid registry';},
  vehiclecounts:()=>({reverseStarts,winchStarts}),
+ searchstate:()=>({searchStarts,searchEnabled,vehicleEnabled:menuOptions.modules.vehicle}),
+ searchfail:()=>{searchFailure=true;},
  health:()=>menuOptions.getFeatureStates(),
  native:(payload)=>nativeReceiver({payload}),
  select:modules=>{ENHANCED_HOST.modules=modules;},
@@ -45,7 +50,7 @@ rpc.exports={
  set:(key,value)=>{if(key==='menu')menuError=value;if(key==='features')CONFIG.features=value;if(key==='scan')scanError=value;if(key==='start')startError=value;if(key==='faults')faults=value;if(key==='ids')data.writeU32(value);},
  tick:()=>{if(queued.length)queued.shift()();},
  monitor:()=>{if(interval)interval();},
- change:(key,value)=>menuOptions[{zoom:'onZoomChange',panning:'onPanningChange',north:'onNorthChange'}[key]](value),
+ change:(key,value)=>menuOptions[{zoom:'onZoomChange',panning:'onPanningChange',north:'onNorthChange',search:'onSearchChange'}[key]](value),
  state:()=>({settingsSaves,states,starts,stops,active,menuStarts,order,mapEnabled:menuOptions?.modules.map,report:reports.at(-1),pending:queued.length,interval:interval!==null})};
 '''
         self.script = self.device.create_script(source)
@@ -76,10 +81,10 @@ rpc.exports={
         self.api.change('north', True)
         self.api.change('panning', 50)
         self.assertEqual(self.api.state()['settingsSaves'], [
-            dict(schemaVersion=4, automaticReverse=True, zoomSensitivity=50, panningSensitivity=0, keepNorthUp=False),
-            dict(schemaVersion=4, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=False),
-            dict(schemaVersion=4, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=True),
-            dict(schemaVersion=4, automaticReverse=True, zoomSensitivity=75, panningSensitivity=50, keepNorthUp=True)])
+            dict(schemaVersion=5, truckStorageSearch=True, automaticReverse=True, zoomSensitivity=50, panningSensitivity=0, keepNorthUp=False),
+            dict(schemaVersion=5, truckStorageSearch=True, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=False),
+            dict(schemaVersion=5, truckStorageSearch=True, automaticReverse=True, zoomSensitivity=75, panningSensitivity=0, keepNorthUp=True),
+            dict(schemaVersion=5, truckStorageSearch=True, automaticReverse=True, zoomSensitivity=75, panningSensitivity=50, keepNorthUp=True)])
 
     def test_discovery_retries_without_hooks_and_stops(self):
         self.api.set('scan', True)
@@ -160,6 +165,24 @@ rpc.exports={
         self.assertTrue(report['features']['vehicle']['automaticReverse'])
         self.assertEqual(report['features']['vehicle']['winch']['status'], 'error')
         self.assertTrue(report['components']['settings_menu']['running'])
+
+    def test_reverse_failure_keeps_search_setting_accessible_and_persistent(self):
+        self.api.vehicle(True, True, False)
+        self.api.tick()
+        self.assertEqual(self.api.searchstate(), dict(searchStarts=1,searchEnabled=True,vehicleEnabled=True))
+        self.api.change('search', False)
+        self.assertFalse(self.api.searchstate()['searchEnabled'])
+        self.assertFalse(self.api.state()['settingsSaves'][-1]['truckStorageSearch'])
+        self.assertTrue(self.api.state()['settingsSaves'][-1]['automaticReverse'])
+
+    def test_search_failure_does_not_disable_reverse_or_winch(self):
+        self.api.vehicle(True)
+        self.api.searchfail()
+        self.api.tick()
+        feature = self.api.state()['report']['features']['vehicle']
+        self.assertEqual(feature['truckSearch']['status'], 'error')
+        self.assertEqual(feature['winch']['status'], 'active')
+        self.assertTrue(feature['automaticReverse'])
 
     def test_reverse_failure_does_not_disable_winch(self):
         self.api.vehicle(True, True, False)

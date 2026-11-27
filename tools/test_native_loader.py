@@ -105,6 +105,8 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                         assert status['features']['vehicle']['automaticReverse'] is False, status
                         assert status['features']['vehicle']['winch']['status'] == 'active', status
                         assert status['features']['vehicle']['winch']['fault'] is None, status
+                        assert status['features']['vehicle']['truckSearch']['status'] == 'ready', status
+                        assert status['features']['vehicle']['truckSearch']['enabled'] is True, status
                     # Older configs omit Vehicle; its existing migration default
                     # is enabled. Only an explicit false disables its hooks.
                     winch_selected = config['features'].get('vehicle', {}).get('enabled', True)

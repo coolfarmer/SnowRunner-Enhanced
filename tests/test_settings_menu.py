@@ -54,7 +54,7 @@ rpc.exports.run=(scenario)=>{
    ]});
  }
  let featureStates=scenario==='features'?{wheel_mouse:'active',skip_startup_logos:'inactive',map:'pending',general_improvements:'error',vehicle:'active',steering_wheel_improvements:'active'}:null;
- const reverseChanges=[],callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{getFeatureStates:()=>featureStates,modules:{map:!['no-map','both-off'].includes(scenario),vehicle:!['no-vehicle','both-off'].includes(scenario),future:scenario==='future-on'},onReverseChange:value=>reverseChanges.push(value)});
+ const reverseChanges=[],searchChanges=[],callbacks={},menu=makeEnhancedSettingsMenu(PROFILE,(_f,_s,cb,c,m)=>{const key=c+'.'+m,previous=callbacks[key];callbacks[key]=(...args)=>{if(previous)previous(...args);cb(...args);};return {detach(){}};},{getFeatureStates:()=>featureStates,modules:{map:!['no-map','both-off'].includes(scenario),vehicle:!['no-vehicle','both-off'].includes(scenario),future:scenario==='future-on'},onReverseChange:value=>reverseChanges.push(value),onSearchChange:value=>searchChanges.push(value)});
  menu.start(ptr(0),slot);
  const visit=()=>callbacks['UiSettingsController.CreateData'](vm(self),fn);
  const capture=()=>{callbacks['UiOneSettingSliderGammaController.GetCurrentValue'](vm(gamma),fn);callbacks['UiOneSettingStepperController.InitContent']?.(vm(step),fn);};
@@ -78,6 +78,11 @@ rpc.exports.run=(scenario)=>{
    return result;
  }
  const en=strings(),title=en.ENHANCED,label=en['Zoom sensitivity'],panningLabel=en['Panning sensitivity'];
+ if(scenario==='search'){
+   const control=object(onOff);put(control,39,en['Truck Storage search']);
+   for(const value of [0,0,1])callbacks['UiOneSettingStepperOnOff.UpdateStatus'](vm(control,ptr(value?'0x20000d62d1c01':'0x20000d62d1c00')));
+   menu.stop();return {searchChanges,reverseChanges};
+ }
  if(scenario==='reverse'){
    const control=object(onOff);put(control,39,en['Automatic reverse']);
    for(const value of [0,0,1])callbacks['UiOneSettingStepperOnOff.UpdateStatus'](vm(control,ptr(value?'0x2000000000001':'0x2000000000000')));
@@ -101,7 +106,7 @@ rpc.exports.run=(scenario)=>{
      const word=replacement.add(4*i).readU32(),op=word&255,arg=(word>>>8)-0x800000;
      if(op===6){
        const v=newConstants.add(arg*8).readPointer();
-       if(v.shr(48).toUInt32()===16 && /^Enhanced(About|Zoom|Panning|KeepNorthUp|AutomaticReverse|Future|Feature_[a-z_]+)$/.test(readText(v)))key=readText(v);
+       if(v.shr(48).toUInt32()===16 && /^Enhanced(About|Zoom|Panning|KeepNorthUp|AutomaticReverse|TruckStorageSearch|Future|Feature_[a-z_]+)$/.test(readText(v)))key=readText(v);
      }
      if(op===60 && arg===5 && (replacement.add((i-2)*4).readU32()&255)===5)
        skip[key]=replacement.add((i-2)*4).readU32()===0x80000105;
@@ -291,11 +296,11 @@ class SettingsMenuTests(unittest.TestCase):
                 if scenario in ('no-map', 'both-off'):
                     disabled.update(('EnhancedZoom', 'EnhancedPanning', 'EnhancedKeepNorthUp'))
                 if scenario in ('no-vehicle', 'both-off'):
-                    disabled.add('EnhancedAutomaticReverse')
+                    disabled.update(['EnhancedAutomaticReverse','EnhancedTruckStorageSearch'])
                 self.assertEqual({key for key, skip in result['skip'].items() if skip}, disabled)
                 self.assertEqual(set(result['dimmed']), disabled)
-                self.assertEqual(len(english - french), 29)
-                self.assertEqual(len(french - english), 29)
+                self.assertEqual(len(english - french), 31)
+                self.assertEqual(len(french - english), 31)
                 for texts, extracts in [(english, ('four times slower', 'fifty times slower', 'freely', 'in the installer')),
                                         (french, ('quatre fois plus lent', 'cinquante fois plus lentement', 'librement', 'dans l’installateur'))]:
                     for extract in extracts:
@@ -313,6 +318,11 @@ class SettingsMenuTests(unittest.TestCase):
             self.assertEqual(state['skip'][key], not enabled)
             self.assertEqual(state['dimmed'], [] if enabled else [key])
             self.assertEqual(state['mouseBlocked'], [] if enabled else [[key, 22], [key, 23]])
+
+    def test_search_toggle_saves_transitions_without_changing_reverse(self):
+        result = self.script.exports_sync.run('search')
+        self.assertEqual(result['searchChanges'], [False, True])
+        self.assertEqual(result['reverseChanges'], [])
 
     def test_vehicle_toggle_applies_each_transition_once(self):
         self.assertEqual(self.script.exports_sync.run('reverse')['reverseChanges'], [False, True])

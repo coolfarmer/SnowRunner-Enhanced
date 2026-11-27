@@ -5,6 +5,7 @@ CONFIG.features = {wheel_mouse: ENHANCED_HOST.wheelMouse !== false, map: ENHANCE
 let attempts = 0, timer = null, featureState = 'waiting', settingsMenu = null;
 let vehicle = null, vehicleError = null;
 let vehicleWinch = null, vehicleWinchError = null;
+let truckSearch = null, truckSearchError = null;
 let lastReportExtra = {};
 let menuFailure = null, functionsRepeat = null, repeatState = ENHANCED_HOST.general ? 'pending' : 'disabled';
 let nativeRuntime = null, nativeRuntimeTime = 0;
@@ -23,7 +24,7 @@ function menuFeatureStates() {
         inputState: featureState, input: nativeAgent.status(),
         native: Date.now() - nativeRuntimeTime < 6500 ? nativeRuntime : null,
         menu: settingsMenu?.status(), vehicle: vehicle?.status(), vehicleError,
-        vehicleWinch: vehicleWinch?.status(), vehicleWinchError,
+        vehicleWinch: vehicleWinch?.status(), vehicleWinchError, truckSearch: truckSearch?.status(), truckSearchError,
         repeat: functionsRepeat?.status() || repeatState
     });
 }
@@ -35,7 +36,7 @@ function reportNative(state, extra = {}) {
         components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
         features: {vehicle: {enabled: vehicleEnabled, status: vehicleEnabled ? menuFeatureStates().vehicle : 'disabled', ...vehicle?.status(),
-            reverseError: vehicleError, winch: vehicleWinch?.status() || {status: vehicleWinchError ? 'error' : vehicleEnabled ? 'waiting' : 'disabled', fault: vehicleWinchError}}, ...Object.fromEntries(Object.entries(inputFeatures).map(([key, enabled]) =>
+            reverseError: vehicleError, truckSearch: truckSearch?.status() || {status: truckSearchError ? 'error' : vehicleEnabled ? 'waiting' : 'disabled', fault: truckSearchError}, winch: vehicleWinch?.status() || {status: vehicleWinchError ? 'error' : vehicleEnabled ? 'waiting' : 'disabled', fault: vehicleWinchError}}, ...Object.fromEntries(Object.entries(inputFeatures).map(([key, enabled]) =>
             [key, enabled ? {enabled, status: state, ...extra} : {enabled, status: 'disabled'}]))},
         validation: 'Preview: see packaged validation notes'}});
 }
@@ -83,18 +84,29 @@ function attemptStart() {
             vehicleWinch = makeVehicleWinchRange(resolved.profile);
         } catch (error) { vehicleWinchError = String(error); vehicleWinch = null; }
     }
+    if (ENHANCED_HOST.vehicle === true) {
+        try {
+            const matches = nativeProbe.scan(TRUCK_SEARCH_SIGNATURES, info.sections);
+            const resolved = resolveNativeProfile(TRUCK_SEARCH_PROFILE, TRUCK_SEARCH_SIGNATURES, matches, info.sections);
+            truckSearch = makeVehicleTruckSearch(resolved.profile,
+                Process.mainModule.base.add(result.profile.guards.find(g => g.name === 'vm_frame_push').rva + 8),
+                Process.mainModule.base.add(result.profile.stringPoolSlotRva), ENHANCED_HOST.truckStorageSearch !== false);
+        } catch (error) { truckSearchError = String(error); }
+    }
     // The optional agent validates original entry bytes before either component
     // attaches to the shared VM entry point. Its failure does not disable the UI.
     try {
         const validPreference = value => Number.isInteger(value) && value >= 0 && value <= 100 ? value : 50;
-        const preferences = {schemaVersion: 4, automaticReverse: ENHANCED_HOST.automaticReverse!==false, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
+        const preferences = {schemaVersion: 5, truckStorageSearch: ENHANCED_HOST.truckStorageSearch!==false, automaticReverse: ENHANCED_HOST.automaticReverse!==false, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
             panningSensitivity: validPreference(ENHANCED_HOST.panningSensitivity), keepNorthUp: ENHANCED_HOST.keepNorthUp===true};
         const savePreference = (key, value) => { preferences[key] = value; send({enhancedSettings: {...preferences}}); };
         settingsMenu = makeEnhancedSettingsMenu(SETTINGS_PROFILE, hookHudHintUpdates, {
-            modules: {...ENHANCED_HOST.modules, map: CONFIG.features.map, vehicle: !!vehicle},
+            modules: {...ENHANCED_HOST.modules, map: CONFIG.features.map, vehicle: CONFIG.features.vehicle},
             getFeatureStates: menuFeatureStates,
             automaticReverse: preferences.automaticReverse,
-            onReverseChange: value => { vehicle.set(value); savePreference('automaticReverse', value); },
+            truckStorageSearch: preferences.truckStorageSearch,
+            onSearchChange: value => { truckSearch?.set(value); savePreference('truckStorageSearch', value); },
+            onReverseChange: value => { vehicle?.set(value); savePreference('automaticReverse', value); },
             zoomSensitivity: preferences.zoomSensitivity,
             panningSensitivity: preferences.panningSensitivity, keepNorthUp: preferences.keepNorthUp,
             onNorthChange: value => savePreference('keepNorthUp', value),

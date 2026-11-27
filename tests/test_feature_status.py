@@ -18,7 +18,7 @@ class FeatureStatusTests(unittest.TestCase):
         self.selected = dict.fromkeys(('wheel_mouse', 'skip_startup_logos', 'map',
                                       'general_improvements', 'vehicle', 'steering_wheel_improvements'), True)
         self.runtime = dict(inputState='active', input=dict(faults=0, navigationHitAreaRepairs=1,
-                            mapNotificationHitAreaRepairs=1), repeat='ready', vehicle=dict(unknown=0), vehicleWinch=dict(status='active'),
+                            mapNotificationHitAreaRepairs=1), repeat='ready', vehicle=dict(unknown=0), vehicleWinch=dict(status='active'), truckSearch=dict(status='ready'),
                             native={key: dict(status='active') for key in
                                     ('skip_startup_logos', 'general_improvements', 'steering_wheel_improvements')},
                             menu=dict(zoomSensitivity=dict(status='active', zoomCalls=1),
@@ -96,6 +96,13 @@ class FeatureStatusTests(unittest.TestCase):
         self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'active')
         self.runtime['vehicle']['unknown'] = 1
         self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'error')
+
+    def test_search_health_is_independent_of_the_preference_and_reverse(self):
+        self.runtime['truckSearch']['enabled'] = False
+        self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'active')
+        self.runtime['truckSearch']['fault'] = 'Changed warehouse bytecode'
+        self.assertEqual(self.api.states(self.selected, self.runtime)['vehicle'], 'error')
+        self.assertEqual(self.api.states(self.selected, self.runtime)['map'], 'active')
 
     def test_vehicle_includes_winch_readiness_and_faults(self):
         self.runtime['vehicleWinch'] = None

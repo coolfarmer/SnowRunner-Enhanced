@@ -28,6 +28,8 @@ The player confirmed the preview.25 Vehicle option works in game.
 
 Under **ENHANCED → VEHICLE**, turn **Automatic reverse** off to keep a held brake from engaging reverse in AUTO. Select R to back up. The setting defaults to On and saves immediately.
 
+Under **ENHANCED → VEHICLE**, **Truck Storage search** shows or hides the live search field. It defaults to On and saves immediately. Turning it off clears the search and restores the original list layout.
+
 ## Enhancement #4 – General Improvements
 
 Preview.24 repeats Up or Down while held in Functions. Repetition starts after 420 ms and continues about every 140 ms until release. After restarting with preview.24 installed, the player confirmed continuous scrolling with both the keyboard and the controller D-pad. Steering wheel input still needs a separate test.

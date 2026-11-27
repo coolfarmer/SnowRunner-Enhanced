@@ -46,7 +46,9 @@ Disponible dans **Paramètres → ENHANCED → CARTE**.
 - **Votre moteur reste arrêté.** Correction des petits signaux du volant qui redémarraient le moteur après l’avoir arrêté au volant puis avoir fermé le menu Fonctions.
 - **Correction du treuil :** Correction des points de treuil manquants avec les longues remorques, permettant de sélectionner et d’accrocher les véhicules proches. Inclus dans les améliorations Vehicle; la portée du treuil reste inchangée.
 
-La marche arrière automatique se règle dans **Paramètres → ENHANCED → VÉHICULE**.
+- **Retrouvez rapidement vos camions stockés.** Filtrez la liste pendant la saisie, y compris les camions moddés. Le champ de recherche est activé par défaut et peut être masqué dans les paramètres Enhanced.
+
+La marche arrière automatique et la recherche dans le stockage de camions se règlent dans **Paramètres → ENHANCED → VÉHICULE**.
 
 ---
 

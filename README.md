@@ -46,7 +46,9 @@ Available under **Settings → ENHANCED → MAP**.
 - **Your engine stays off.** Fixed small wheel inputs restarting the engine after turning it off with the wheel and closing the Functions menu.
 - **Winch fix:** Fixed missing vehicle winch points when using long trailers, allowing nearby targets to be selected and connected. Included in Vehicle improvements; winch range remains unchanged.
 
-Automatic reverse is available under **Settings → ENHANCED → VEHICLE**.
+- **Find your stored trucks faster.** Search Truck Storage as you type, including modded trucks. The search field is enabled by default and can be hidden in the Enhanced settings.
+
+Automatic reverse and Truck Storage search are available under **Settings → ENHANCED → VEHICLE**.
 
 ---
 
