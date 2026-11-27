@@ -1,0 +1,66 @@
+SnowRunner Enhanced - four-group combined loading experiment
+
+ENGLISH
+Experimental variant fast-features-1d: ENHANCED plus Wheel/Mouse, Map,
+General Improvements and Vehicle Enhancements together. Skip Startup Logos
+and Steering Wheel Improvements (FFB) are forced off. Saved installer selections
+and preferences are preserved, including reverse, search and map settings.
+
+Restart completely and time Continue -> playable on the same save.
+Check ENHANCED: the four groups above should be active, logos and FFB inactive.
+Exercise wheel/mouse switching and menu navigation, map zoom/panning, held
+up/down repetition in Functions (including stopping on release), and Truck
+Storage search (type, clear, close/reopen). Check driving and winch operation
+where practical. The combined time must be measured; isolated times cannot
+simply be added because the groups share native gates.
+
+Approximate isolated references: menu only 30 s, Wheel/Mouse 30 s, Map 36 s,
+General Improvements 41 s, Vehicle Enhancements 42 s. No-interception control: 22 s.
+
+Report: SnowRunnerEnhanced.loading-diagnostic-fast-features-1d.status.json.
+Check current processId/timeUtc and buildMode=loading-diagnostic-fast-features-1d.
+components.vm_dispatch.fault should be null, entry should have 20 activeRegistrations
+and one fastReplacements, interior 12 activeRegistrations and one fastReplacements.
+The menu, zoom and panning should run without faults. functions_repeat should
+be ready, truckSearch ready and winch active. Logos and FFB must remain disabled.
+General Improvements becomes active after the guarded HUD archive content is read.
+
+Compatibility guards and specialized hooks remain in place. General Improvements
+uses archive-read interception even with logo skipping off, but logo edits remain
+disabled and the archive stays read-only. Automated tests do not establish full
+game or mod compatibility. Close SnowRunner before replacing the ASI; keep its
+previous backup outside the game's plugin folder for restoration if needed.
+
+FRANÇAIS
+Variante expérimentale fast-features-1d : ENHANCED avec volant/souris, carte,
+General Improvements et Vehicle Enhancements ensemble. Skip Startup Logos et
+Steering Wheel Improvements (FFB) sont forcés à l'arrêt. Les sélections de
+l'installateur et les préférences de marche arrière, recherche et carte sont
+conservées.
+
+Relancez complètement et chronométrez Continuer -> partie jouable sur la même
+sauvegarde. Dans ENHANCED, les quatre groupes ci-dessus doivent être actifs,
+les logos et le FFB inactifs. Vérifiez l'alternance volant/souris, la navigation
+dans les menus, le zoom/déplacement de carte, la répétition haut/bas dans
+Fonctions avec arrêt au relâchement, et la recherche du garage (saisie,
+effacement, fermeture/réouverture). Vérifiez conduite et treuil si possible.
+Le temps combiné reste à mesurer : les groupes partagent leurs branchements,
+donc leurs temps isolés ne s'additionnent pas simplement.
+
+Références isolées approximatives : menu seul 30 s, volant/souris 30 s, carte
+36 s, General Improvements 41 s, Vehicle Enhancements 42 s. Sans interception : 22 s.
+
+Rapport : SnowRunnerEnhanced.loading-diagnostic-fast-features-1d.status.json.
+Vérifiez processId/timeUtc et buildMode=loading-diagnostic-fast-features-1d.
+components.vm_dispatch.fault doit être null, entry doit avoir 20 activeRegistrations
+et un fastReplacements, interior 12 activeRegistrations et un fastReplacements.
+Menu, zoom et déplacement doivent fonctionner sans défaut. functions_repeat et
+truckSearch doivent être ready, le treuil active. Logos et FFB restent désactivés.
+General Improvements devient actif après lecture des éléments HUD contrôlés.
+
+Les contrôles de compatibilité et les interceptions spécifiques sont conservés.
+General Improvements intercepte la lecture d'archive même sans suppression des
+logos, mais les logos ne sont pas modifiés et l'archive reste en lecture seule.
+Les tests automatisés ne garantissent pas la compatibilité complète en jeu.
+Fermez SnowRunner avant remplacement de l'ASI ; conservez sa copie précédente
+hors du dossier des plugins pour restauration si nécessaire.

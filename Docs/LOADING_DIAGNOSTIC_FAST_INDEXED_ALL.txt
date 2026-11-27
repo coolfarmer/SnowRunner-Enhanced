@@ -1,0 +1,28 @@
+Experimental loading comparison / Comparaison experimentale du chargement
+
+English
+All six feature groups are enabled: wheel/mouse switching, Skip Startup Logos,
+map controls, General Improvements, Vehicle Enhancements and steering wheel
+force-feedback improvements. ENHANCED and the optimized VM filter are retained.
+Saved preferences are preserved; this diagnostic build forces all groups on.
+Compare the same save against the previous optimized variant without FFB
+(about 32 seconds on the test machine). Measure from Continue until the save
+is playable, separately from the skipped startup logos.
+Check the four previously tested groups, skipped logos and wheel force feedback.
+Synthetic callback tests do not verify the behavior of your physical wheel.
+The report is SnowRunnerEnhanced.loading-diagnostic-fast-features-3f-indexed.status.json.
+Close the game before replacing the ASI. Keep the previous ASI for rollback.
+
+Francais
+Les six groupes sont actifs : alternance volant/souris, Skip Startup Logos,
+carte, General Improvements, Vehicle Enhancements et ameliorations du retour
+de force du volant. ENHANCED et le filtre VM optimise sont conserves.
+Les preferences sont conservees ; cette variante impose tous les groupes actifs.
+Comparer la meme sauvegarde a la variante optimisee precedente sans FFB
+(environ 32 secondes sur la machine de test). Mesurer du clic sur Continuer
+jusqu'a la partie jouable, independamment des logos ignores au demarrage.
+Verifier les quatre groupes deja testes, les logos et le retour de force du volant.
+Les tests synthetiques ne valident pas le comportement de ton volant physique.
+Le rapport est SnowRunnerEnhanced.loading-diagnostic-fast-features-3f-indexed.status.json.
+Fermer le jeu avant de remplacer l'ASI. Conserver l'ASI precedent pour revenir
+en arriere.

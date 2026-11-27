@@ -1,0 +1,48 @@
+SnowRunner Enhanced - loading diagnostic, grouped menu
+
+ENGLISH
+Third experimental build. All optional enhancements are forced off. The core
+menu uses the same signature checks and nine method filters as the menu-only
+diagnostic, through one native interception instead of nine. The usual native
+descriptor caches and callback registration order are preserved.
+
+Compare Continue -> playable on the same save after a full restart. Prior user
+measurements: approximately 22 seconds without hooks, 77 seconds with the menu
+alone. Performance and visual behavior of this variant require in-game testing.
+
+Report: SnowRunnerEnhanced.loading-diagnostic-menu-grouped.status.json next to
+SnowRunner.exe. Check buildMode=loading-diagnostic-menu-grouped and the current
+processId/timeUtc. components.settings_menu must show running=true, fault=null,
+interception.nativeHooks=1, registrations=9 and activeRegistrations=9. All optional
+features remain disabled. The ENHANCED tab is available; its categories are inactive.
+
+Close the game before replacement. Back up the current ASI outside the game,
+then replace only SnowRunnerEnhanced.asi. Keep DLLs, other mods and configuration
+unchanged. Do not keep multiple Enhanced ASIs in the game's folders. Restore the
+original ASI after testing, with the game closed. Previous variants and reports
+can be kept separately. No installer or loader is included. Normal game actions
+can update the save; keep a separate save backup for comparison.
+
+FRANÇAIS
+Troisième version expérimentale. Toutes les améliorations sont forcées à l'arrêt.
+Le menu commun conserve les mêmes contrôles de signatures et neuf filtres de
+méthodes, avec une seule interception native au lieu de neuf. Les caches de
+descripteurs et l'ordre d'appel des rappels sont conservés.
+
+Comparez Continuer -> partie jouable, sur la même sauvegarde, après un redémarrage
+complet. Mesures précédentes rapportées : environ 22 secondes sans interceptions,
+77 secondes avec le menu seul. Performances et affichage restent à valider en jeu.
+
+Rapport : SnowRunnerEnhanced.loading-diagnostic-menu-grouped.status.json à côté
+de SnowRunner.exe. Vérifiez buildMode=loading-diagnostic-menu-grouped ainsi que
+le processId/timeUtc actuel. components.settings_menu doit indiquer running=true,
+fault=null, interception.nativeHooks=1, registrations=9 et activeRegistrations=9.
+Toutes les améliorations restent désactivées. L'onglet ENHANCED est disponible,
+avec ses catégories inactives.
+
+Fermez le jeu avant remplacement. Sauvegardez l'ASI actuel hors du jeu, puis
+remplacez uniquement SnowRunnerEnhanced.asi. Conservez DLL, autres mods et
+configuration. Ne laissez pas plusieurs ASI Enhanced dans les dossiers du jeu.
+Restaurez l'ASI d'origine après le test, jeu fermé. Les versions et rapports
+précédents peuvent être conservés séparément. Aucun installateur ni chargeur
+inclus. Le jeu peut sauvegarder vos actions : gardez une copie pour comparaison.

@@ -518,10 +518,11 @@ return {...stepperData,redraw,localeWords,pulse,updateFeatures,featuresDirty:()=
                 hooks.push(attach(framePush,poolSlot,guarded(capture),'UiOneSettingSliderGammaController','GetCurrentValue'));
                 hooks.push(attach(framePush,poolSlot,guarded(visit),'UiSettingsController','CreateData'));
                 zoom.start(framePush,poolSlot);panning.start(framePush,poolSlot);
+                if(attach.commit)attach.commit();
                 running=true;state='waiting-for-settings';
             }catch(e){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{panning.stop();}throw e;}
         },
-        status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0,zoomSensitivity:zoom.status(),panningSensitivity:panning.status(),keepNorthUp:{enabled:mapEnabled&&northUp,fault:northFault}};},
+        status(){return {enabled:true,status:state,running,installations,visits,fault,arenaBytes:plan?plan.bytes:0,zoomSensitivity:zoom.status(),panningSensitivity:panning.status(),keepNorthUp:{enabled:mapEnabled&&northUp,fault:northFault},...(attach.status?{interception:attach.status()}:{})};},
         stop(){for(const h of hooks)h.detach();Interceptor.flush();hooks=[];try{zoom.stop();}finally{try{panning.stop();}finally{try{restore();}finally{try{restoreLocale();}finally{restorePulse();}}running=false;state='stopped';}}}
     };
 }

@@ -28,7 +28,27 @@ def environment():
     return env
 
 
-def generate():
+def generate(*, loading_diagnostic=False, diagnostic_menu=False, diagnostic_grouped=False, diagnostic_empty=False, diagnostic_discovery_only=False, diagnostic_fast=False, diagnostic_features=0, diagnostic_indexed=False, diagnostic_prefixes=False):
+    if diagnostic_prefixes and not diagnostic_indexed:
+        raise ValueError('Native prefix filtering requires the indexed filter')
+    if diagnostic_indexed and not diagnostic_features:
+        raise ValueError('Indexed filtering requires the experimental shared dispatcher')
+    if not isinstance(diagnostic_features, int) or diagnostic_features < 0 or diagnostic_features > 63 or (diagnostic_features and not diagnostic_fast):
+        raise ValueError('Optional diagnostic features require the isolated fast dispatcher')
+    if diagnostic_fast and (not diagnostic_menu or diagnostic_grouped or diagnostic_empty):
+        raise ValueError('Fast native menu requires an isolated menu-only build')
+    if diagnostic_discovery_only and not diagnostic_empty:
+        raise ValueError('Discovery-only control requires the empty-probe bootstrap')
+    if diagnostic_empty and (not diagnostic_menu or diagnostic_grouped):
+        raise ValueError('Empty hook requires core discovery and cannot use the grouped dispatcher')
+    if diagnostic_grouped and not diagnostic_menu:
+        raise ValueError('Grouped hooks require the menu-only diagnostic')
+    if diagnostic_menu and not loading_diagnostic:
+        raise ValueError('The menu-only mode requires a diagnostic build')
+    fast = not loading_diagnostic or diagnostic_fast
+    shared = not loading_diagnostic or bool(diagnostic_features)
+    indexed = not loading_diagnostic or diagnostic_indexed
+    prefixes = not loading_diagnostic or diagnostic_prefixes
     BUILD.mkdir(parents=True, exist_ok=True)
     (ROOT / 'build/tmp').mkdir(parents=True, exist_ok=True)
     generate_steering_profile(BUILD / 'steering_profile.h')
@@ -76,10 +96,34 @@ def generate():
              (ROOT / 'src/feature_status.js').read_text(encoding='utf-8'),
              (ROOT / 'src/settings_menu.js').read_text(encoding='utf-8'),
              (ROOT / 'src/native/resolve.js').read_text(),
-             (ROOT / 'src/native/bootstrap.js').read_text()]
+             (ROOT / 'src/native/grouped_menu_hooks.js').read_text() if diagnostic_grouped else '',
+             (ROOT / 'src/native/fast_menu_hooks.js').read_text() if fast else '',
+             (ROOT / 'src/native/fast_vm_hooks.js').read_text() if shared else '',
+             'const ENHANCED_VM_INDEXED=true;' if indexed else '',
+             'const ENHANCED_VM_PREFIXES=true;' if prefixes else '',
+             'const ENHANCED_DISCOVERY_ONLY=true;' if diagnostic_discovery_only else '',
+             (ROOT / 'src/native/empty_menu_probe.js').read_text() if diagnostic_empty else '',
+             (ROOT / ('src/native/loading_diagnostic.js' if loading_diagnostic and not diagnostic_menu else 'src/native/bootstrap.js')).read_text()]
     source = '\n'.join(parts).encode('utf-8')
     # An unsigned byte array avoids MSVC's individual string literal limit.
-    (BUILD / 'bundle.h').write_text('static const char enhanced_bundle[] = {\n' +
+    diagnostic_defines = ''
+    if loading_diagnostic:
+        mode = 'menu-fast' if diagnostic_fast else 'discovery-only' if diagnostic_discovery_only else 'empty-hook' if diagnostic_empty else 'menu-grouped' if diagnostic_grouped else 'menu-only' if diagnostic_menu else 'no-hooks'
+        if diagnostic_features:
+            mode = f'fast-features-{diagnostic_features:02x}'
+            if diagnostic_indexed:
+                mode += '-indexed'
+            if diagnostic_prefixes:
+                mode += '-prefix'
+        report = 'loading-diagnostic-' + mode if diagnostic_menu else 'loading-diagnostic'
+        diagnostic_defines = ('#define ENHANCED_LOADING_DIAGNOSTIC 1\n'
+            f'#define ENHANCED_DIAGNOSTIC_FEATURES {diagnostic_features}\n'
+            f'#define ENHANCED_LOADING_DIAGNOSTIC_MODE "loading-diagnostic-{mode}"\n'
+            f'#define ENHANCED_LOADING_DIAGNOSTIC_REPORT L"SnowRunnerEnhanced.{report}.status"\n')
+    if fast:
+        diagnostic_defines += '#define ENHANCED_FAST_MENU 1\n'
+    (BUILD / 'bundle.h').write_text(diagnostic_defines +
+        'static const char enhanced_bundle[] = {\n' +
         ',\n'.join(','.join(str(b) for b in source[i:i+32]) for i in range(0, len(source), 32)) + ',0};\n')
 
 
@@ -97,7 +141,7 @@ def main():
               '/I' + str(BUILD), '/I' + str(ROOT / 'vendor/frida-gumjs')]
     libs = ['user32.lib', 'shell32.lib', 'ole32.lib', 'advapi32.lib']
     invoke([*common, '/LD', str(ROOT / 'src/native/plugin.c'), '/link', *libs, '/OUT:SnowRunnerEnhanced.asi', '/DYNAMICBASE', '/NXCOMPAT'])
-    invoke([*common, str(ROOT / 'tests/native/harness.c'), '/link', *libs, '/OUT:native-harness.exe', '/DYNAMICBASE', '/NXCOMPAT'])
+    invoke([*common, '/DENHANCED_FAST_MENU_TEST', str(ROOT / 'tests/native/harness.c'), '/link', *libs, '/OUT:native-harness.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([str(VC / 'bin/Hostx64/x64/ml64.exe'), '/nologo', '/c', '/Fosteering_fixture.obj', str(ROOT / 'tests/native/steering_fixture.asm')])
     invoke([*common, str(ROOT / 'tests/native/steering_host.c'), 'steering_fixture.obj', '/link', *libs, '/OUT:steering-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
     invoke([*common, str(ROOT / 'tests/native/settings_host.c'), '/link', *libs, '/OUT:settings-host.exe', '/DYNAMICBASE', '/NXCOMPAT'])
@@ -106,6 +150,7 @@ def main():
     invoke([*common, '/LD', str(ROOT / 'tests/native/companion.c'), '/link', '/OUT:companion.asi'])
     (BUILD / 'build.json').write_text(json.dumps({
         'version': '1.0.1', 'engine': 'GumJS 17.26.3 embedded',
+        'vmDispatch': 'indexed-prefix', 'featureSelection': 'configuration',
         'artifacts': {n: hashlib.sha256((BUILD / n).read_bytes()).hexdigest()
                       for n in ('SnowRunnerEnhanced.asi', 'native-harness.exe')},
         'v18Sources': {n: hashlib.sha256((ROOT / 'src' / n).read_bytes()).hexdigest()

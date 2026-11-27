@@ -9,6 +9,9 @@
 #include "startup.h"
 #include "settings.h"
 #include "steering.h"
+#ifdef ENHANCED_FAST_MENU
+#include "fast_menu.h"
+#endif
 
 static HMODULE self;
 static volatile LONG started;
@@ -19,6 +22,9 @@ static void WriteReport(const char *text, GumScript *script) {
     char *enriched = NULL;
     if (json_parser_load_from_data(parser, text, -1, NULL)) {
         JsonObject *root = json_node_get_object(json_parser_get_root(parser));
+#ifdef ENHANCED_LOADING_DIAGNOSTIC
+        json_object_set_string_member(root,"buildMode",ENHANCED_LOADING_DIAGNOSTIC_MODE);
+#endif
         json_object_set_string_member(root,"settingsPersistence",settings_state);
         JsonObject *features = json_object_get_object_member(root, "features");
         if (features) {
@@ -186,8 +192,13 @@ static void EnhancedStart(void) {
     wchar_t *slash = wcsrchr(folder, L'\\'), *name = wcsrchr(game, L'\\');
     if (!slash || !name || _wcsicmp(name + 1, L"SnowRunner.exe")) return;
     slash[1] = 0;
+#ifdef ENHANCED_LOADING_DIAGNOSTIC
+    swprintf_s(status_path, 32768, L"%ls%ls.json", folder, ENHANCED_LOADING_DIAGNOSTIC_REPORT);
+    swprintf_s(temp_path, 32768, L"%ls%ls.tmp", folder, ENHANCED_LOADING_DIAGNOSTIC_REPORT);
+#else
     swprintf_s(status_path, 32768, L"%lsSnowRunnerEnhanced.status.json", folder);
     swprintf_s(temp_path, 32768, L"%lsSnowRunnerEnhanced.status.tmp", folder);
+#endif
     // The static devkit needs GLib/GObject initialization before its JSON
     // parser can be used. This does not create any feature/game hooks.
     int enabled = configured_features;
@@ -240,7 +251,13 @@ __declspec(dllexport) void InitializeASI(void) {
             wchar_t *slash = n && n < 32768 ? wcsrchr(folder, L'\\') : NULL;
             if (slash) {
                 slash[1] = 0;
+#ifdef ENHANCED_LOADING_DIAGNOSTIC
+                // Build-only isolation: never change the player's saved selections.
+                // The generated bundle selects reporting only or the normal core menu.
+                configured_features = ENHANCED_DIAGNOSTIC_FEATURES;
+#else
                 configured_features = ReadConfiguration(folder);
+#endif
                 if (configured_features >= 0) {
                     if (configured_features & 32) SteeringInstall();
                     StartupInstall(folder);

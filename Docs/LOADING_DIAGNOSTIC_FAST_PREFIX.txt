@@ -1,0 +1,22 @@
+SnowRunner Enhanced — save loading experiment
+
+English
+This build filters script calls by the first two characters of the class name.
+The diagnostic-build.json file lists the feature groups forced on in this build.
+Close the game and back up the installed SnowRunnerEnhanced.asi outside the game
+folder before replacing it. Use the same save and restart the game for each run.
+Record the time from Continue until the first white progress bar appears, then
+the total time until the gameplay controls appear. Compare with the previous
+indexed build and with SnowRunner Enhanced disabled. The status report name is
+SnowRunnerEnhanced.<buildMode>.status.json, using buildMode from the JSON file.
+
+Français
+Cette variante filtre les appels de script selon les deux premiers caractères
+du nom de classe. Le fichier diagnostic-build.json indique les groupes activés
+de force. Fermer le jeu et sauvegarder le fichier SnowRunnerEnhanced.asi actuel
+hors du dossier du jeu avant de le remplacer. Utiliser la même sauvegarde et
+relancer le jeu entre chaque essai. Du clic sur Continuer, relever le délai
+avant l’apparition de la barre blanche, puis le temps total jusqu’à l’apparition
+des commandes du jeu. Comparer avec le filtre indexé précédent et avec
+SnowRunner Enhanced désactivé. Le rapport porte le nom
+SnowRunnerEnhanced.<buildMode>.status.json, avec la valeur buildMode du JSON.

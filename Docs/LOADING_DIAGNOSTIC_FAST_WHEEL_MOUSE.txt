@@ -1,0 +1,57 @@
+SnowRunner Enhanced - Wheel/Mouse only loading experiment
+
+ENGLISH
+Experimental variant fast-features-01: ENHANCED and Wheel/Mouse only.
+Map, Skip Startup Logos, General Improvements, Vehicle Enhancements and
+Steering Wheel Improvements (FFB) are forced off. Saved installer selections
+and preferences are preserved. This variant tests wheel/mouse interaction,
+not the separate FFB improvement group.
+
+Restart completely and time Continue -> playable on the same save.
+Check ENHANCED: only Wheel/Mouse should be active among the optional groups.
+Test switching between the wheel and mouse, menu navigation, and the displayed
+input hints. Map zoom/panning improvements should be inactive.
+Approximate references on the owner's save: no interception 22 s, fast menu
+only 30 s, fast menu plus Map 36 s. This variant's real-game time is unmeasured.
+
+Report: SnowRunnerEnhanced.loading-diagnostic-fast-features-01.status.json.
+Check current processId/timeUtc, buildMode=loading-diagnostic-fast-features-01,
+components.vm_dispatch.fault=null, entry with 10 activeRegistrations and one
+fastReplacements, interior with zero registrations and zero fastReplacements.
+The settings menu should be running without faults; wheel_mouse should be
+active with counters.faults=0. Every other feature should be disabled.
+
+The ten VM-entry observers share one fast native gate. Specialized wheel/mouse
+hooks and compatibility checks are retained. Automated checks do not establish
+support for a particular wheel, game version or mod combination.
+Close SnowRunner before replacing the ASI. Keep its backup outside the game's
+plugin folder; restore that ASI with the game closed to undo this experiment.
+
+FRANÇAIS
+Variante expérimentale fast-features-01 : ENHANCED et volant/souris uniquement.
+Carte, logos, améliorations générales, véhicules et améliorations du volant
+(FFB) sont forcés à l'arrêt. Les sélections de l'installateur et les préférences
+enregistrées sont conservées. Cette variante teste l'interaction volant/souris,
+pas le groupe distinct d'amélioration du retour de force.
+
+Relancez complètement et chronométrez Continuer -> partie jouable sur la même
+sauvegarde. Dans ENHANCED, seul Volant/souris doit être actif parmi les groupes
+facultatifs. Testez l'alternance volant/souris, la navigation dans les menus et
+les indications de commandes. Les améliorations de zoom/déplacement de carte
+doivent être inactives. Références approximatives sur la sauvegarde test :
+sans interception 22 s, menu corrigé seul 30 s, menu avec Carte 36 s.
+Le temps réel de cette variante reste à mesurer en jeu.
+
+Rapport : SnowRunnerEnhanced.loading-diagnostic-fast-features-01.status.json.
+Vérifiez processId/timeUtc, buildMode=loading-diagnostic-fast-features-01,
+components.vm_dispatch.fault=null, entry avec 10 activeRegistrations et un
+fastReplacements, interior sans inscription ni remplacement. Le menu doit
+fonctionner sans défaut ; wheel_mouse doit être actif avec counters.faults=0.
+Toutes les autres améliorations doivent être désactivées.
+
+Les dix observateurs d'entrée VM partagent un branchement natif rapide. Les
+interceptions spécifiques au volant/souris et les contrôles de compatibilité
+sont conservés. Les tests automatisés ne garantissent pas la compatibilité
+avec un volant, une version du jeu ou une combinaison de mods particuliers.
+Fermez SnowRunner avant remplacement de l'ASI. Conservez sa copie hors du
+dossier des plugins ; restaurez-la jeu fermé pour annuler cette expérience.

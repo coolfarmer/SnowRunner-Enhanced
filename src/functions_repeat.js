@@ -2,7 +2,7 @@
 
 // Drive repeats from SnowRunner's game thread using the vertical UI events that
 // the Functions adapter produced for this press. No physical bindings are assumed.
-function startFunctionsRepeat(profile) {
+function startFunctionsRepeat(profile, attach = hookHudHintUpdates) {
     const base = Process.mainModule.base;
     const pool = base.add(profile.stringPoolSlotRva);
     const scope = makeUiScope(pool, {});
@@ -29,7 +29,7 @@ function startFunctionsRepeat(profile) {
         };
     }
     function watch(cls, method, callback) {
-        hooks.push(hookHudHintUpdates(frame, pool, guarded(vm => callback(vm.add(0x18).readPointer())), cls, method, true));
+        hooks.push(attach(frame, pool, guarded(vm => callback(vm.add(0x18).readPointer())), cls, method, true));
     }
     function stop() {
         clear();

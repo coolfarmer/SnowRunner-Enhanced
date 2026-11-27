@@ -15,12 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NativeDevice:
-    def __init__(self):
+    def __init__(self, executable=None):
         self.process = None
         self.next_id = 0
+        self.executable = executable or ROOT / 'build/native/native-harness.exe'
 
     def spawn(self, _):
-        self.process = subprocess.Popen([ROOT / 'build/native/native-harness.exe'],
+        self.process = subprocess.Popen([self.executable],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding='utf-8', bufsize=1)
         self.lines = queue.Queue()

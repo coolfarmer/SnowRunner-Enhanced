@@ -1,0 +1,53 @@
+SnowRunner Enhanced - loading diagnostic, menu only
+
+ENGLISH
+Temporary comparison build, not a fix. The normal core signature discovery
+and ENHANCED menu hooks remain enabled. Every optional enhancement is forced
+off, regardless of the saved configuration. The menu's feature statuses should
+be inactive. Existing configuration and preferences are preserved.
+
+Compare the same save, after a full restart, against the no-hooks diagnostic.
+Time from Continue until the save is playable. The report does not time loading.
+This test isolates the core menu together with its discovery/initialization;
+it does not identify an individual hook or prove its performance cost.
+
+The report is SnowRunnerEnhanced.loading-diagnostic-menu-only.status.json,
+beside SnowRunner.exe. Check the current processId/timeUtc, buildMode equal to
+loading-diagnostic-menu-only, components.settings_menu.running equal to true,
+and all features disabled. waiting-for-settings is normal before opening
+the settings menu. Missing signatures leave the menu inactive, as usual.
+
+Close the game before replacing its ASI. Back up the existing ASI OUTSIDE
+the game folder, then replace only SnowRunnerEnhanced.asi with this file.
+Leave loaders, other mods, JSON configuration and saves unchanged. Never leave
+two Enhanced ASI copies in the game's folders. Close the game and restore
+the original ASI after testing. No installer or loader is included.
+The game can still save normal gameplay changes; keep a separate save backup.
+Automated host tests do not establish real-game performance.
+
+FRANÇAIS
+Version temporaire de comparaison, pas un correctif. La recherche de signatures
+et les interceptions du menu ENHANCED restent actives. Toutes les améliorations
+facultatives sont forcées à l'arrêt, quelle que soit la configuration sauvegardée.
+Les états des fonctionnalités doivent être inactifs dans le menu. La configuration
+et les préférences existantes sont conservées.
+
+Comparez la même sauvegarde, après un redémarrage complet du jeu, avec le diagnostic
+sans interceptions. Mesurez du clic sur Continuer jusqu'à la partie jouable.
+Le rapport ne mesure pas le chargement. Ce test isole le menu commun avec sa
+recherche de signatures et son initialisation, pas une interception précise.
+
+Le rapport SnowRunnerEnhanced.loading-diagnostic-menu-only.status.json se trouve
+à côté de SnowRunner.exe. Vérifiez le processId/timeUtc de la session actuelle,
+buildMode égal à loading-diagnostic-menu-only, components.settings_menu.running
+égal à true, et toutes les fonctionnalités désactivées. waiting-for-settings est
+normal avant l'ouverture des paramètres. Des signatures absentes laissent le
+menu inactif, comme dans la version normale.
+
+Fermez le jeu avant tout remplacement. Sauvegardez l'ASI existant HORS du dossier
+du jeu, puis remplacez uniquement SnowRunnerEnhanced.asi. Conservez les chargeurs,
+autres mods, configurations JSON et sauvegardes. Ne laissez jamais deux copies ASI
+d'Enhanced dans les dossiers du jeu. Après le test, fermez le jeu et restaurez
+l'ASI d'origine. Aucun installateur ni chargeur inclus. Le jeu peut toujours
+enregistrer vos actions : gardez une copie séparée de la sauvegarde.
+Les tests automatisés ne valident pas les performances en jeu.

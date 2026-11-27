@@ -1,0 +1,27 @@
+Experimental loading comparison / Comparaison experimentale du chargement
+
+English
+This variant keeps ENHANCED, wheel/mouse switching, map controls, General
+Improvements and Vehicle Enhancements enabled. Startup logos and steering
+wheel force-feedback improvements remain disabled. Saved preferences are preserved.
+It reduces repeated filtering of unrelated VM calls using known method identities
+and exact name matching. Rejected identities are not cached.
+Compare the same save against the previous four-group variant (about 53 seconds
+on the test machine). Synthetic measurements do not predict the game loading time.
+The status report is SnowRunnerEnhanced.loading-diagnostic-fast-features-1d-indexed.status.json.
+Verify map controls, wheel/mouse switching, Functions menu repeat and garage search.
+Close the game before replacing the ASI. Keep the previous ASI for rollback.
+
+Francais
+Cette variante conserve ENHANCED, l'alternance volant/souris, les commandes de
+carte, General Improvements et Vehicle Enhancements. Les logos et les
+ameliorations du retour de force restent desactives. Les preferences sont conservees.
+Elle reduit les recherches repetees pour les appels VM sans rapport avec les
+ameliorations. Les identites rejetees ne sont pas memorisees.
+Comparer la meme sauvegarde a la variante precedente avec les quatre groupes
+(environ 53 secondes sur la machine de test). Les mesures synthetiques ne
+permettent pas de predire le temps de chargement du jeu.
+Le rapport est SnowRunnerEnhanced.loading-diagnostic-fast-features-1d-indexed.status.json.
+Verifier la carte, l'alternance volant/souris, la repetition du menu Fonctions
+et la recherche du garage. Fermer le jeu avant remplacement de l'ASI.
+Conserver l'ASI precedent pour pouvoir revenir en arriere.

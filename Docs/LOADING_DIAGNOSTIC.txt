@@ -1,0 +1,55 @@
+SnowRunner Enhanced - loading diagnostic (no hooks)
+
+ENGLISH
+This is a temporary diagnostic build, not a fix. All enhancements and the
+ENHANCED tab are disabled regardless of your saved options. The embedded
+runtime and a status report every two seconds remain active. Signature
+discovery is also skipped, so a faster load isolates this disabled group,
+not a particular hook. Your existing configuration and preferences are preserved.
+The report does not measure save loading time; time it manually.
+
+For a later manual test (this package does not install itself):
+1. Close SnowRunner. Keep a separate backup of the save used for comparison.
+2. Copy your current SnowRunnerEnhanced.asi to a backup folder OUTSIDE the game.
+3. Replace only SnowRunnerEnhanced.asi beside SnowRunner.exe with this one.
+   Keep its exact name. Do not leave another .asi copy in the game's folders.
+   Keep all DLL loaders, other mods and JSON configuration files unchanged.
+4. Launch the game, select Continue and time until the save is playable.
+   Use the same save state and a full game restart for each comparison.
+5. Check SnowRunnerEnhanced.loading-diagnostic.status.json beside the ASI:
+   buildMode must be loading-diagnostic-no-hooks, with the current processId
+   and timeUtc. All features and settings_menu must report disabled.
+6. Close the game and restore the original ASI from your backup.
+   The diagnostic status file may remain; the regular build does not use it.
+
+No installer or loader DLL is included. No game/save files are patched by this
+build. Normal game actions may still update your save. In-game timing remains
+unvalidated. Automated checks only cover isolated loading and report behavior.
+
+FRANCAIS
+Version temporaire de diagnostic, pas un correctif. Toutes les ameliorations
+et l'onglet ENHANCED sont desactives, quelles que soient vos options sauvegardees.
+Le moteur embarque et un rapport toutes les deux secondes restent actifs.
+La recherche de signatures est aussi ignoree : un chargement plus rapide
+isolerait cet ensemble desactive, pas une interception precise. La configuration
+et les preferences existantes sont conservees. Chronometrez manuellement :
+le rapport ne mesure pas la duree de chargement de la sauvegarde.
+
+Pour un essai manuel ulterieur (ce paquet ne s'installe pas automatiquement) :
+1. Fermez SnowRunner. Gardez une copie separee de la sauvegarde de comparaison.
+2. Copiez votre SnowRunnerEnhanced.asi actuel dans un dossier HORS du jeu.
+3. Remplacez uniquement SnowRunnerEnhanced.asi, a cote de SnowRunner.exe.
+   Gardez ce nom exact. Ne laissez pas de seconde copie .asi dans les dossiers
+   du jeu. Conservez les DLL, les autres mods et les fichiers JSON existants.
+4. Relancez, cliquez sur Continuer et mesurez jusqu'a ce que la partie soit
+   jouable. Comparez le meme etat de sauvegarde en relancant completement le jeu.
+5. Verifiez SnowRunnerEnhanced.loading-diagnostic.status.json a cote de l'ASI :
+   buildMode doit etre loading-diagnostic-no-hooks, avec le processId et le
+   timeUtc de la session actuelle. Les fonctions et settings_menu sont disabled.
+6. Fermez le jeu et remettez l'ASI d'origine depuis votre copie.
+   Le rapport de diagnostic peut rester : la version normale ne l'utilise pas.
+
+Aucun installateur ni chargeur DLL inclus. Cette version ne modifie aucun
+fichier du jeu ni de sauvegarde. Le jeu peut toujours sauvegarder vos actions.
+Le temps de chargement en jeu reste a valider. Les tests automatises couvrent
+uniquement le chargement isole du plugin et le fonctionnement du rapport.

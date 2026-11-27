@@ -107,6 +107,7 @@ function stop() {
 }
 
 function install(b) {
+    const attachVm = b.attachVm || hookHudHintUpdates;
     if (active) throw new Error('Already installed');
     const values = Object.values(b.ids);
     if (values.some(v => !Number.isInteger(v) || v <= 0 || v > 0xffffffff) ||
@@ -200,7 +201,7 @@ function install(b) {
     try {
         if (b.hudHintFramePush && CONFIG.features?.map !== false) {
             navigationHitAreaFix = makeNavButtonHitAreaFix(b.stringPoolSlot);
-            navigationHitAreaHook = hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (_vm, fn) => {
+            navigationHitAreaHook = attachVm(b.hudHintFramePush, b.stringPoolSlot, (_vm, fn) => {
                 if (mode === 'ui-mouse-priority' && navigationHitAreaFix.apply(fn)) {
                     navigationHitAreaRepairs++;
                     emit({kind:'navigation-hit-area-repair'});
@@ -208,7 +209,7 @@ function install(b) {
             }, 'NavButtonView', 'Show');
             listeners.push(navigationHitAreaHook);
             mapNotificationHitAreaFix = makeMapNotificationHitAreaFix(b.stringPoolSlot);
-            listeners.push(hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (_vm, fn) => {
+            listeners.push(attachVm(b.hudHintFramePush, b.stringPoolSlot, (_vm, fn) => {
                 if (mode === 'ui-mouse-priority' && mapNotificationHitAreaFix.apply(fn)) {
                     mapNotificationHitAreaRepairs++;
                     emit({kind: 'map-notification-hit-area-repaired'});
@@ -250,7 +251,7 @@ function install(b) {
         }
         if (CONFIG.features?.wheel_mouse !== false) {
         if (b.hudHintFramePush) {
-            hudHintHook = hookHudHintUpdates(b.hudHintFramePush, b.stringPoolSlot, (vm, fn) => {
+            hudHintHook = attachVm(b.hudHintFramePush, b.stringPoolSlot, (vm, fn) => {
                 try {
                     if (mode !== 'ui-mouse-priority') return;
                     hudHintChecks++;
@@ -686,7 +687,7 @@ function install(b) {
     } catch (e) { stop(); throw e; }
 }
 
-function startGame() {
+function startGame(attachVm = hookHudHintUpdates) {
     if (CONFIG.test) throw new Error('Test agent cannot attach to game');
     if (Process.arch !== 'x64' || Process.platform !== 'windows') throw new Error('Windows x64 required');
     const game = Process.mainModule;
@@ -700,7 +701,7 @@ function startGame() {
     }
     const ids = Object.fromEntries(Object.entries(CONFIG.profile.ids)
         .map(([name, rva]) => [name, game.base.add(rva).readU32()]));
-    return install({selector: game.base.add(CONFIG.profile.selectorRva),
+    return install({attachVm, selector: game.base.add(CONFIG.profile.selectorRva),
         uiCallback: game.base.add(CONFIG.profile.uiCallbackRva), ids,
         uiGetter: game.base.add(CONFIG.profile.uiGetterSiteRva),
         stringPoolSlot: game.base.add(CONFIG.profile.stringPoolSlotRva),

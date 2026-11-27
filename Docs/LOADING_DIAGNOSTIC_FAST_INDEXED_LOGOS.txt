@@ -1,0 +1,29 @@
+Experimental loading comparison / Comparaison experimentale du chargement
+
+English
+This variant retains the optimized VM filter from the four-group variant.
+Enabled: ENHANCED, wheel/mouse switching, map controls, General Improvements,
+Vehicle Enhancements and Skip Startup Logos.
+Disabled: steering wheel force-feedback improvements.
+Saved preferences are preserved; this diagnostic build forces the selection above.
+Compare the same save against the previous optimized four-group variant
+(about 33 seconds on the test machine). Measure from Continue until the save
+is playable, separately from the skipped startup logos.
+Verify the logos are skipped and the four groups still work.
+The report is SnowRunnerEnhanced.loading-diagnostic-fast-features-1f-indexed.status.json.
+Close the game before replacing the ASI. Keep the previous ASI for rollback.
+Automated tests do not replace this in-game comparison.
+
+Francais
+Cette variante conserve le filtre VM optimise de la variante a quatre groupes.
+Actifs : ENHANCED, alternance volant/souris, carte, General Improvements,
+Vehicle Enhancements et Skip Startup Logos.
+Desactivees : ameliorations du retour de force du volant.
+Les preferences sont conservees ; cette variante impose la selection ci-dessus.
+Comparer la meme sauvegarde a la variante optimisee precedente
+(environ 33 secondes sur la machine de test). Mesurer du clic sur Continuer
+jusqu'a la partie jouable, independamment des logos ignores au demarrage.
+Verifier que les logos sont ignores et que les quatre groupes fonctionnent.
+Le rapport est SnowRunnerEnhanced.loading-diagnostic-fast-features-1f-indexed.status.json.
+Fermer le jeu avant de remplacer l'ASI. Conserver l'ASI precedent pour revenir
+en arriere. Les tests automatises ne remplacent pas cette comparaison en jeu.

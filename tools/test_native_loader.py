@@ -88,6 +88,20 @@ def run_case(name, config, expected, delay=2200, wrong_name=False, synthetic=Fal
                 if map_state is not None:
                     assert status['features']['map']['status'] == map_state, status
                 if synthetic and input_compatible:
+                    dispatch = status['components']['vm_dispatch']
+                    assert dispatch['committed'] and dispatch['fault'] is None, dispatch
+                    assert 'buildMode' not in status, status
+                    selected_features = status['features']
+                    entry_count = 9 + int(selected_features['wheel_mouse']['enabled']) + 10 * int(selected_features['map']['enabled'])
+                    interior_count = 6 * (int(selected_features['general_improvements']['enabled']) + int(selected_features['vehicle']['enabled']))
+                    for phase, count in (('entry', entry_count), ('interior', interior_count)):
+                        observer = dispatch[phase]
+                        assert observer['registrations'] == observer['activeRegistrations'] == count, observer
+                        assert observer['nativeHooks'] == 0, observer
+                        assert observer['fastReplacements'] == int(count > 0), observer
+                        assert observer['filter'] == 'native-class-prefix-and-name-trie', observer
+                    assert 'functionsPanel' not in dispatch['interior'], dispatch
+                    assert 'truckStorage' not in dispatch['interior'], dispatch
                     core = status['components']['settings_menu']
                     assert core['enabled'] and core['running'], status
                     assert core['status'] == 'waiting-for-settings' and core['fault'] is None, status
@@ -147,6 +161,13 @@ if __name__ == '__main__':
     (ROOT / 'build/tests').mkdir(exist_ok=True)
     verify()
     test_running_game_guard()
+    features = ('wheel_mouse', 'skip_startup_logos', 'map', 'general_improvements',
+                'vehicle', 'steering_wheel_improvements')
+    for mask in (0, 1, 2, 4, 8, 16, 32, 63):
+        configuration = {'schemaVersion': 1, 'features': {
+            name: {'enabled': bool(mask & (1 << index))} for index, name in enumerate(features)}}
+        run_case('indexed-prefix module mask ' + str(mask), configuration,
+                 'active' if mask & 1 else 'disabled', delay=4600, synthetic=True, steering=True)
     for loader in LOADERS:
         run_case('shared loader ' + loader['version'] + ' ' + loader.get('variant', 'pinned'),
                  {'schemaVersion': 1, 'features': {'wheel_mouse': {'enabled': True}}},

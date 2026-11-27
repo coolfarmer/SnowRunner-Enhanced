@@ -1,0 +1,59 @@
+SnowRunner Enhanced - General Improvements only loading experiment
+
+ENGLISH
+Experimental variant fast-features-08: ENHANCED and General Improvements only.
+Wheel/Mouse, Map, Skip Startup Logos, Vehicle Enhancements and Steering Wheel
+Improvements are forced off. Saved installer selections and preferences remain
+intact. General Improvements still uses its guarded archive-read interception,
+even though Skip Startup Logos is off; logo edits remain disabled.
+
+Restart completely and time Continue -> playable on the same save.
+Check ENHANCED: only General Improvements should be active among optional groups.
+In the Functions menu, hold the up/down navigation control and check repetition,
+then release it and close/reopen the menu to confirm repetition stops correctly.
+Approximate references: no interception 22 s, fast menu only 30 s, fast menu with
+Wheel/Mouse 30 s, fast menu with Map 36 s. This variant's game time is unmeasured.
+
+Report: SnowRunnerEnhanced.loading-diagnostic-fast-features-08.status.json.
+Check current processId/timeUtc, buildMode=loading-diagnostic-fast-features-08,
+components.vm_dispatch.fault=null, entry with nine activeRegistrations and one
+fastReplacements, interior with six activeRegistrations and one fastReplacements.
+components.functions_repeat.status should be ready. The settings menu should
+run without faults. General Improvements should become active when the guarded
+HUD archive content has been read; the other five groups must remain disabled.
+
+Both VM observer phases use fast native gates. Specialized Functions hooks and
+archive compatibility checks remain in place. The archive is read-only; only
+the completed read buffers are patched. Synthetic tests do not establish game
+or mod compatibility. Close SnowRunner before replacing the ASI; keep the previous
+ASI backup outside the plugin folder and restore it with the game closed if needed.
+
+FRANÇAIS
+Variante expérimentale fast-features-08 : ENHANCED et General Improvements seuls.
+Volant/souris, carte, logos, véhicules et améliorations du volant sont forcés
+à l'arrêt. Les sélections de l'installateur et les préférences sont conservées.
+General Improvements utilise toujours son interception contrôlée de lecture
+d'archive, même avec Skip Startup Logos désactivé ; les logos ne sont pas modifiés.
+
+Relancez complètement et chronométrez Continuer -> partie jouable sur la même
+sauvegarde. Dans ENHANCED, seul General Improvements doit être actif parmi les
+groupes facultatifs. Dans le menu Fonctions, maintenez la commande haut/bas pour
+vérifier la répétition, puis relâchez-la et fermez/rouvrez le menu pour vérifier
+son arrêt. Références approximatives : sans interception 22 s, menu corrigé seul
+30 s, menu avec volant/souris 30 s, menu avec carte 36 s. Le temps de cette variante
+reste à mesurer en jeu.
+
+Rapport : SnowRunnerEnhanced.loading-diagnostic-fast-features-08.status.json.
+Vérifiez processId/timeUtc, buildMode=loading-diagnostic-fast-features-08,
+components.vm_dispatch.fault=null, entry avec neuf activeRegistrations et un
+fastReplacements, interior avec six activeRegistrations et un fastReplacements.
+components.functions_repeat.status doit être ready et le menu sans défaut.
+General Improvements doit devenir actif après lecture des éléments HUD contrôlés
+dans l'archive ; les cinq autres groupes doivent rester désactivés.
+
+Les deux phases d'observation VM utilisent des branchements natifs rapides.
+Les interceptions spécifiques au menu Fonctions et les contrôles d'archive sont
+conservés. L'archive reste en lecture seule ; seuls les buffers des lectures
+terminées sont modifiés. Les tests synthétiques ne garantissent pas la compatibilité
+en jeu. Fermez SnowRunner avant remplacement de l'ASI ; gardez sa copie précédente
+hors du dossier des plugins et restaurez-la jeu fermé si nécessaire.

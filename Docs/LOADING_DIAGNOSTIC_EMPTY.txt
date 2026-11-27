@@ -1,0 +1,53 @@
+SnowRunner Enhanced - loading diagnostic, empty native interception
+
+ENGLISH
+Fourth experimental build. Same core signature discovery, validation and VM
+entry as the menu-only/grouped tests. One native onEnter callback immediately
+returns: no VM reads, filters, counters, menu callbacks or JavaScript transitions.
+All enhancements and the ENHANCED tab are disabled. Periodic reporting remains.
+
+Report: SnowRunnerEnhanced.loading-diagnostic-empty-hook.status.json beside
+SnowRunner.exe. Check current processId/timeUtc and buildMode equal to
+loading-diagnostic-empty-hook. components.settings_menu must be disabled, with
+interception.mode=empty, nativeHooks=1 and filters=0. Missing signatures leave
+the probe unattached. This test is not valid unless nativeHooks equals 1.
+
+Restart the game fully and time Continue -> playable on the same save.
+Previous approximate user measurements: no hooks 22 s, menu only 77 s,
+grouped menu 66 s. This test separates callback work from the remaining
+interception/discovery cost; it does not measure discovery alone. Results need
+repeated comparisons before attributing small differences to a code change.
+
+Close the game before replacing only SnowRunnerEnhanced.asi. Keep the previous
+ASI outside game folders, and preserve loaders, other mods, configuration and
+preferences. Never keep multiple Enhanced ASIs in the game's folders. Restore
+the original ASI after testing, with the game closed. No installer/loader is
+included. Normal gameplay may save changes; retain a separate comparison save.
+Automated validation does not establish real-game loading performance.
+
+FRANÇAIS
+Quatrième version expérimentale. Même recherche de signatures, mêmes contrôles
+et même point d'entrée que les essais du menu. Une interception native retourne
+immédiatement : aucune lecture de la VM, aucun filtre, compteur, rappel de menu
+ou passage vers JavaScript. Les améliorations et l'onglet ENHANCED sont désactivés.
+Le rapport périodique reste actif.
+
+Rapport : SnowRunnerEnhanced.loading-diagnostic-empty-hook.status.json à côté
+de SnowRunner.exe. Vérifiez le processId/timeUtc actuel et buildMode égal à
+loading-diagnostic-empty-hook. components.settings_menu doit être disabled,
+avec interception.mode=empty, nativeHooks=1 et filters=0. Des signatures absentes
+empêchent l'interception. Le test n'est valide que si nativeHooks vaut 1.
+
+Relancez complètement le jeu et mesurez Continuer -> partie jouable sur la même
+sauvegarde. Mesures approximatives précédentes : 22 s sans interceptions,
+77 s avec le menu seul, 66 s avec le menu regroupé. Ce test sépare le travail
+du rappel du coût restant d'interception et de découverte ; il ne mesure pas
+la découverte seule. Répétez les comparaisons avant d'attribuer de petits écarts
+à une modification du code.
+
+Fermez le jeu avant de remplacer uniquement SnowRunnerEnhanced.asi. Conservez
+l'ASI précédent hors des dossiers du jeu, ainsi que les chargeurs, autres mods,
+configuration et préférences. Ne laissez jamais plusieurs ASI Enhanced dans
+les dossiers du jeu. Restaurez l'original après les essais, jeu fermé.
+Aucun installateur ni chargeur inclus. Le jeu peut sauvegarder vos actions :
+gardez une copie séparée pour comparer. Les performances en jeu restent à valider.

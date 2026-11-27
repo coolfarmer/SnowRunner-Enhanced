@@ -1,0 +1,59 @@
+SnowRunner Enhanced - Vehicle Enhancements only loading experiment
+
+ENGLISH
+Experimental variant fast-features-10: ENHANCED and Vehicle Enhancements only.
+Wheel/Mouse, Map, Skip Startup Logos, General Improvements and Steering Wheel
+Improvements are forced off. Saved installer selections and preferences remain
+intact, including Automatic Reverse and Truck Storage Search.
+
+Restart completely and time Continue -> playable on the same save.
+In ENHANCED, only Vehicle should be active among optional groups. Check search
+in Truck Storage: type a truck name, clear it, then close and reopen the garage
+list. Check driving/reverse behavior according to the saved Automatic Reverse
+setting, and winch selection/attachment if a suitable trailer is available.
+Approximate references: fast menu alone 30 s, Wheel/Mouse alone 30 s, Map alone
+36 s, General Improvements alone 41 s. Vehicle loading time is unmeasured.
+
+Report: SnowRunnerEnhanced.loading-diagnostic-fast-features-10.status.json.
+Check current processId/timeUtc, buildMode=loading-diagnostic-fast-features-10,
+components.vm_dispatch.fault=null; entry must have nine activeRegistrations
+and one fastReplacements, interior six activeRegistrations and one fastReplacements.
+The menu should run without faults. vehicle.status should be active,
+vehicle.truckSearch.status ready and vehicle.winch.status active, with null faults.
+functions_repeat must be disabled, along with all five other optional groups.
+
+The six interior observers preserve the original Truck Storage observation
+point after the two register loads. Other specialized vehicle hooks and all
+signature/bytecode guards remain in place. Synthetic tests do not establish
+game or mod compatibility. Close SnowRunner before replacing the ASI; keep its
+previous backup outside the game's plugin folder for restoration if needed.
+
+FRANÇAIS
+Variante expérimentale fast-features-10 : ENHANCED et Vehicle Enhancements seuls.
+Volant/souris, carte, logos, améliorations générales et améliorations du volant
+sont forcés à l'arrêt. Les sélections de l'installateur et les préférences sont
+conservées, notamment la marche arrière automatique et la recherche du garage.
+
+Relancez complètement et chronométrez Continuer -> partie jouable sur la même
+sauvegarde. Dans ENHANCED, seul Véhicules doit être actif parmi les groupes
+facultatifs. Testez la recherche dans le stockage du garage : saisissez un nom,
+effacez-le, puis fermez et rouvrez la liste. Vérifiez la conduite et la marche
+arrière selon le réglage enregistré, ainsi que la sélection/l'attachement du
+treuil si une remorque adaptée est disponible. Références approximatives : menu
+seul 30 s, volant/souris seuls 30 s, carte seule 36 s, améliorations générales
+seules 41 s. Le chargement avec Véhicules reste à mesurer.
+
+Rapport : SnowRunnerEnhanced.loading-diagnostic-fast-features-10.status.json.
+Vérifiez processId/timeUtc, buildMode=loading-diagnostic-fast-features-10,
+components.vm_dispatch.fault=null ; entry doit avoir neuf activeRegistrations
+et un fastReplacements, interior six activeRegistrations et un fastReplacements.
+Le menu doit fonctionner sans défaut. vehicle.status doit être active,
+vehicle.truckSearch.status ready et vehicle.winch.status active, sans défaut.
+functions_repeat et les cinq autres groupes facultatifs doivent être désactivés.
+
+Les six observateurs intérieurs conservent le point d'observation original de
+la recherche du garage après les deux lectures de registres. Les interceptions
+spécifiques aux véhicules et les contrôles de signatures/bytecode sont conservés.
+Les tests synthétiques ne garantissent pas la compatibilité en jeu. Fermez
+SnowRunner avant remplacement de l'ASI ; gardez sa copie précédente hors du
+dossier des plugins pour pouvoir la restaurer si nécessaire.

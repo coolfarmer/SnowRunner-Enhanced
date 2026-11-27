@@ -1,0 +1,69 @@
+SnowRunner Enhanced - experimental native menu gate
+
+ENGLISH
+Experimental correction, not a general release. The ENHANCED menu remains
+available, while every optional enhancement is forced off. Signature checks
+and menu bytecode compatibility guards remain in place.
+
+A direct x64 gate replaces the VM entry using Gum's fast replacement API.
+The native filter calls JavaScript only for the nine registered menu methods.
+The gate preserves volatile integer registers, flags, Windows x64 SSE argument
+registers and the original stack before jumping to the original trampoline.
+Installation publishes that trampoline inside a native transaction. A changed
+entry is rejected. This path is restricted to Windows x64 and this validated
+VM entry. It is not an implementation for arbitrary calling conventions.
+Thread-local suppression preserves the previous behavior for recursive calls
+made by a menu callback. Win32 last-error values are preserved as well.
+
+Disabling the menu disarms its callbacks; the native forwarding gate and all
+its allocations stay alive until process exit. Close the game before removing
+or restoring the ASI. This avoids freeing code that another thread may use.
+
+Report: SnowRunnerEnhanced.loading-diagnostic-menu-fast.status.json, beside
+SnowRunner.exe. Verify current processId/timeUtc and buildMode equal to
+loading-diagnostic-menu-fast. components.settings_menu should show running=true,
+fault=null and interception: mode=fast-native, registrations=9,
+activeRegistrations=9, nativeHooks=0, fastReplacements=1. All features are disabled.
+
+Restart completely, time Continue -> playable on the same save, then open
+ENHANCED and check the tab and inactive feature statuses. Prior approximate
+timings: discovery only 22 s, empty interception 62 s, grouped menu 66 s.
+Synthetic performance measurements do not establish the loading time in-game.
+native-benchmark.json records three samples per case in nanoseconds per call,
+including cold/cached filters and installation while a native worker is calling.
+Preserve the loader, other mods, configuration and a separate save backup.
+Restore the backed-up original ASI with the game closed after the experiment.
+
+FRANÇAIS
+Correctif expérimental, pas une version générale. Le menu ENHANCED reste disponible,
+avec toutes les améliorations facultatives forcées à l'arrêt. Les contrôles de
+signatures et de compatibilité du bytecode du menu sont conservés.
+
+Un branchement natif x64 remplace l'entrée de la VM par le mécanisme rapide de Gum.
+Le filtrage natif n'appelle JavaScript que pour les neuf méthodes du menu.
+Le branchement préserve les registres entiers volatils, les drapeaux, les registres
+SSE d'arguments Windows x64 et la pile avant de rejoindre le code d'origine.
+L'installation publie ce chemin d'origine dans une transaction native. Une entrée
+modifiée est refusée. Ce mécanisme est limité à Windows x64 et à cette entrée VM
+vérifiée, sans prétendre couvrir toutes les conventions d'appel possibles.
+Une garde propre à chaque thread conserve le comportement des appels récursifs
+depuis un rappel du menu. La dernière erreur Win32 est également préservée.
+
+L'arrêt du menu désarme ses rappels ; le branchement de transfert et
+ses allocations restent vivants jusqu'à la fermeture du processus pour éviter
+de libérer du code encore utilisé par un thread. Fermez le jeu avant restauration.
+
+Rapport : SnowRunnerEnhanced.loading-diagnostic-menu-fast.status.json à côté de
+SnowRunner.exe. Vérifiez processId/timeUtc, buildMode=loading-diagnostic-menu-fast,
+components.settings_menu.running=true et fault=null. interception doit indiquer
+mode=fast-native, registrations=9, activeRegistrations=9, nativeHooks=0 et
+fastReplacements=1. Toutes les améliorations sont désactivées.
+
+Relancez complètement, mesurez Continuer -> partie jouable sur la même sauvegarde,
+puis ouvrez ENHANCED pour vérifier l'onglet et ses états inactifs. Temps approximatifs
+précédents : découverte seule 22 s, interception vide 62 s, menu regroupé 66 s.
+Les mesures synthétiques ne valident pas le chargement en jeu.
+Le fichier native-benchmark.json conserve trois mesures par cas en ns par appel,
+avec/sans cache, ainsi qu'un contrôle d'installation pendant des appels natifs.
+Conservez chargeurs, autres mods, configuration et une copie de sauvegarde séparée. Restaurez l'ASI
+d'origine sauvegardé après l'expérience, jeu fermé.

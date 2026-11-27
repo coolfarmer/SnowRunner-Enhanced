@@ -1,0 +1,59 @@
+SnowRunner Enhanced - progressive optional-feature experiment
+
+ENGLISH
+This is an experimental build, not a general release. diagnostic-build.json
+lists the exact forcedFeatures for this package. Saved installer selections
+are preserved; only the groups marked true run in this build.
+
+The first variant (fast-features-04) enables Map Improvements only, together
+with the core ENHANCED tab. Wheel/Mouse, Skip Startup Logos, General Improvements,
+Vehicle Enhancements and Steering Wheel Improvements remain disabled.
+
+Restart completely. Time Continue -> playable on the same save, then check
+ENHANCED, map navigation, zoom and panning. The menu-only fast build took about
+30 seconds on the owner's test save, against 22 seconds without interception.
+Only change one group between comparisons. Real-game results for the optional
+features remain to be confirmed; synthetic tests do not establish compatibility.
+
+Report: SnowRunnerEnhanced.loading-diagnostic-fast-features-04.status.json.
+Check the current process/time, components.vm_dispatch.fault=null, entry with
+19 activeRegistrations and one fastReplacements, interior with zero registrations.
+The menu and its zoom/panning components should be running without faults.
+Only Map should be active among the optional groups.
+
+Entry observers share one native filter. General Improvements and Truck Storage
+Search use a separate interior filter that preserves their callee-argument phase.
+Other specialized native hooks and all compatibility guards remain in place.
+Disabling a subscriber does not disable the other users of the same gate.
+Gates and callbacks stay allocated until process exit. Close SnowRunner before
+replacing the ASI. Keep the previous ASI backup outside the game's plugin folder.
+
+FRANÇAIS
+Version expérimentale, pas une version générale. Le champ forcedFeatures dans
+diagnostic-build.json indique les groupes actifs dans ce paquet. Les choix
+enregistrés par l'installateur sont conservés ; seuls les groupes à true tournent.
+
+La première variante (fast-features-04) active uniquement les améliorations de
+carte, avec l'onglet ENHANCED. Volant/souris, logos, améliorations générales,
+véhicules et améliorations du volant restent désactivés.
+
+Relancez complètement. Chronométrez Continuer -> partie jouable sur la même
+sauvegarde, puis vérifiez ENHANCED, la navigation sur la carte, le zoom et le
+déplacement. Le menu seul corrigé prenait environ 30 secondes sur la sauvegarde
+test du propriétaire, contre 22 secondes sans interception. Ne changez qu'un
+groupe à la fois. Les améliorations facultatives restent à valider en jeu ;
+les tests synthétiques ne suffisent pas à garantir la compatibilité.
+
+Rapport : SnowRunnerEnhanced.loading-diagnostic-fast-features-04.status.json.
+Vérifiez le processus et l'heure, components.vm_dispatch.fault=null, entry avec
+19 activeRegistrations et un fastReplacements, interior sans inscription.
+Le menu, le zoom et le déplacement doivent fonctionner sans défaut.
+Seul le groupe Carte doit être actif parmi les améliorations facultatives.
+
+Les observateurs d'entrée partagent un filtre natif. General Improvements et la
+recherche du garage utilisent un filtre intérieur distinct qui conserve leur
+accès aux arguments de la méthode appelée. Les autres interceptions natives
+spécifiques et les contrôles de compatibilité sont conservés. Arrêter un abonné
+n'arrête pas les autres utilisateurs du même branchement. Code et rappels
+restent alloués jusqu'à la fermeture du jeu. Fermez SnowRunner avant remplacement
+de l'ASI et conservez sa copie précédente hors du dossier des plugins du jeu.

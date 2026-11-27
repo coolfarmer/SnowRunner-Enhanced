@@ -1,0 +1,52 @@
+SnowRunner Enhanced - loading diagnostic, discovery only
+
+ENGLISH
+Fifth experimental build. Retains the fourth build's normal signature discovery,
+validation, startup timing, compilation of the empty native callback and periodic
+reporting. The callback is NOT attached. No ENHANCED menu or optional enhancements.
+Existing configuration and preferences are preserved.
+
+Report: SnowRunnerEnhanced.loading-diagnostic-discovery-only.status.json beside
+SnowRunner.exe. Check the current processId/timeUtc and buildMode equal to
+loading-diagnostic-discovery-only. components.settings_menu must be disabled,
+with probeInitialized=true, interception.mode=discovery-only, nativeHooks=0 and
+filters=0. probeInitialized=true confirms discovery/validation reached the probe;
+missing signatures must leave it uninitialized, making the timing inconclusive.
+
+Restart fully and time Continue -> playable using the same save state. Previous
+approximate user timings: no hooks/no discovery 22 s; menu 77 s; grouped menu
+66 s; empty interception 62 s. This control isolates attaching the empty callback.
+It is not a fix. Repeat timings before attributing small differences to code.
+
+Close the game before replacing only SnowRunnerEnhanced.asi. Keep its previous
+version outside game folders, and retain loaders, other mods, JSON preferences
+and the comparison save. Never leave duplicate Enhanced ASIs in game folders.
+Restore the original ASI after testing, with the game closed. No installer or
+loader is included. Normal gameplay may update the save; keep a separate backup.
+Automated tests do not establish real-game performance.
+
+FRANÇAIS
+Cinquième version expérimentale. Conserve la recherche de signatures, les contrôles,
+le démarrage, la compilation du rappel natif vide et les rapports de la quatrième
+variante. Le rappel n'est PAS attaché. Aucun menu ENHANCED ni amélioration active.
+La configuration et les préférences existantes sont conservées.
+
+Rapport : SnowRunnerEnhanced.loading-diagnostic-discovery-only.status.json à côté
+de SnowRunner.exe. Vérifiez processId/timeUtc et buildMode égal à
+loading-diagnostic-discovery-only. components.settings_menu doit être disabled,
+avec probeInitialized=true, interception.mode=discovery-only, nativeHooks=0 et
+filters=0. probeInitialized=true confirme que la découverte et ses contrôles ont
+abouti. Des signatures absentes laissent la sonde non initialisée : le temps de
+chargement ne permettrait alors pas la comparaison prévue.
+
+Relancez complètement et mesurez Continuer -> partie jouable sur la même sauvegarde.
+Temps approximatifs précédents : sans découverte/interceptions 22 s ; menu 77 s ;
+menu regroupé 66 s ; interception vide 62 s. Ce contrôle isole l'attachement du
+rappel vide. Ce n'est pas un correctif. Répétez les mesures pour les petits écarts.
+
+Fermez le jeu avant de remplacer uniquement SnowRunnerEnhanced.asi. Conservez
+sa version précédente hors du jeu, les chargeurs, autres mods, préférences JSON
+et la sauvegarde de comparaison. Ne laissez pas de doublons ASI Enhanced dans
+le jeu. Restaurez l'original après les essais, jeu fermé. Aucun installateur ni
+chargeur inclus. Le jeu peut sauvegarder vos actions : gardez une copie séparée.
+Les tests automatisés ne valident pas les performances en jeu.

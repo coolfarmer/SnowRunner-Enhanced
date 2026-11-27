@@ -7,6 +7,7 @@ let vehicle = null, vehicleError = null;
 let vehicleWinch = null, vehicleWinchError = null;
 let truckSearch = null, truckSearchError = null;
 let lastReportExtra = {};
+let fastVmHooks = null;
 let menuFailure = null, functionsRepeat = null, repeatState = ENHANCED_HOST.general ? 'pending' : 'disabled';
 let nativeRuntime = null, nativeRuntimeTime = 0;
 if (typeof recv === 'function') {
@@ -33,7 +34,7 @@ function reportNative(state, extra = {}) {
     const {vehicle: vehicleEnabled, ...inputFeatures} = CONFIG.features;
     send({enhancedStatus: {schemaVersion: 1, version: '1.0.1',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
-        components: {functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
+        components: {...(fastVmHooks ? {vm_dispatch:fastVmHooks.status()} : {}), functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},
         features: {vehicle: {enabled: vehicleEnabled, status: vehicleEnabled ? menuFeatureStates().vehicle : 'disabled', ...vehicle?.status(),
             reverseError: vehicleError, truckSearch: truckSearch?.status() || {status: truckSearchError ? 'error' : vehicleEnabled ? 'waiting' : 'disabled', fault: truckSearchError}, winch: vehicleWinch?.status() || {status: vehicleWinchError ? 'error' : vehicleEnabled ? 'waiting' : 'disabled', fault: vehicleWinchError}}, ...Object.fromEntries(Object.entries(inputFeatures).map(([key, enabled]) =>
@@ -63,9 +64,13 @@ function attemptStart() {
         return;
     }
     CONFIG.profile = result.profile;
+    if(typeof makeFastVmHooks === 'function') {
+        try { fastVmHooks=makeFastVmHooks(result.profile); }
+        catch(error) { menuFailure=String(error);reportNative('error',{reason:menuFailure});return; }
+    }
     let agentState = 'active', agentReason;
     if (wantsAgent) {
-        try { nativeAgent.start(); nativeAgent.mode('ui-mouse-priority'); }
+        try { nativeAgent.start(fastVmHooks?.attach); nativeAgent.mode('ui-mouse-priority'); }
         catch (_) {
             if (nativeAgent.status().active) nativeAgent.stop();
             agentState = 'error'; agentReason = 'Hook installation failed; correction stopped';
@@ -90,7 +95,8 @@ function attemptStart() {
             const resolved = resolveNativeProfile(TRUCK_SEARCH_PROFILE, TRUCK_SEARCH_SIGNATURES, matches, info.sections);
             truckSearch = makeVehicleTruckSearch(resolved.profile,
                 Process.mainModule.base.add(result.profile.guards.find(g => g.name === 'vm_frame_push').rva + 8),
-                Process.mainModule.base.add(result.profile.stringPoolSlotRva), ENHANCED_HOST.truckStorageSearch !== false);
+                Process.mainModule.base.add(result.profile.stringPoolSlotRva), ENHANCED_HOST.truckStorageSearch !== false,
+                fastVmHooks?.attach);
         } catch (error) { truckSearchError = String(error); }
     }
     // The optional agent validates original entry bytes before either component
@@ -100,7 +106,12 @@ function attemptStart() {
         const preferences = {schemaVersion: 5, truckStorageSearch: ENHANCED_HOST.truckStorageSearch!==false, automaticReverse: ENHANCED_HOST.automaticReverse!==false, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
             panningSensitivity: validPreference(ENHANCED_HOST.panningSensitivity), keepNorthUp: ENHANCED_HOST.keepNorthUp===true};
         const savePreference = (key, value) => { preferences[key] = value; send({enhancedSettings: {...preferences}}); };
-        settingsMenu = makeEnhancedSettingsMenu(SETTINGS_PROFILE, hookHudHintUpdates, {
+        const menuGuard = result.profile.guards.find(g => g.name === 'vm_frame_push_entry');
+        const menuAttach = fastVmHooks ? fastVmHooks.attach : typeof makeFastMenuHooks === 'function' ? makeFastMenuHooks({
+            address: Process.mainModule.base.add(menuGuard.rva), hex: menuGuard.hex}) :
+            typeof makeGroupedMenuHooks === 'function' ? makeGroupedMenuHooks() : hookHudHintUpdates;
+        const createMenu = typeof makeEmptyMenuProbe === 'function' ? makeEmptyMenuProbe : makeEnhancedSettingsMenu;
+        settingsMenu = createMenu(SETTINGS_PROFILE, menuAttach, {
             modules: {...ENHANCED_HOST.modules, map: CONFIG.features.map, vehicle: CONFIG.features.vehicle},
             getFeatureStates: menuFeatureStates,
             automaticReverse: preferences.automaticReverse,
@@ -118,8 +129,26 @@ function attemptStart() {
     } catch (error) { menuFailure = String(error); settingsMenu = null; }
     if (ENHANCED_HOST.general === true) {
         repeatState = 'unsupported';
-        try { functionsRepeat = startFunctionsRepeat(result.profile); }
+        try { functionsRepeat = startFunctionsRepeat(result.profile,fastVmHooks?.attach); }
         catch (error) { repeatState = String(error); }
+    }
+    if(fastVmHooks) {
+        try { fastVmHooks.commit(); }
+        catch(error) {
+            // Commit disarms both phases. Stop their owners before reporting;
+            // never leave an optional component claiming a working VM filter.
+            try { if(nativeAgent.status().active)nativeAgent.stop(); } catch(_) {}
+            try { settingsMenu?.stop(); } catch(_) {}
+            settingsMenu=null;menuFailure=String(error);
+            try { functionsRepeat?.stop(); } catch(_) {}
+            functionsRepeat=null;
+            if(ENHANCED_HOST.general)repeatState=String(error);
+            if(ENHANCED_HOST.vehicle) {
+                for(const hook of truckSearch?.keepAlive || []) { try{hook.detach();}catch(_){} }
+                truckSearch=null;truckSearchError=String(error);
+            }
+            agentState='error';agentReason=String(error);
+        }
     }
     function report() { reportNative(agentState, {compatibility: result.details, counters: nativeAgent.status(), reason: agentReason}); }
     report();

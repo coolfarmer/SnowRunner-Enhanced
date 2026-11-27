@@ -3,6 +3,9 @@
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef ENHANCED_FAST_MENU_TEST
+#include "../../src/native/fast_menu.h"
+#endif
 
 static GumScript *scripts[32];
 static JsonNode *rpc_result;

@@ -1,5 +1,6 @@
 """Production C resolver and Gum callback in disposable hosts; no game or wheel."""
 import json
+import os
 from pathlib import Path
 import struct
 import subprocess
@@ -13,7 +14,7 @@ from compatibility import compile_signatures
 
 PROFILE = json.loads((ROOT / 'src/steering-profile.json').read_text())
 SIGNATURES = compile_signatures(PROFILE)
-HOST = ROOT / 'build/native/steering-host.exe'
+HOST = Path(os.environ.get('ENHANCED_STEERING_TEST_HOST', ROOT / 'build/native/steering-host.exe'))
 
 
 def image_fixture(relocated=True):
