@@ -107,6 +107,9 @@ function makeVehicleTruckSearch(profile,entry,poolSlot,enabled=true,attach=hookH
         if(!enabled){layout(vm,false);return;}
         const k=saved.k,extra=[];let prefix,inputIndex=k;
         if(!s.input){
+            const adapter=v.get(s.view,'trucksList'),list=v.get(adapter,'list');
+            check(adapter,'list',13,5);check(list,'OnFocusIn',7,3);
+            check(s.view,'ActivateTruckList',87,2);
             creating=true;
             extra.push(v.text('UiTextInput'),v.tag(s.panel),v.text('enhancedTruckSearch'),v.text('modBrowserHeaderInput'));
             prefix=[W(1,7),...call([W(8)],884,[C(k),C(k+2)]),W(59,-7),W(2)];
@@ -115,6 +118,12 @@ function makeVehicleTruckSearch(profile,entry,poolSlot,enabled=true,attach=hookH
             extra.push(mouse.readPointer(),mouse.add(8).readPointer(),v.integer(80));
             inputIndex=k+7;extra.push(ptr(0));s.captureSlot=saved.values.add(inputIndex*8);
             prefix.push(...L(-7),W(4,0),W(6,k+4),W(4,0),W(4,84),W(7,0),W(20,k+5),W(16,k+6),W(2));
+            // Search adds an intermediate focus target. Leaving the active
+            // truck can now happen before the list receives focus; activate
+            // the adapter when focus actually reaches its native list too.
+            extra.push(v.integer(7));
+            prefix.push(W(7,0),W(10,51),W(10,13),W(4,0),W(6,k+4),
+                W(4,0),W(4,87),W(7,0),W(20,k+5),W(16,k+8),W(2));
             // Retain the native control separately; local -7 now stores focus.
             prefix.push(...L(-7),W(10,29),W(59,-7),W(2));
         }else{
@@ -171,12 +180,15 @@ function makeVehicleTruckSearch(profile,entry,poolSlot,enabled=true,attach=hookH
             const prefix=[],branches=[];
             for(let i=0;i<owners.length;i++){
                 const start=prefix.length;
-                prefix.push(W(7,0),W(6,k+i),W(48,7),W(22),
+                // All navigation handlers must reach the original game code
+                // without reading native display properties while search is
+                // idle. Checking visibility first blocks controller selection.
+                prefix.push(W(6,k+owners.length+1),W(22),
+                    W(7,0),W(6,k+i),W(48,7),W(22),
                     W(6,k+owners.length),W(10,24),W(22),
-                    W(6,k+owners.length+1),W(22),
                     ...(screen?[W(5,1),W(18,2)]:[W(19,argumentsToPop)]));
-                prefix[start+3]=W(22,prefix.length);
-                branches.push(start+6,start+8);
+                prefix[start+5]=W(22,prefix.length);
+                branches.push(start+1,start+8);
             }
             for(const i of branches)prefix[i]=W(22,prefix.length);
             // Evaluate focus in SSL, before the handler runs. A frame-push
@@ -205,8 +217,10 @@ function makeVehicleTruckSearch(profile,entry,poolSlot,enabled=true,attach=hookH
         const s=current;
         if(s.input){
             const saved=storage(fn,profile.warehouseWords.TerminateContent);
-            const prefix=stmt(call(C(saved.k),53));
-            apply(saved,[...prefix,...truckSearchShift(profile.warehouseWords.TerminateContent,prefix.length)],[v.tag(s.input)]);
+            const prefix=[W(7,0),W(7,0),W(10,51),W(10,13),W(17,saved.k+1),W(3),W(2),
+                ...stmt(call(C(saved.k),53))];
+            apply(saved,[...prefix,...truckSearchShift(profile.warehouseWords.TerminateContent,prefix.length)],
+                [v.tag(s.input),v.integer(7)]);
         }
         // Terminate's bytecode still owns the reference until it returns.
         s.retiring=fn;g.clear();

@@ -85,8 +85,37 @@ Searching found the modded Aramatsu Forester entry in this save; filtering and
 thumbnail rendering were checked for that entry, without deploying it. Off hides the field and
 restores the native layout; On restores an empty working field without restarting.
 The saved Off preference was also verified across an earlier full game restart.
-Controller interaction, multiplayer and other game/mod combinations remain
-unvalidated.
+On November 27, 2026, a temporary in-memory correction was confirmed by the
+player with search enabled: A selects another truck and hovering results does
+not interrupt typing. All four focus guards now check the cached CLIK focus
+state before receiver and native visibility checks. Idle search goes directly
+to the original navigation handlers. Reordering only `ActivateTruckList` was
+insufficient. The exact native side effect of the earlier ordering remains
+undetermined. This confirmation covers the live trial. The rebuilt plugin was
+installed with the game closed on November 27, 2026, after backing up the old
+plugin and verifying the installed SHA-256 against the tested build. Testing
+after restart exposed an incomplete fix: controller entry still failed, and a
+mouse selection allowed only one subsequent controller selection.
+
+A read-only state trace then showed focus passing through the search field and
+reaching the native list while its adapter remained inactive. The next candidate
+binds the owned list's `OnFocusIn` to the guarded `ActivateTruckList`, so activation
+does not rely only on leaving the active-truck card. The binding is installed
+once at input creation and removed before warehouse teardown. This candidate
+was installed with the game closed on November 27, 2026; the previous plugin was
+backed up and the installed SHA-256 matched the tested build. After restart,
+the player confirmed entry into Truck Storage using the controller, repeated
+truck selection with A, and uninterrupted typing while the mouse hovers results,
+with search enabled. This validates the installed correction for that session.
+
+The nine search tests and five shared VM hook tests pass after rebuilding the
+native plugin. The new regression checks every idle guard, including both input
+screen owners, for native display reads while retaining focused-input protection
+and unrelated-receiver isolation. The original source fails all five idle cases.
+The event-binding regression also checks repeated list focus and listener removal;
+the original source fails its repeated-focus assertion. These synthetic checks
+do not exercise the native Scaleform focus traversal.
+Multiplayer and other game/mod combinations remain unvalidated.
 
 ### Long-trailer winch fix (preview.34)
 

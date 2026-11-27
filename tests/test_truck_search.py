@@ -44,10 +44,28 @@ rpc.exports = {
         self.assertEqual(result['status'], 'error')
         self.assertEqual(result['installations'], 0)
 
+    def test_idle_search_navigation_does_not_read_native_display_properties(self):
+        result = self.script.exports_sync.lifecycle('normal')
+        self.assertIsNone(result['status']['fault'], result)
+        for name, guard in result['idleGuards'].items():
+            with self.subTest(handler=name):
+                self.assertTrue(guard['allowed'], result)
+                self.assertEqual(guard['displayReads'], 0, result)
+        for flag in ('firstHoverBlocked', 'hoverBlocked', 'deviceBlocked', 'keysBlocked',
+                     'unrelatedActivation', 'unrelatedHover', 'unrelatedKeys'):
+            self.assertTrue(result[flag], (flag, result))
+
     def test_search_uses_localized_display_name(self):
         result = self.script.exports_sync.lifecycle('localized')
         self.assertIsNone(result['status']['fault'], result)
         self.assertEqual(result['selected'], [2])
+
+    def test_list_focus_reactivates_navigation_repeatedly_and_unsubscribes(self):
+        result = self.script.exports_sync.lifecycle('normal')
+        self.assertIsNone(result['status']['fault'], result)
+        self.assertEqual(result['controllerReentries'], [True, True, True], result)
+        self.assertTrue(result['firstHoverBlocked'], result)
+        self.assertTrue(result['focusListenerRemoved'], result)
 
     def test_mod_names_case_accents_and_multiple_words(self):
         for query in ('', '  ', 'forester', 'FORESTER', 'aramatsu 1910', '1910 aramatsu'):

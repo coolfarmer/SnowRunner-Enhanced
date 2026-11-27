@@ -20,7 +20,7 @@ rpc.exports.lifecycle=scenario=>{
     const screen=object('SslUiInputScreen'),listScreen=object('SslUiInputScreen'),otherAdapter=object('UiListAdapter'),otherScreen=object('SslUiInputScreen');
     const data=object('UiTruckWarehouseViewData'),images=object('dictionary'),holder=object('Holder'),row=object('UiTruckWarehouseViewLir');
     put(view,'uiObject',tag(ui));put(view,'trucksList',tag(adapter));put(view,'viewData',tag(data));put(view,'truckImages',tag(images));
-    put(view,'currentTruckType',ptr(1));put(view,'isEnabled',boolean(true));put(adapter,'uiInputScreen',tag(listScreen));
+    put(view,'currentTruckType',ptr(1));put(view,'isEnabled',boolean(true));put(adapter,'uiInputScreen',tag(listScreen));put(adapter,'list',tag(list));
     put(controller,'inputScreen',tag(screen));put(controller,'currentLocale',text('fr'));put(holder,'owner',tag(row));
     put(list,'y',float(213));put(list,'height',float(610));put(input,'text',text(''));put(input,'defaultText',text(''));
     put(input,'visible',boolean(true));put(input,'focus',boolean(false));
@@ -36,7 +36,7 @@ rpc.exports.lifecycle=scenario=>{
     const device=method(adapter,'SetForDevice',PROFILE.deviceWords),hover=method(adapter,'HandleOnItemHovered',PROFILE.hoverWords);
     const press=method(screen,'Press',PROFILE.pressWords);
     methods.set(key(listScreen,'Press'),methods.get(key(screen,'Press')));
-    const ids={GetLocalizationString:788,viewData:53,trucksList:51,UpdateTruckList:84,isEnabled:56,focus:29,visible:24,text:86,defaultText:85,Release:8};
+    const ids={GetLocalizationString:788,viewData:53,trucksList:51,UpdateTruckList:84,ActivateTruckList:87,list:13,OnFocusIn:7,isEnabled:56,focus:29,visible:24,text:86,defaultText:85,Release:8};
     let dropped=0,cleared=0;
     const v={untag,tag,receiver:vm=>receivers.get(String(vm)),className:p=>types.get(String(p)),
         member:(p,n,kind)=>({id:ids[n],kind,desc:methods.get(key(p,n))?.fn}),prop:field,get:(p,n)=>untag(field(p,n).readPointer()),
@@ -62,6 +62,7 @@ rpc.exports.lifecycle=scenario=>{
     const words=fn=>Array.from({length:fn.add(0x68).readU32()},(_,i)=>fn.add(0x60).readPointer().add(i*4).readU32());
     // Execute the emitted guard prefix with changing receivers/focus. Reaching
     // the original first word means normal game handling is still available.
+    let guardDisplayReads=0;
     function blocked(fn,self,original){
         const program=words(fn),end=program.length-original.length,stack=[];
         for(let pc=0;pc<end;){
@@ -69,7 +70,7 @@ rpc.exports.lifecycle=scenario=>{
             if(op===7)stack.push(tag(self));
             else if(op===6)stack.push(fn.add(0x50).readPointer().add(arg*8).readPointer());
             else if(op===48){const b=stack.pop(),a=stack.pop();stack.push(boolean(a.equals(b)));}
-            else if(op===10)stack.push(field(untag(stack.pop()),Object.keys(ids).find(n=>ids[n]===arg)).readPointer());
+            else if(op===10){guardDisplayReads++;stack.push(field(untag(stack.pop()),Object.keys(ids).find(n=>ids[n]===arg)).readPointer());}
             else if(op===22){if(stack.pop().and('0xffffffffffff').isNull())pc=arg;}
             else if(op===5)stack.push(boolean(true));
             else if(op===18||op===19)return true;
@@ -81,6 +82,37 @@ rpc.exports.lifecycle=scenario=>{
     fire('UiTruckWarehouseController','CreateData',controller);
     fire('UiTruckWarehouseView','UpdateTruckList',view,update);
     if(scenario==='changed')return component.status();
+    // Interpret the added event binding with actual constant and receiver
+    // resolution. Native focus can reach the list after the slot lost focus.
+    const listFocusHandlers=[];
+    function applyListFocusEvent(fn,remove=false){
+        const program=words(fn),constants=fn.add(0x50).readPointer();
+        const at=program.findIndex(w=>(w&255)===(remove?17:16)&&constants.add(((w>>>8)-0x800000)*8).readPointer().and('0xffffffffffff').toInt32()===7);
+        if(at<0)return;
+        const start=at-(remove?4:9),stack=[];
+        for(let pc=start;pc<=at;pc++){
+            const w=program[pc],op=w&255,arg=(w>>>8)-0x800000;
+            if(op===7)stack.push(view);
+            else if(op===10)stack.push(v.get(stack.pop(),Object.keys(ids).find(n=>ids[n]===arg)));
+            else if(op===4)stack.push(arg);
+            else if(op===6)stack.push(constants.add(arg*8).readPointer());
+            else if(op===20){
+                const owner=stack.pop(),methodId=stack.pop(),argc=stack.pop();
+                stack.pop();const bound=stack.pop();
+                if(argc!==0||bound!==0||!owner.equals(view)||methodId!==87)throw Error('Invalid focus delegate');
+                stack.push({owner,methodId});
+            }else if(op===16){
+                const handler=stack.pop(),target=stack.pop();
+                if(!target.equals(list))throw Error('Wrong focus target');
+                listFocusHandlers.push(handler);
+            }else if(op===17){
+                const target=stack.pop(),owner=stack.pop();
+                if(!target.equals(list)||!owner.equals(view))throw Error('Wrong unsubscribe target');
+                listFocusHandlers.length=0;
+            }else throw Error('Unexpected focus event opcode '+op);
+        }
+    }
+    applyListFocusEvent(update);
     nativeHooks[16].onEnter([ptr(0),input]);
     put(input,'text',text(scenario==='localized'?'Tatarin':'forester'));
     fire('UiTruckWarehouseView','GetTruckListByType',view,filter);
@@ -99,7 +131,20 @@ rpc.exports.lifecycle=scenario=>{
     const keysBlocked=blocked(press,screen,PROFILE.pressWords)&&blocked(press,listScreen,PROFILE.pressWords);
     const unrelatedKeys=!blocked(press,otherScreen,PROFILE.pressWords);
     const outContext={};nativeHooks[48].onEnter.call(outContext,[focusOwner]);nativeHooks[48].onLeave.call(outContext);
-    const unfocusedActivation=!blocked(activate,view,PROFILE.warehouseWords.ActivateTruckList);
+    const idleGuards={};
+    for(const [name,fn,self,original] of [
+        ['activation',activate,view,PROFILE.warehouseWords.ActivateTruckList],
+        ['device',device,adapter,PROFILE.deviceWords],
+        ['hover',hover,adapter,PROFILE.hoverWords],
+        ['controllerPress',press,screen,PROFILE.pressWords],
+        ['listPress',press,listScreen,PROFILE.pressWords]]){
+        guardDisplayReads=0;
+        const allowed=!blocked(fn,self,original);
+        idleGuards[name]={allowed,displayReads:guardDisplayReads};
+    }
+    const unfocusedActivation=idleGuards.activation.allowed;
+    const controllerReentries=Array.from({length:3},()=>listFocusHandlers.some(h=>
+        !blocked(activate,h.owner,PROFILE.warehouseWords.ActivateTruckList)));
     fire('UiTruckWarehouseView','Hide',view);const queryCleared=v.str(v.read(input,'text'))==='';
     const unfocusedHover=!blocked(hover,adapter,PROFILE.hoverWords);
     component.set(false);fire('UiTruckWarehouseView','UpdateTruckList',view,update);
@@ -107,7 +152,9 @@ rpc.exports.lifecycle=scenario=>{
     component.set(true);fire('UiTruckWarehouseView','UpdateTruckList',view,update);
     const on=field(input,'visible').readU8()===1&&field(list,'y').readFloat()===269&&component.status().installations===1;
     fire('UiTruckWarehouseView','TerminateContent',view,terminate);
+    applyListFocusEvent(terminate,true);
+    const focusListenerRemoved=listFocusHandlers.length===0;
     fire('NavigationPanelController','Update',controller);
-    return {selected,firstHoverBlocked,unrelatedActivation,unfocusedActivation,releaseBeforeArray,hoverBlocked,unrelatedHover,unfocusedHover,deviceBlocked,keysBlocked,unrelatedKeys,queryCleared,off,on,dropped,cleared,
+    return {selected,firstHoverBlocked,unrelatedActivation,unfocusedActivation,idleGuards,controllerReentries,focusListenerRemoved,releaseBeforeArray,hoverBlocked,unrelatedHover,unfocusedHover,deviceBlocked,keysBlocked,unrelatedKeys,queryCleared,off,on,dropped,cleared,
         originalListIntact:trucks.length===3,retainedListeners:component.keepAlive.length,status:component.status()};
 };
