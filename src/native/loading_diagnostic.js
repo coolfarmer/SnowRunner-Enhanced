@@ -6,7 +6,7 @@ const diagnosticStarted = Date.now();
 let diagnosticReports = 0;
 function reportLoadingDiagnostic() {
     send({enhancedStatus: {
-        schemaVersion: 1, version: '1.0.1',
+        schemaVersion: 1, version: '1.1.0',
         buildMode: 'loading-diagnostic-no-hooks',
         processId: Process.id, timeUtc: new Date().toISOString(),
         gameSha256: ENHANCED_HOST.gameSha256,

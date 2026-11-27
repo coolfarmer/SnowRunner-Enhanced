@@ -13,7 +13,7 @@ import build_native
 
 ROOT = build_native.ROOT
 BUILD = ROOT / 'build/loading-diagnostic'
-NAME = 'SnowRunnerEnhanced-1.0.1-loading-diagnostic-no-hooks'
+NAME = 'SnowRunnerEnhanced-1.1.0-loading-diagnostic-no-hooks'
 FEATURE_BITS = {'wheel_mouse':1, 'skip_startup_logos':2, 'map':4,
                 'general_improvements':8, 'vehicle':16, 'steering_wheel_improvements':32}
 
@@ -48,7 +48,7 @@ def main():
             mode += '-prefix'
     if menu:
         BUILD = ROOT / ('build/loading-diagnostic-' + mode)
-        NAME = 'SnowRunnerEnhanced-1.0.1-loading-diagnostic-' + mode
+        NAME = 'SnowRunnerEnhanced-1.1.0-loading-diagnostic-' + mode
     manifest = json.loads((ROOT / 'vendor/manifest.json').read_text())
     for name, expected in manifest['files'].items():
         if hashlib.sha256((ROOT / 'vendor' / name).read_bytes()).hexdigest() != expected:
@@ -137,7 +137,7 @@ def main():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
     build = {
-        'version': '1.0.1', 'buildMode': 'loading-diagnostic-' + mode,
+        'version': '1.1.0', 'buildMode': 'loading-diagnostic-' + mode,
         'forcedFeatures': {name:bool(features & bit) for name,bit in FEATURE_BITS.items()},
         'indexedFilter': args.indexed_filter,
         'nativePrefixFilter': args.prefix_filter,

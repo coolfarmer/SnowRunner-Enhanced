@@ -34,7 +34,7 @@ function menuFeatureStates() {
 function reportNative(state, extra = {}) {
     featureState = state; lastReportExtra = extra;
     const {vehicle: vehicleEnabled, ...inputFeatures} = CONFIG.features;
-    send({enhancedStatus: {schemaVersion: 1, version: '1.0.1',
+    send({enhancedStatus: {schemaVersion: 1, version: '1.1.0',
         gameSha256: ENHANCED_HOST.gameSha256, timeUtc: new Date().toISOString(), processId: Process.id,
         components: {...(fastVmHooks ? {vm_dispatch:fastVmHooks.status()} : {}), game_time: gameTime?.status() || {status: gameTimeError ? 'error' : ENHANCED_HOST.general ? 'waiting' : 'disabled', fault: gameTimeError}, functions_repeat: {status: functionsRepeat?.status() || repeatState}, settings_menu: settingsMenu ? settingsMenu.status() :
             {enabled: true, status: menuFailure ? 'error' : state, reason: menuFailure}},

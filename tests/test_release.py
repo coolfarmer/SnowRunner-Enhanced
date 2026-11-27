@@ -14,7 +14,7 @@ import unittest
 import pefile
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-1.0.1'
+PACKAGE = ROOT / 'dist/SnowRunnerEnhanced-1.1.0'
 SETUP = PACKAGE / 'Sources/Installer/SnowRunnerEnhanced.Setup.exe'
 CONFIG = 'SnowRunnerEnhanced.json'
 RECEIPT = 'SnowRunnerEnhanced.install.json'

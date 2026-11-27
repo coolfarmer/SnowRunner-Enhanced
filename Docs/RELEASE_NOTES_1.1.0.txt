@@ -1,0 +1,4 @@
+- Added live Truck Storage search, including modded trucks. Enable it in Settings → ENHANCED → VEHICLE. Off by default.
+- Added Freeze game time for single-player. Find it in Settings → ENHANCED → GENERAL. Off by default.
+- The time freeze stays enabled across map changes. Skip Time still works.
+- Reduced the mod’s impact on save loading times.
