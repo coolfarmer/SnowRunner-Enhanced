@@ -80,7 +80,7 @@ rpc.exports.run=(scenario)=>{
  const en=strings(),title=en.ENHANCED,label=en['Zoom sensitivity'],panningLabel=en['Panning sensitivity'];
  if(scenario==='search'){
    const control=object(onOff);put(control,39,en['Truck Storage search']);
-   for(const value of [0,0,1])callbacks['UiOneSettingStepperOnOff.UpdateStatus'](vm(control,ptr(value?'0x20000d62d1c01':'0x20000d62d1c00')));
+   for(const value of [1,1,0])callbacks['UiOneSettingStepperOnOff.UpdateStatus'](vm(control,ptr(value?'0x20000d62d1c01':'0x20000d62d1c00')));
    menu.stop();return {searchChanges,reverseChanges};
  }
  if(scenario==='reverse'){
@@ -321,7 +321,7 @@ class SettingsMenuTests(unittest.TestCase):
 
     def test_search_toggle_saves_transitions_without_changing_reverse(self):
         result = self.script.exports_sync.run('search')
-        self.assertEqual(result['searchChanges'], [False, True])
+        self.assertEqual(result['searchChanges'], [True, False])
         self.assertEqual(result['reverseChanges'], [])
 
     def test_vehicle_toggle_applies_each_transition_once(self):

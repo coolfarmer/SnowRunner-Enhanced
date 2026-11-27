@@ -12,7 +12,7 @@ function truckSearchShift(words,offset){
 
 // One warehouse view owns one native CLIK TextInput. Only the game thread
 // touches its objects; the settings callback merely updates a preference.
-function makeVehicleTruckSearch(profile,entry,poolSlot,enabled=true,attach=hookHudHintUpdates) {
+function makeVehicleTruckSearch(profile,entry,poolSlot,enabled=false,attach=hookHudHintUpdates) {
     const v=makeTruckSearchVm(profile,poolSlot),g=makeTruckSearchGfx(profile),W=truckSearchWord;
     const hooks=[],patches=new Map();let current=null,controller=null,creating=false,fault=null,refreshes=0,installations=0;
     const base=Process.mainModule.base;

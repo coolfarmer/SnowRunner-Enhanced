@@ -27,14 +27,14 @@ static BOOL SettingsValue(JsonNode *node, SettingsPreferences *result) {
     if(version>=4 && (!reverse || json_node_get_value_type(reverse)!=G_TYPE_BOOLEAN))return FALSE;
     JsonNode *search=json_object_get_member(root,"truckStorageSearch");
     if(version>=5 && (!search || json_node_get_value_type(search)!=G_TYPE_BOOLEAN))return FALSE;
-    result->truck_storage_search=version<5 || json_node_get_boolean(search);
+    result->truck_storage_search=version>=5 && json_node_get_boolean(search);
     result->automatic_reverse=version<4 || json_node_get_boolean(reverse);
     result->zoom=zoom;result->panning=panning;result->keep_north_up=version>=3 && json_node_get_boolean(north);
     return TRUE;
 }
 
 static SettingsPreferences SettingsLoad(const wchar_t *folder) {
-    SettingsPreferences values={50,50,FALSE,TRUE,TRUE};
+    SettingsPreferences values={50,50,FALSE,TRUE,FALSE};
     swprintf_s(settings_path,32768,L"%lsSnowRunnerEnhanced.settings.json",folder);
     swprintf_s(settings_temp,32768,L"%lsSnowRunnerEnhanced.settings.tmp",folder);
     HANDLE file=CreateFileW(settings_path,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_DELETE,NULL,OPEN_EXISTING,0,NULL);

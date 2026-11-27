@@ -57,7 +57,7 @@ const enhancedMenuSections = [
     ]},
     {module: 'vehicle', category: 'vehicleCategory', rows: [
         {key: 'EnhancedAutomaticReverse', kind: 'toggle', label: 'reverseLabel', help: 'reverseDesc', initial: 1},
-        {key: 'EnhancedTruckStorageSearch', kind: 'toggle', label: 'searchLabel', help: 'searchDesc', initial: 1}
+        {key: 'EnhancedTruckStorageSearch', kind: 'toggle', label: 'searchLabel', help: 'searchDesc', initial: 0}
     ]}
 ];
 const enhancedMenuFeatures = [
@@ -101,7 +101,7 @@ function makeEnhancedSettingsMenu(profile, attach = hookHudHintUpdates, options 
     const zoom=makeMapZoomSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','zoomLabel')},{...options,mapEnabled},attach);
     const panning=makeMapPanningSensitivity(profile,{receiver,prop,get,owns:p=>ownsRow(p,'UiOneSettingSliderController','panningLabel')},{...options,mapEnabled},attach);
     let automaticReverse=options.automaticReverse!==false;
-    let truckStorageSearch=options.truckStorageSearch!==false;
+    let truckStorageSearch=options.truckStorageSearch===true;
     let northUp=options.keepNorthUp===true, cameraClass=null, northFault=null;
     function obj(v){if(v.shr(48).toUInt32()!==0x20)throw Error('Expected VM object');return v.and('0xffffffffffff');}
     function untag(v){return v.and('0xffffffffffff');}

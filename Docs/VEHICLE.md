@@ -3,9 +3,10 @@
 ## English
 
 **Truck Storage search** adds a live search field above the stored truck list,
-including modded trucks. It defaults to On. Use **Settings → ENHANCED → VEHICLE**
-to hide it; Off clears the search and restores the original list layout. The
-preference saves immediately and applies when returning to Truck Storage.
+including modded trucks. It defaults to Off. Enable it in
+**Settings → ENHANCED → VEHICLE**. Off clears the search and restores the original
+list layout. The preference saves immediately and applies when returning to
+Truck Storage. Existing saved choices are preserved during updates.
 
 With **Vehicle** enabled in the installer, winching from a long trailer can find
 and connect to nearby vehicle attachment points that the original truck-centered
@@ -21,10 +22,11 @@ selection; controller quick winch and multiplayer have not been validated.
 ## Français
 
 **Recherche dans le stockage de camions** ajoute un champ de recherche instantanée
-au-dessus de la liste, y compris pour les camions moddés. L’option est activée par
-défaut. Dans **Paramètres → ENHANCED → VÉHICULE**, désactivez-la pour masquer le
-champ, effacer la recherche et rétablir la disposition d’origine. Le choix est
-sauvegardé immédiatement et appliqué au retour dans le stockage.
+au-dessus de la liste, y compris pour les camions moddés. L’option est désactivée par
+défaut. Activez-la dans **Paramètres → ENHANCED → VÉHICULE**. La désactiver masque le
+champ, efface la recherche et rétablit la disposition d’origine. Le choix est
+sauvegardé immédiatement et appliqué au retour dans le stockage. Les choix déjà
+sauvegardés sont conservés lors des mises à jour.
 
 Lorsque **Vehicle** est activé dans l’installateur, le treuil utilisé depuis une
 longue remorque peut trouver et accrocher les points de véhicules proches que
@@ -65,7 +67,7 @@ Native return values are released after game-thread callbacks. Program buffers
 are reused rather than allocated for each keystroke.
 
 Preferences schema 5 adds `truckStorageSearch`. Schemas 1–4 migrate with search
-enabled and preserve every existing preference. Tests cover migration, malformed
+disabled and preserve every existing preference. Tests cover migration, malformed
 booleans, failed atomic replacement, bilingual menu accessibility, independent
 setting callbacks, matching and native signature rejection.
 

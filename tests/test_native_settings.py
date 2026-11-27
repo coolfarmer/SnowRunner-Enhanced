@@ -20,10 +20,12 @@ class NativeSettingsTests(unittest.TestCase):
                 return json.loads(subprocess.check_output(args, text=True))
             self.assertEqual(run()['value'], 50)
             self.assertEqual(run()['panning'], 50)
+            self.assertFalse(run()['truckStorageSearch'])
             for value in [0,75,100,50]:
                 self.assertEqual(run(dict(schemaVersion=1,zoomSensitivity=value))['saved'], 1)
                 self.assertEqual(run()['value'], value)
                 self.assertEqual(run()['panning'], 50)
+                self.assertFalse(run()['truckStorageSearch'])
             # Upgrade an existing preview.18 file without changing its zoom.
             path.write_text('{"schemaVersion":1,"zoomSensitivity":75}')
             self.assertEqual((run()['value'], run()['panning']), (75, 50))
@@ -32,15 +34,17 @@ class NativeSettingsTests(unittest.TestCase):
                 self.assertEqual((run()['value'], run()['panning']), (zoom, panning))
                 self.assertEqual(json.loads(path.read_text())['schemaVersion'], 5)
                 self.assertFalse(run()['keepNorthUp'])
+                self.assertFalse(run()['truckStorageSearch'])
             for locked in [True, False]:
                 self.assertEqual(run(dict(schemaVersion=3, zoomSensitivity=75, panningSensitivity=25, keepNorthUp=locked))['saved'], 1)
                 self.assertEqual(run()['keepNorthUp'], locked)
+                self.assertFalse(run()['truckStorageSearch'])
             self.assertTrue(run()['automaticReverse'])
             for reverse in (False, True, False):
                 self.assertEqual(run(dict(schemaVersion=4, zoomSensitivity=75, panningSensitivity=25, keepNorthUp=True, automaticReverse=reverse))['saved'], 1)
                 self.assertEqual(run()['automaticReverse'], reverse)
                 self.assertTrue(run()['keepNorthUp'])
-            self.assertTrue(run()['truckStorageSearch'])
+            self.assertFalse(run()['truckStorageSearch'])
             for search in (False, True, False):
                 data = dict(schemaVersion=5, zoomSensitivity=75, panningSensitivity=25,
                             keepNorthUp=True, automaticReverse=False, truckStorageSearch=search)
@@ -69,6 +73,7 @@ class NativeSettingsTests(unittest.TestCase):
                 self.assertEqual(state['value'], 50)
                 self.assertEqual(state['panning'], 50)
                 self.assertEqual(state['state'], 'invalid-file')
+                self.assertFalse(state['truckStorageSearch'])
 
     def test_failed_replace_preserves_existing_destination(self):
         with tempfile.TemporaryDirectory(dir=ROOT/'build/tmp') as folder:

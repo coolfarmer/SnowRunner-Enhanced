@@ -95,7 +95,7 @@ function attemptStart() {
             const resolved = resolveNativeProfile(TRUCK_SEARCH_PROFILE, TRUCK_SEARCH_SIGNATURES, matches, info.sections);
             truckSearch = makeVehicleTruckSearch(resolved.profile,
                 Process.mainModule.base.add(result.profile.guards.find(g => g.name === 'vm_frame_push').rva + 8),
-                Process.mainModule.base.add(result.profile.stringPoolSlotRva), ENHANCED_HOST.truckStorageSearch !== false,
+                Process.mainModule.base.add(result.profile.stringPoolSlotRva), ENHANCED_HOST.truckStorageSearch === true,
                 fastVmHooks?.attach);
         } catch (error) { truckSearchError = String(error); }
     }
@@ -103,7 +103,7 @@ function attemptStart() {
     // attaches to the shared VM entry point. Its failure does not disable the UI.
     try {
         const validPreference = value => Number.isInteger(value) && value >= 0 && value <= 100 ? value : 50;
-        const preferences = {schemaVersion: 5, truckStorageSearch: ENHANCED_HOST.truckStorageSearch!==false, automaticReverse: ENHANCED_HOST.automaticReverse!==false, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
+        const preferences = {schemaVersion: 5, truckStorageSearch: ENHANCED_HOST.truckStorageSearch===true, automaticReverse: ENHANCED_HOST.automaticReverse!==false, zoomSensitivity: validPreference(ENHANCED_HOST.zoomSensitivity),
             panningSensitivity: validPreference(ENHANCED_HOST.panningSensitivity), keepNorthUp: ENHANCED_HOST.keepNorthUp===true};
         const savePreference = (key, value) => { preferences[key] = value; send({enhancedSettings: {...preferences}}); };
         const menuGuard = result.profile.guards.find(g => g.name === 'vm_frame_push_entry');
